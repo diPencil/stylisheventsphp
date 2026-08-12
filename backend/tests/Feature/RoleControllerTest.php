@@ -44,5 +44,19 @@ class RoleControllerTest extends TestCase
         $response = $this->withHeaders(['Authorization' => "Bearer $token"])->getJson('/api/users/roles');
         $response->assertStatus(200);
         $response->assertJsonStructure(['success', 'message', 'data' => ['catalog', 'roles']]);
+
+        $roles = collect($response->json('data.roles'));
+        $doctor = $roles->firstWhere('code', 'doctor');
+        $this->assertNotNull($doctor);
+        $this->assertSame('Doctor', $doctor['nameEn']);
+
+        $doctorPermissions = collect($doctor['permissions']);
+        $this->assertTrue((bool) $doctorPermissions->firstWhere('key', 'profile.manage')['allowed']);
+        $this->assertFalse((bool) $doctorPermissions->firstWhere('key', 'dashboard.view')['allowed']);
+        $this->assertFalse((bool) $doctorPermissions->firstWhere('key', 'users.manage')['allowed']);
+
+        $manual = collect($response->json('data.catalog'))->firstWhere('key', 'registrations.create_manual');
+        $this->assertSame('Create registrations manually', $manual['labelEn']);
+        $this->assertSame('إنشاء تسجيلات يدويًا', $manual['labelAr']);
     }
 }

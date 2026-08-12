@@ -14,6 +14,7 @@ class CustomJwtGuard implements Guard
 
     protected Request $request;
     protected string $secret;
+    protected ?string $cachedToken = null;
 
     public function __construct(UserProvider $provider, Request $request)
     {
@@ -30,11 +31,19 @@ class CustomJwtGuard implements Guard
 
     public function user()
     {
+        $token = $this->request->bearerToken();
+
         if ($this->user !== null) {
-            return $this->user;
+            if ($token && $this->cachedToken === $token) {
+                return $this->user;
+            }
+            if (!$token && $this->cachedToken === null) {
+                return $this->user;
+            }
+            $this->user = null;
+            $this->cachedToken = null;
         }
 
-        $token = $this->request->bearerToken();
         if (! $token) {
             \Illuminate\Support\Facades\Log::info("CustomJwtGuard: No token found");
             return null;
@@ -49,6 +58,7 @@ class CustomJwtGuard implements Guard
         // The custom token stores user ID in the 'sub' claim
         if (isset($payload->sub)) {
             $this->user = $this->provider->retrieveById($payload->sub);
+            $this->cachedToken = $this->user ? $token : null;
             if (!$this->user) {
                 \Illuminate\Support\Facades\Log::info("CustomJwtGuard: User not found for ID: " . $payload->sub);
             }

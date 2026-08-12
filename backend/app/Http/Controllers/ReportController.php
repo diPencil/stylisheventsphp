@@ -98,6 +98,8 @@ class ReportController extends Controller
             ->join('doctors as d', 'd.id', '=', 'r.doctor_id')
             ->join('events as e', 'e.id', '=', 'r.event_id')
             ->join('ticket_types as tt', 'tt.id', '=', 'r.ticket_type_id')
+            ->leftJoin('users as customer_user', 'customer_user.id', '=', 'd.user_id')
+            ->leftJoin('roles as customer_role', 'customer_role.id', '=', 'customer_user.role_id')
             ->select(
                 'r.registration_number',
                 'r.source',
@@ -114,7 +116,10 @@ class ReportController extends Controller
                 'd.nationality',
                 'd.specialty',
                 'e.title_en AS event_title_en',
-                'tt.name_en AS ticket_name_en'
+                'tt.name_en AS ticket_name_en',
+                DB::raw("COALESCE(customer_role.code, 'guest') AS customer_role_code"),
+                DB::raw("COALESCE(customer_role.name_en, 'Guest') AS customer_role_name_en"),
+                DB::raw("COALESCE(customer_role.name_ar, 'ضيف') AS customer_role_name_ar")
             )
             ->orderBy('r.created_at', 'desc')
             ->limit(1000);

@@ -58,4 +58,56 @@ class UserControllerTest extends TestCase
         $response->assertStatus(200);
         $this->assertDatabaseHas('users', ['email' => 'new_cust_z@example.com']);
     }
+
+    public function test_create_and_edit_doctor_user_without_admin_permissions()
+    {
+        $token = $this->setUpAdmin();
+        $doctorRole = Role::where('code', 'doctor')->first();
+        $this->assertNotNull($doctorRole);
+        DB::table('role_permissions')
+            ->where('role_id', $doctorRole->id)
+            ->where('permission_key', 'users.manage')
+            ->delete();
+        DB::table('role_permissions')->insert([
+            'role_id' => $doctorRole->id,
+            'permission_key' => 'users.manage',
+            'allowed' => 0,
+        ]);
+
+        $response = $this->withHeaders(['Authorization' => "Bearer $token"])->postJson('/api/users', [
+            'name' => 'Doctor User',
+            'email' => 'doctor_user_' . uniqid() . '@example.com',
+            'password' => 'password123',
+            'roleCode' => 'doctor',
+            'status' => 'active',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.role.code', 'doctor')
+            ->assertJsonPath('data.role.nameEn', 'Doctor');
+
+        $doctorId = $response->json('data.id');
+        $doctor = User::find($doctorId);
+        $doctorToken = Auth::guard('api')->createToken($doctor);
+
+        $this->withHeaders(['Authorization' => "Bearer $doctorToken"])
+            ->getJson('/api/me/registrations')
+            ->assertStatus(200);
+
+        $this->withHeaders(['Authorization' => "Bearer $doctorToken"])
+            ->getJson('/api/users')
+            ->assertStatus(403);
+
+        $update = $this->withHeaders(['Authorization' => "Bearer $token"])->putJson("/api/users/{$doctorId}", [
+            'roleCode' => 'customer',
+        ]);
+        $update->assertStatus(200)
+            ->assertJsonPath('data.role.code', 'customer');
+
+        $backToDoctor = $this->withHeaders(['Authorization' => "Bearer $token"])->putJson("/api/users/{$doctorId}", [
+            'roleCode' => 'doctor',
+        ]);
+        $backToDoctor->assertStatus(200)
+            ->assertJsonPath('data.role.code', 'doctor');
+    }
 }

@@ -31,13 +31,19 @@ class AttendeeController extends Controller
         $query = DB::table('attendees as a')
             ->join('events as e', 'e.id', '=', 'a.event_id')
             ->join('ticket_types as tt', 'tt.id', '=', 'a.ticket_type_id')
+            ->leftJoin('orders as o', 'o.id', '=', 'a.order_id')
+            ->leftJoin('users as customer_user', 'customer_user.id', '=', 'o.customer_id')
+            ->leftJoin('roles as customer_role', 'customer_role.id', '=', 'customer_user.role_id')
             ->select([
                 'a.id', 'a.attendee_number', 'a.full_name', 'a.email', 'a.phone',
                 'a.job_title', 'a.organization', 'a.qr_token', 'a.qr_status',
                 'a.checked_in_at', 'a.certificate_issued_at', 'a.created_at',
                 'a.event_id', 'a.ticket_type_id', 'e.title_en as event_title_en',
                 'e.title_ar as event_title_ar', 'tt.name_en as ticket_name_en',
-                'tt.name_ar as ticket_name_ar'
+                'tt.name_ar as ticket_name_ar',
+                DB::raw("COALESCE(customer_role.code, 'guest') as customer_role_code"),
+                DB::raw("COALESCE(customer_role.name_en, 'Guest') as customer_role_name_en"),
+                DB::raw("COALESCE(customer_role.name_ar, 'ضيف') as customer_role_name_ar")
             ]);
 
         if ($eventId) {

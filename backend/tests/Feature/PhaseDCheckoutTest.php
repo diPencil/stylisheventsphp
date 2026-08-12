@@ -6,6 +6,8 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 
 class PhaseDCheckoutTest extends TestCase
 {
@@ -177,6 +179,92 @@ class PhaseDCheckoutTest extends TestCase
         $attendee = DB::table('attendees')->where('id', $ticket->attendee_id)->first();
         $this->assertNotNull($attendee);
         $this->assertEquals('Jane Free', $attendee->full_name);
+    }
+
+    public function test_authenticated_checkout_links_registration_to_account_and_keeps_portal_private()
+    {
+        $role = DB::table('roles')->where('code', 'customer')->first();
+        $this->assertNotNull($role);
+
+        $customer = User::create([
+            'role_id' => $role->id,
+            'name' => 'Portal Owner',
+            'email' => 'portal-owner-' . uniqid() . '@test.com',
+            'password_hash' => Hash::make('password123'),
+            'status' => 'active',
+            'preferred_language' => 'en',
+        ]);
+        $otherCustomer = User::create([
+            'role_id' => $role->id,
+            'name' => 'Portal Other',
+            'email' => 'portal-other-' . uniqid() . '@test.com',
+            'password_hash' => Hash::make('password123'),
+            'status' => 'active',
+            'preferred_language' => 'en',
+        ]);
+
+        $otherDoctorId = DB::table('doctors')->insertGetId([
+            'user_id' => $otherCustomer->id,
+            'full_name' => 'Other Existing Doctor',
+            'email' => $otherCustomer->email,
+            'mobile' => '01000000009',
+            'country_code' => 'US',
+        ]);
+
+        $token = app('auth')->guard('api')->createToken($customer);
+        $otherToken = app('auth')->guard('api')->createToken($otherCustomer);
+
+        $response = $this->withHeaders(['Authorization' => "Bearer {$token}"])
+            ->postJson("/api/public/events/{$this->slug}/checkout", [
+                'idempotencyKey' => 'sess_auth_owner_' . uniqid(),
+                'ticketTypeId' => $this->ticketId,
+                'quantity' => 1,
+                'email' => $customer->email,
+                'fullName' => 'Portal Owner Registration',
+                'mobile' => '01000000010',
+                'countryCode' => 'US',
+                'countryName' => 'United States',
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true);
+
+        $registrationId = $response->json('data.registration.id');
+        $registration = DB::table('registrations')->where('id', $registrationId)->first();
+        $doctor = DB::table('doctors')->where('id', $registration->doctor_id)->first();
+        $order = DB::table('orders')->where('id', $registration->order_id)->first();
+
+        $this->assertEquals($customer->id, $doctor->user_id);
+        $this->assertEquals($customer->id, $order->customer_id);
+        $this->assertNotEquals($otherDoctorId, $doctor->id);
+        $this->assertDatabaseHas('doctors', [
+            'user_id' => $otherCustomer->id,
+            'full_name' => 'Other Existing Doctor',
+        ]);
+
+        $this->withHeaders(['Authorization' => "Bearer {$token}"])
+            ->getJson('/api/me/registrations')
+            ->assertStatus(200)
+            ->assertJsonPath('data.pagination.total', 1)
+            ->assertJsonPath('data.data.0.id', $registrationId)
+            ->assertJsonPath('data.data.0.event_title_en', 'Test Checkout Event')
+            ->assertJsonPath('data.data.0.registration_status', 'pending_payment')
+            ->assertJsonPath('data.data.0.payment_status', 'pending');
+
+        $this->withHeaders(['Authorization' => "Bearer {$token}"])
+            ->getJson("/api/me/registrations/{$registrationId}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.id', $registrationId);
+
+        $otherRegistrations = $this->withHeaders(['Authorization' => "Bearer {$otherToken}"])
+            ->getJson('/api/me/registrations')
+            ->assertStatus(200)
+            ->json('data.data');
+        $this->assertFalse(collect($otherRegistrations)->contains(fn ($row) => (int) $row['id'] === (int) $registrationId));
+
+        $this->withHeaders(['Authorization' => "Bearer {$otherToken}"])
+            ->getJson("/api/me/registrations/{$registrationId}")
+            ->assertStatus(404);
     }
 
     public function test_registration_lookup()

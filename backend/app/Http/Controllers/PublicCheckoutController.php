@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
@@ -508,22 +509,38 @@ class PublicCheckoutController extends Controller
                     'expires_at' => now()->addMinutes(30),
                 ]);
 
-                $doctorId = DB::table('doctors')->where('email', $input['email'])->value('id');
-                if ($doctorId) {
-                    DB::table('doctors')->where('id', $doctorId)->update([
-                        'full_name' => $input['fullName'],
-                        'mobile' => $input['mobile'],
-                        'address' => $input['address'],
-                        'country_code' => $input['countryCode'],
-                        'country_name' => $input['countryName'],
-                        'city' => $input['city'],
-                        'specialty' => $input['specialty'],
-                        'nationality' => $input['nationality'],
-                        'preferred_language' => $input['preferredLanguage'],
-                        'updated_at' => now(),
-                    ]);
+                $authUser = Auth::guard('api')->setRequest($request)->user();
+                $ownerUserId = $authUser ? (int) $authUser->id : null;
+
+                if ($ownerUserId) {
+                    $doctor = DB::table('doctors')->where('user_id', $ownerUserId)->lockForUpdate()->first();
+                } else {
+                    $doctor = DB::table('doctors')->where('email', $input['email'])->lockForUpdate()->first();
+                }
+
+                $doctorUpdates = [
+                    'full_name' => $input['fullName'],
+                    'mobile' => $input['mobile'],
+                    'address' => $input['address'],
+                    'country_code' => $input['countryCode'],
+                    'country_name' => $input['countryName'],
+                    'city' => $input['city'],
+                    'specialty' => $input['specialty'],
+                    'nationality' => $input['nationality'],
+                    'preferred_language' => $input['preferredLanguage'],
+                    'updated_at' => now(),
+                ];
+
+                if ($ownerUserId) {
+                    $doctorUpdates['user_id'] = $ownerUserId;
+                }
+
+                if ($doctor) {
+                    $doctorId = $doctor->id;
+                    DB::table('doctors')->where('id', $doctorId)->update($doctorUpdates);
                 } else {
                     $doctorId = DB::table('doctors')->insertGetId([
+                        'user_id' => $ownerUserId,
                         'full_name' => $input['fullName'],
                         'mobile' => $input['mobile'],
                         'email' => $input['email'],
@@ -551,6 +568,7 @@ class PublicCheckoutController extends Controller
                 $initialState = $this->getCheckoutInitialState($isFree, (bool)$input['paymentProofUrl'], $policy->approvalMode);
 
                 $orderId = DB::table('orders')->insertGetId([
+                    'customer_id' => $ownerUserId,
                     'event_id' => $event->id,
                     'order_number' => 'ORD-' . strtoupper(base_convert(time(), 10, 36) . '-' . bin2hex(random_bytes(3))),
                     'status' => $initialState->orderStatus,

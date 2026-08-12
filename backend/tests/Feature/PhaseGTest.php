@@ -531,6 +531,80 @@ class PhaseGTest extends TestCase
                  ->assertJsonStructure(['status', 'data' => ['registrations', 'payments', 'revenue', 'certificates']]);
     }
 
+    public function test_reports_registrations_include_readable_role()
+    {
+        $doctorRoleId = DB::table('roles')->where('code', 'doctor')->value('id');
+        $this->assertNotNull($doctorRoleId);
+
+        $doctorUserId = DB::table('users')->insertGetId([
+            'role_id' => $doctorRoleId,
+            'name' => 'Report Doctor',
+            'email' => 'report-doctor-' . uniqid() . '@test.com',
+            'password_hash' => 'hash',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $eventId = DB::table('events')->insertGetId([
+            'slug' => 'report-role-' . uniqid(),
+            'title_en' => 'Report Role Event',
+            'status' => 'published',
+            'starts_at' => now()->addDay(),
+            'ends_at' => now()->addDays(2),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $ticketTypeId = DB::table('ticket_types')->insertGetId([
+            'event_id' => $eventId,
+            'name_en' => 'Report Role Ticket',
+            'is_active' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $doctorId = DB::table('doctors')->insertGetId([
+            'user_id' => $doctorUserId,
+            'full_name' => 'Report Doctor',
+            'email' => 'report-doctor-' . uniqid() . '@test.com',
+            'mobile' => '01000000000',
+            'country_code' => 'EG',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $orderId = DB::table('orders')->insertGetId([
+            'customer_id' => $doctorUserId,
+            'event_id' => $eventId,
+            'order_number' => 'ORD-ROLE-' . uniqid(),
+            'status' => 'paid',
+            'subtotal' => 0,
+            'grand_total' => 0,
+            'currency' => 'USD',
+            'customer_name' => 'Report Doctor',
+            'customer_email' => 'report-doctor@example.test',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('registrations')->insert([
+            'registration_number' => 'REG-ROLE-' . uniqid(),
+            'doctor_id' => $doctorId,
+            'event_id' => $eventId,
+            'ticket_type_id' => $ticketTypeId,
+            'order_id' => $orderId,
+            'source' => 'online',
+            'registration_status' => 'approved',
+            'payment_status' => 'approved',
+            'selected_currency' => 'USD',
+            'selected_price' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($this->admin, 'api')
+            ->getJson('/api/reports/registrations?eventId=' . $eventId)
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.customer_role_code', 'doctor')
+            ->assertJsonPath('data.0.customer_role_name_en', 'Doctor');
+    }
+
     public function test_reports_nationalities()
     {
         $response = $this->actingAs($this->admin, 'api')->getJson('/api/reports/nationalities');

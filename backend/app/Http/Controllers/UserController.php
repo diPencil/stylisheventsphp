@@ -117,7 +117,6 @@ class UserController extends Controller
 
         $role = Role::where('code', $validated['roleCode'])->first();
         if (!$role) return ApiResponse::fail('Role not found', 400);
-        if ($role->code === 'doctor') return ApiResponse::fail('Doctor is a legacy customer role and cannot be assigned to new users', 400);
 
         $user = new User();
         $user->role_id = $role->id;
@@ -174,10 +173,6 @@ class UserController extends Controller
         $roleCode = $validated['roleCode'] ?? $current->role->code;
         $role = Role::where('code', $roleCode)->first();
         if (!$role) return ApiResponse::fail('Role not found', 400);
-
-        if ($role->code === 'doctor' && $current->role->code !== 'doctor') {
-            return ApiResponse::fail('Doctor is a legacy customer role and cannot be assigned to users', 400);
-        }
 
         $nextStatus = $validated['status'] ?? $current->status;
         $authUser = Auth::guard('api')->user();
