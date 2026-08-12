@@ -199,6 +199,9 @@ export function Navbar() {
             <img
               src={apiAssetUrl(isRtl ? brandAssets.logoArUrl : brandAssets.logoEnUrl) || (isRtl ? "/LogoAR.png" : "/logo.png")}
               alt="Stylish Events Services"
+              onError={(event) => {
+                event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png"
+              }}
               className="h-full w-full object-contain"
             />
           </div>
@@ -265,6 +268,9 @@ export function Navbar() {
                   <img
                     src={apiAssetUrl(isRtl ? brandAssets.logoArUrl : brandAssets.logoEnUrl) || (isRtl ? "/LogoAR.png" : "/logo.png")}
                     alt="Stylish Events"
+                    onError={(event) => {
+                      event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png"
+                    }}
                     className="h-full w-full object-contain object-left"
                   />
                 </Link>

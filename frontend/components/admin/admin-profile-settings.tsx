@@ -35,7 +35,7 @@ function normalizeProfile(user: any) {
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
-    avatarUrl: apiAssetUrl(user?.avatarUrl || user?.avatar_url || ""),
+    avatarUrl: user?.avatarUrl || user?.avatar_url || "",
   }
 }
 
@@ -84,7 +84,7 @@ export function AdminProfileSettings({ section = "profile" }: { section?: "profi
 
     try {
       const uploaded = await platformApi.uploadUserAvatar({ fileName: file.name, dataUrl })
-      const url = apiAssetUrl(uploaded.url)
+      const url = uploaded.url || ""
       toast.success(language === "ar" ? "تم رفع الصورة" : "Avatar uploaded", { description: language === "ar" ? "رابط الصورة جاهز. احفظ التغييرات لتطبيقها." : "Image URL is ready. Save changes to apply it." })
       return url
     } catch (error) {
@@ -225,7 +225,7 @@ export function AdminProfileSettings({ section = "profile" }: { section?: "profi
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-4">
               <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-[hsl(var(--primary)/0.10)] text-[hsl(var(--primary))]">
-                {profile.avatarUrl ? <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" /> : <Users className="h-7 w-7" />}
+                {profile.avatarUrl ? <img src={apiAssetUrl(profile.avatarUrl)} alt={profile.name} className="h-full w-full object-cover" /> : <Users className="h-7 w-7" />}
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-extrabold text-[#17172f]">{profile.name}</p>

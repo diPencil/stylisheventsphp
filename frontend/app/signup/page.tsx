@@ -258,7 +258,7 @@ export default function SignUp() {
       <section className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 py-4 sm:px-6 sm:py-6 lg:h-full lg:px-10 lg:py-7">
         <div className="flex shrink-0 items-center justify-between gap-4">
           <Link href="/" aria-label="Go to homepage" className="block transition hover:opacity-85">
-            <img src={logoSrc} alt={text.logoAlt} className="h-10 w-auto object-contain sm:h-12" draggable={false} />
+            <img src={logoSrc} alt={text.logoAlt} onError={(event) => { event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png" }} className="h-10 w-auto object-contain sm:h-12" draggable={false} />
           </Link>
           <button
             type="button"

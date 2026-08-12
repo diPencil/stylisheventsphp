@@ -328,7 +328,7 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
                 <p className="mt-5 max-w-2xl text-sm font-medium leading-7 text-slate-600">{language === "ar" ? (form.descriptionAr || form.summaryAr) : (form.descriptionEn || form.summaryEn)}</p>
               </div>
               <div className="min-h-[260px] bg-slate-100">
-                {form.coverImageUrl ? <img src={form.coverImageUrl} alt={form.titleEn} className="h-full w-full object-cover" /> : null}
+                {form.coverImageUrl ? <img src={apiAssetUrl(form.coverImageUrl)} alt={form.titleEn} className="h-full w-full object-cover" /> : null}
               </div>
             </div>
             <div className="grid gap-4 border-t border-slate-100 p-5 md:grid-cols-4 md:p-6">
@@ -398,7 +398,7 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
               <CardContent className="grid grid-cols-3 gap-2">
                 {gallery.length ? gallery.map((image) => (
                   <div key={image} className="aspect-square overflow-hidden rounded-2xl bg-slate-100">
-                    <img src={image} alt="Event gallery" className="h-full w-full object-cover" />
+                    <img src={apiAssetUrl(image)} alt="Event gallery" className="h-full w-full object-cover" />
                   </div>
                 )) : <p className="col-span-3 text-sm font-semibold text-slate-400">{language === "ar" ? "لا توجد صور في المعرض بعد." : "No gallery images yet."}</p>}
               </CardContent>

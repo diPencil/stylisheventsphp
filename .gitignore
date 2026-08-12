@@ -59,5 +59,11 @@ backend/storage/framework/testing/*
 backend/storage/framework/views/*
 !backend/storage/framework/views/.gitignore
 backend/storage/app/codex-*/
-backend/uploads/
-uploads/
+backend/public/uploads/*
+!backend/public/uploads/.gitignore
+!backend/public/uploads/assets/
+!backend/public/uploads/assets/.gitignore
+!backend/public/uploads/avatars/
+!backend/public/uploads/avatars/.gitignore
+/backend/uploads/
+/uploads/

@@ -914,7 +914,7 @@ export function CertificateBuilder() {
               style={
                 selectedEvent.background
                   ? {
-                      backgroundImage: `linear-gradient(rgba(255,255,255,.18), rgba(255,255,255,.18)), url(${selectedEvent.background})`,
+                      backgroundImage: `linear-gradient(rgba(255,255,255,.18), rgba(255,255,255,.18)), url(${apiAssetUrl(selectedEvent.background)})`,
                       backgroundSize: "cover",
                       backgroundPosition: "center",
                     }

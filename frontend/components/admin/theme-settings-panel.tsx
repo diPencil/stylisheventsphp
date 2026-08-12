@@ -337,8 +337,22 @@ export function ThemeSettingsPanel() {
         <CardContent className="p-5">
           <div className="space-y-4 rounded-[24px] bg-slate-50 p-4" style={{ fontFamily: platformFontStack(theme.fontFamily) }}>
             <div className="flex items-center justify-between gap-3 rounded-[20px] bg-white p-3 shadow-sm">
-              <img src={apiAssetUrl(language === "ar" ? theme.logoArUrl : theme.logoEnUrl) || (language === "ar" ? "/LogoAR.png" : "/logo.png")} alt={isAr ? "معاينة لوجو Stylish Events" : "Stylish Events logo preview"} className="h-10 max-w-[190px] object-contain" />
-              <img src={apiAssetUrl(theme.faviconUrl) || "/favicon.png"} alt={isAr ? "معاينة أيقونة الموقع" : "Favicon preview"} className="h-8 w-8 rounded-xl object-contain" />
+              <img
+                src={apiAssetUrl(language === "ar" ? theme.logoArUrl : theme.logoEnUrl) || (language === "ar" ? "/LogoAR.png" : "/logo.png")}
+                alt={isAr ? "معاينة لوجو Stylish Events" : "Stylish Events logo preview"}
+                onError={(event) => {
+                  event.currentTarget.src = language === "ar" ? "/LogoAR.png" : "/logo.png"
+                }}
+                className="h-10 max-w-[190px] object-contain"
+              />
+              <img
+                src={apiAssetUrl(theme.faviconUrl) || "/favicon.png"}
+                alt={isAr ? "معاينة أيقونة الموقع" : "Favicon preview"}
+                onError={(event) => {
+                  event.currentTarget.src = "/favicon.png"
+                }}
+                className="h-8 w-8 rounded-xl object-contain"
+              />
             </div>
             <div className="min-h-[140px] rounded-[24px] p-5 text-white shadow-[0_18px_35px_rgba(15,23,42,0.14)]" style={{ background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})` }}>
               <p className="text-sm font-extrabold opacity-80">Stylish Events</p>

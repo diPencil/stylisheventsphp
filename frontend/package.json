@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "npm run build:next && node scripts/prepare-hostinger-standalone.mjs",
+    "build": "node scripts/test-asset-url.mjs && npm run build:next && node scripts/prepare-hostinger-standalone.mjs",
     "build:next": "next build",
     "build:hostinger": "npm run build",
     "dev": "next dev -p 3002",

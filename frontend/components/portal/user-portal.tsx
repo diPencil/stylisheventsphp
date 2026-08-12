@@ -256,7 +256,7 @@ export function UserPortal({ view, recordId }: { view: PortalView; recordId?: st
     <aside className="flex h-full flex-col bg-white/70 p-5 backdrop-blur-xl">
       <div className="px-2 pb-5 pt-2">
         <Link href="/" className="flex h-16 items-center" aria-label={projectName}>
-          <img src={logoSrc} alt={projectName} className={cn("h-auto max-h-12 w-full max-w-[190px] object-contain", isRtl ? "object-right" : "object-left")} />
+          <img src={logoSrc} alt={projectName} onError={(event) => { event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png" }} className={cn("h-auto max-h-12 w-full max-w-[190px] object-contain", isRtl ? "object-right" : "object-left")} />
         </Link>
         <div className="mt-4 flex items-center gap-3 rounded-[24px] bg-white p-4 shadow-[0_16px_35px_rgba(93,58,138,0.08)]">
           <CustomerAvatar user={user} className="h-12 w-12" />

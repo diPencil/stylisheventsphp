@@ -125,7 +125,7 @@ function normalizeAdminProfile(user: any): AdminProfile {
     email: user?.email || defaultProfile.email,
     phone: user?.phone || defaultProfile.phone,
     username: user?.username || defaultProfile.username,
-    avatarUrl: apiAssetUrl(user?.avatarUrl || user?.avatar_url || ""),
+    avatarUrl: user?.avatarUrl || user?.avatar_url || "",
   }
 }
 
@@ -300,6 +300,9 @@ function StylishEventsMark({ collapsed, theme }: { collapsed?: boolean; theme: P
       <img
         src={logoSrc}
         alt="Stylish Events"
+        onError={(event) => {
+          event.currentTarget.src = collapsed ? "/favicon.png" : isRtl ? "/LogoAR.png" : "/logo.png"
+        }}
         className={cn(
           "h-auto object-contain transition-all",
           collapsed ? "max-h-10 w-10 rounded-xl object-center" : cn("max-h-12 w-full max-w-[190px]", isRtl ? "object-right" : "object-left")
@@ -388,7 +391,7 @@ function SidebarBody({
       <div className={cn("mt-5 rounded-[26px] bg-white shadow-[0_16px_35px_rgba(93,58,138,0.08)]", collapsed ? "p-2" : "p-4")}>
         <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
           <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-[hsl(var(--primary)/0.10)] text-[hsl(var(--primary))]">
-            {profile.avatarUrl ? <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" /> : <Users className="h-6 w-6" />}
+            {profile.avatarUrl ? <img src={apiAssetUrl(profile.avatarUrl)} alt={profile.name} className="h-full w-full object-cover" /> : <Users className="h-6 w-6" />}
           </div>
           {!collapsed && (
             <div className="min-w-0">
@@ -706,7 +709,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   <DropdownMenuTrigger asChild>
                     <button className="flex cursor-pointer items-center gap-2 rounded-2xl transition hover:bg-slate-50">
                       <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[hsl(var(--primary)/0.10)] text-[hsl(var(--primary))]">
-                        {profile.avatarUrl ? <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" /> : <Users className="h-5 w-5" />}
+                        {profile.avatarUrl ? <img src={apiAssetUrl(profile.avatarUrl)} alt={profile.name} className="h-full w-full object-cover" /> : <Users className="h-5 w-5" />}
                       </div>
                       <ChevronDown className="h-4 w-4 text-slate-400" />
                     </button>
@@ -714,7 +717,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   <DropdownMenuContent align="end" className={cn("w-[280px] rounded-[24px] border-0 p-3 shadow-[0_22px_55px_rgba(15,23,42,0.16)]", isRtl ? "[direction:rtl]" : "[direction:ltr]")}>
                     <div className="mb-4 flex items-center gap-3">
                       <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-[hsl(var(--primary)/0.10)] text-[hsl(var(--primary))]">
-                        {profile.avatarUrl ? <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" /> : <Users className="h-6 w-6" />}
+                        {profile.avatarUrl ? <img src={apiAssetUrl(profile.avatarUrl)} alt={profile.name} className="h-full w-full object-cover" /> : <Users className="h-6 w-6" />}
                       </div>
                       <div>
                         <p className="text-sm font-extrabold text-[#17172f]">{profile.name}</p>

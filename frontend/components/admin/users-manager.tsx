@@ -285,7 +285,7 @@ export function UsersManager() {
       if (!active) return
 
       if (usersResult.status === "fulfilled") {
-        setUsers((usersResult.value || []).map((user: AdminUser) => ({ ...user, avatarUrl: apiAssetUrl(user.avatarUrl) })))
+        setUsers(usersResult.value || [])
       } else {
         const message = usersResult.reason instanceof Error ? usersResult.reason.message : "Check the backend connection."
         toast.error(language === "ar" ? "تعذر تحميل المستخدمين" : "Could not load users", {
@@ -341,7 +341,7 @@ export function UsersManager() {
       roleCode: user.role.code,
       status: user.status,
       preferredLanguage: user.preferredLanguage,
-      avatarUrl: apiAssetUrl(user.avatarUrl || ""),
+      avatarUrl: user.avatarUrl || "",
       notes: user.notes || "",
     })
     setFormOpen(true)
@@ -447,7 +447,7 @@ export function UsersManager() {
 
     try {
       const uploaded = await platformApi.uploadUserAvatar({ fileName: file.name, dataUrl })
-      setForm((current) => ({ ...current, avatarUrl: apiAssetUrl(uploaded.url) }))
+      setForm((current) => ({ ...current, avatarUrl: uploaded.url || "" }))
       toast.success(adminT(language, "users.avatarUploaded"), {
         description: adminT(language, "users.avatarUploadedCopy"),
       })
@@ -545,7 +545,7 @@ export function UsersManager() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             {user.avatarUrl ? (
-                              <img src={user.avatarUrl} alt={user.name} className="h-11 w-11 rounded-2xl object-cover" />
+                              <img src={apiAssetUrl(user.avatarUrl)} alt={user.name} className="h-11 w-11 rounded-2xl object-cover" />
                             ) : (
                               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[hsl(var(--primary)/0.10)] text-sm font-extrabold text-[hsl(var(--primary))]">{initials(user.name)}</div>
                             )}
@@ -772,7 +772,7 @@ export function UsersManager() {
                 </div>
                 <div className="flex h-28 w-full items-center justify-center overflow-hidden rounded-3xl bg-white shadow-sm sm:w-32">
                   {form.avatarUrl ? (
-                    <img src={form.avatarUrl} alt={adminT(language, "common.imagePreview")} className="h-full w-full object-cover" />
+                    <img src={apiAssetUrl(form.avatarUrl)} alt={adminT(language, "common.imagePreview")} className="h-full w-full object-cover" />
                   ) : (
                     <div className="text-center text-xs font-extrabold text-slate-300">{adminT(language, "common.noImage")}</div>
                   )}
@@ -806,7 +806,7 @@ export function UsersManager() {
               <div className="space-y-5 px-6 py-5">
                 <div className="flex items-center gap-4 rounded-3xl bg-slate-50 p-4">
                   {selectedUser.avatarUrl ? (
-                    <img src={selectedUser.avatarUrl} alt={selectedUser.name} className="h-16 w-16 rounded-3xl object-cover" />
+                    <img src={apiAssetUrl(selectedUser.avatarUrl)} alt={selectedUser.name} className="h-16 w-16 rounded-3xl object-cover" />
                   ) : (
                     <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-[hsl(var(--primary)/0.10)] text-lg font-extrabold text-[hsl(var(--primary))]">{initials(selectedUser.name)}</div>
                   )}
