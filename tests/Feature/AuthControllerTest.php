@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Role;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class AuthControllerTest extends TestCase
 {
@@ -157,5 +158,53 @@ class AuthControllerTest extends TestCase
 
         $user->refresh();
         $this->assertTrue(Hash::check('newpassword123', $user->password_hash));
+    }
+
+    public function test_me_returns_owned_customer_profile_fields()
+    {
+        $role = Role::where('code', 'customer')->first();
+        if (!$role) {
+            $this->markTestSkipped('Customer role not found in DB.');
+        }
+
+        $user = User::create([
+            'role_id' => $role->id,
+            'name' => 'Prefill User',
+            'email' => 'prefill_user@example.com',
+            'phone' => '+201000000001',
+            'country_code' => 'SA',
+            'country_name' => 'Saudi Arabia',
+            'password_hash' => Hash::make('password123'),
+            'status' => 'active',
+            'preferred_language' => 'en'
+        ]);
+
+        DB::table('doctors')->insert([
+            'user_id' => $user->id,
+            'full_name' => 'Dr Prefill User',
+            'mobile' => '+201000000002',
+            'email' => 'prefill_user@example.com',
+            'address' => 'Prefill Address',
+            'country_code' => 'SA',
+            'country_name' => 'Saudi Arabia',
+            'city' => 'Riyadh',
+            'specialty' => 'Cardiology',
+            'nationality' => 'Saudi',
+            'preferred_language' => 'en',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $token = Auth::guard('api')->createToken($user);
+
+        $this->withHeaders(['Authorization' => "Bearer $token"])
+            ->getJson('/api/auth/me')
+            ->assertStatus(200)
+            ->assertJsonPath('data.customer_full_name', 'Dr Prefill User')
+            ->assertJsonPath('data.customer_mobile', '+201000000002')
+            ->assertJsonPath('data.customer_city', 'Riyadh')
+            ->assertJsonPath('data.customer_specialty', 'Cardiology')
+            ->assertJsonPath('data.customer_nationality', 'Saudi');
     }
 }

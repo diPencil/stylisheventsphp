@@ -492,8 +492,21 @@ class PhaseGTest extends TestCase
 
     public function test_kiosk_search()
     {
-        $response = $this->postJson('/api/kiosk/search', ['searchType' => 'email', 'searchValue' => 'John']);
-        $response->assertStatus(404);
+        $this->postJson('/api/kiosk/search', ['searchType' => 'email', 'searchValue' => 'John'])
+            ->assertStatus(401);
+
+        DB::table('role_permissions')->updateOrInsert(
+            ['role_id' => $this->admin->role_id, 'permission_key' => 'kiosk.use'],
+            ['allowed' => 1, 'created_at' => now(), 'updated_at' => now()]
+        );
+
+        $this->actingAs($this->employee, 'api')
+            ->postJson('/api/kiosk/search', ['searchType' => 'email', 'searchValue' => 'John'])
+            ->assertStatus(403);
+
+        $this->actingAs($this->admin, 'api')
+            ->postJson('/api/kiosk/search', ['searchType' => 'email', 'searchValue' => 'John'])
+            ->assertStatus(404);
     }
 
     public function test_public_event_review_write_requires_auth()
