@@ -10,6 +10,7 @@ Artisan::command('inspire', function () {
 
 Artisan::command('roles:sync-defaults', function () {
     $roles = [
+        ['code' => 'doctor', 'name_en' => 'Doctor', 'name_ar' => 'طبيب'],
         ['code' => 'chairman', 'name_en' => 'Chairman', 'name_ar' => 'رئيس الجلسة'],
         ['code' => 'speaker', 'name_en' => 'Speaker', 'name_ar' => 'متحدث'],
     ];

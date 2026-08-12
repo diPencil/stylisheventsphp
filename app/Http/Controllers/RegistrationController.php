@@ -157,6 +157,8 @@ class RegistrationController extends Controller
             ->leftJoin('orders as o', 'o.id', '=', 'r.order_id')
             ->leftJoin('generated_tickets as gt', 'gt.registration_id', '=', 'r.id')
             ->leftJoin('users as u', 'u.id', '=', 'r.created_by_user_id')
+            ->leftJoin('users as customer_user', 'customer_user.id', '=', 'd.user_id')
+            ->leftJoin('roles as customer_role', 'customer_role.id', '=', 'customer_user.role_id')
             ->select([
                 'r.id', 'r.registration_number', 'r.event_id', 'r.ticket_type_id', 'r.doctor_id',
                 'r.order_id', 'r.source', 'r.registration_status', 'r.payment_status',
@@ -166,7 +168,10 @@ class RegistrationController extends Controller
                 'd.email as doctor_email', 'd.country_code', 'd.country_name', 'd.specialty',
                 'd.nationality', 'e.title_en as event_title_en', 'e.title_ar as event_title_ar',
                 'tt.name_en as ticket_name_en', 'tt.name_ar as ticket_name_ar', 'gt.ticket_number',
-                'gt.pdf_url as ticket_pdf_url', 'u.name as created_by_name'
+                'gt.pdf_url as ticket_pdf_url', 'u.name as created_by_name',
+                DB::raw("COALESCE(customer_role.code, 'guest') as customer_role_code"),
+                DB::raw("COALESCE(customer_role.name_en, 'Guest') as customer_role_name_en"),
+                DB::raw("COALESCE(customer_role.name_ar, 'ضيف') as customer_role_name_ar")
             ]);
 
         if ($status) {
@@ -212,6 +217,8 @@ class RegistrationController extends Controller
             ->leftJoin('orders as o', 'o.id', '=', 'r.order_id')
             ->leftJoin('generated_tickets as gt', 'gt.registration_id', '=', 'r.id')
             ->leftJoin('users as u', 'u.id', '=', 'r.created_by_user_id')
+            ->leftJoin('users as customer_user', 'customer_user.id', '=', 'd.user_id')
+            ->leftJoin('roles as customer_role', 'customer_role.id', '=', 'customer_user.role_id')
             ->where('r.id', $id)
             ->select([
                 'r.*', 'o.order_number', 'o.status as order_status', 'o.grand_total',
@@ -220,7 +227,10 @@ class RegistrationController extends Controller
                 'd.country_name', 'd.city', 'd.specialty', 'd.nationality',
                 'e.title_en as event_title_en', 'e.title_ar as event_title_ar', 'e.starts_at', 'e.ends_at',
                 'tt.name_en as ticket_name_en', 'tt.name_ar as ticket_name_ar', 'gt.ticket_number',
-                'gt.qr_token', 'gt.pdf_url as ticket_pdf_url', 'u.name as created_by_name'
+                'gt.qr_token', 'gt.pdf_url as ticket_pdf_url', 'u.name as created_by_name',
+                DB::raw("COALESCE(customer_role.code, 'guest') as customer_role_code"),
+                DB::raw("COALESCE(customer_role.name_en, 'Guest') as customer_role_name_en"),
+                DB::raw("COALESCE(customer_role.name_ar, 'ضيف') as customer_role_name_ar")
             ])
             ->first();
 
