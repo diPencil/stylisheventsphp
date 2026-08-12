@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Auth;
 class RoleController extends Controller
 {
     protected $permissionCatalog = [
+        ['key' => 'dashboard.view', 'labelEn' => 'View admin dashboard', 'labelAr' => 'عرض لوحة التحكم'],
+        ['key' => 'certificates.view', 'labelEn' => 'View certificates', 'labelAr' => 'عرض الشهادات'],
+        ['key' => 'reviews.view', 'labelEn' => 'View reviews', 'labelAr' => 'عرض التقييمات'],
+        ['key' => 'kiosk.use', 'labelEn' => 'Use kiosk search', 'labelAr' => 'استخدام بحث الكشك'],
         ['key' => 'registrations.create_manual', 'labelEn' => 'Create registrations manually', 'labelAr' => 'إنشاء تسجيلات يدويًا'],
         ['key' => 'attendees.manage', 'labelEn' => 'Manage attendees', 'labelAr' => 'إدارة الحضور'],
         ['key' => 'checkin.manage', 'labelEn' => 'Manage check-in / Badges', 'labelAr' => 'إدارة تسجيل الدخول / الشارات'],

@@ -118,8 +118,8 @@ class PhaseERegistrationTest extends TestCase
         $listResponse = $this->getJson('/api/registrations', ['Authorization' => $this->adminToken]);
         $listResponse->assertStatus(200);
         $this->assertGreaterThanOrEqual(1, count($listResponse->json('data')));
+        $this->assertDatabaseHas('orders', ['id' => DB::table('registrations')->where('id', $regId)->value('order_id')]);
 
-        return $regId;
         // 1. Submit proof
         $proofRes = $this->patchJson("/api/registrations/{$regId}/payment-proof", [
             'paymentProofUrl' => 'https://test.com/proof.jpg'

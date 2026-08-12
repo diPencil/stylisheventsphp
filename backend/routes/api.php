@@ -145,7 +145,8 @@ Route::middleware(['auth:api', 'permission:contact_inquiries.manage'])->group(fu
 });
 
 // Phase G: Kiosk
-Route::post('/kiosk/search', [\App\Http\Controllers\KioskController::class, 'search']);
+Route::post('/kiosk/search', [\App\Http\Controllers\KioskController::class, 'search'])
+    ->middleware(['auth:api', 'permission:kiosk.use']);
 
 // Phase G: Reports
 Route::middleware(['auth:api', 'permission:reports.view'])->group(function () {

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useLanguage } from "@/contexts/language-context"
 import { apiAssetUrl, currentAuthToken, platformApi } from "@/lib/platform-api"
+import { applyAccountRegistrationPrefill } from "@/lib/registration-prefill"
 import { cn } from "@/lib/utils"
 
 const initialForm = {
@@ -37,6 +38,7 @@ export default function EventRegisterPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [hasAuthToken, setHasAuthToken] = useState(false)
+  const [accountPrefillLoading, setAccountPrefillLoading] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -57,7 +59,24 @@ export default function EventRegisterPage() {
   }, [language])
 
   useEffect(() => {
-    setHasAuthToken(Boolean(currentAuthToken()))
+    const token = currentAuthToken()
+    const authToken = typeof token === "string" ? token : ""
+    setHasAuthToken(Boolean(authToken))
+    if (!authToken) return
+
+    let active = true
+    setAccountPrefillLoading(true)
+    platformApi.me(authToken)
+      .then((user) => {
+        if (!active) return
+        setForm((current) => applyAccountRegistrationPrefill(current, user))
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setAccountPrefillLoading(false)
+      })
+
+    return () => { active = false }
   }, [])
 
   const event = data?.event
@@ -69,7 +88,7 @@ export default function EventRegisterPage() {
   const registrationUnavailable = policy.publicRegistrationEnabled === false || event?.state !== "open"
   const loginRequired = policy.access === "login_required" && !hasAuthToken
   const manualPaymentUnavailable = price > 0 && policy.manualPaymentEnabled === false
-  const submitDisabled = submitting || !selectedTicket || registrationUnavailable || loginRequired || manualPaymentUnavailable
+  const submitDisabled = submitting || accountPrefillLoading || !selectedTicket || registrationUnavailable || loginRequired || manualPaymentUnavailable
 
   const update = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }))
 
