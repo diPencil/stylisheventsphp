@@ -32,6 +32,7 @@ type TicketBooking = {
   event: string
   customer: string
   email: string
+  role: string
   ticketType: string
   quantity: number
   amount: string
@@ -52,6 +53,7 @@ function normalizeTicketBooking(row: any, attendee?: any): TicketBooking {
     event: row.event_title_en || row.event_title_ar || "Event",
     customer: row.doctor_name || row.customer_name || attendee?.full_name || "Customer",
     email: row.doctor_email || row.customer_email || attendee?.email || "",
+    role: row.customer_role_name_en || attendee?.customer_role_name_en || "Guest",
     ticketType: row.ticket_name_en || row.ticket_name_ar || "Ticket",
     quantity: Number(row.ticket_quantity || 1),
     amount: `${row.selected_currency || "USD"} ${Number(row.selected_price || 0).toLocaleString()}`,
@@ -119,13 +121,14 @@ export function TicketsManager() {
   }, [bookings])
 
   function exportTickets() {
-    const headers = ["#", "Booking", "Customer", "Email", "Event", "Ticket", "Quantity", "Amount", "Booking Status", "Payment Status", "QR Token", "Booked At", "Checked In At"]
+    const headers = ["#", "Booking", "Customer", "Email", "Role", "Event", "Ticket", "Quantity", "Amount", "Booking Status", "Payment Status", "QR Token", "Booked At", "Checked In At"]
     const escape = (value: string | number | undefined) => `"${String(value ?? "").replace(/"/g, '""')}"`
     const csvRows = filteredBookings.map((booking, index) => [
       index + 1,
       booking.id,
       booking.customer,
       booking.email,
+      booking.role,
       booking.event,
       booking.ticketType,
       booking.quantity,

@@ -30,6 +30,7 @@ type Booking = {
   registrationId: number
   customer: string
   email: string
+  role: string
   event: string
   tickets: number
   amount: number
@@ -46,6 +47,7 @@ function normalizeBooking(row: any): Booking {
     registrationId: Number(row.id),
     customer: row.doctor_name || row.customer_name || "Customer",
     email: row.doctor_email || row.customer_email || "",
+    role: row.customer_role_name_en || "Guest",
     event: row.event_title_en || row.event_title_ar || "Event",
     tickets: Number(row.ticket_quantity || 1),
     amount: Number(row.selected_price || row.grand_total || 0),
@@ -101,13 +103,14 @@ export function BookingsManager() {
   }, [bookings])
 
   function exportOrders() {
-    const headers = ["#", "Order", "Customer", "Email", "Event", "Tickets", "Amount", "Currency", "Method", "Status", "Created"]
+    const headers = ["#", "Order", "Customer", "Email", "Role", "Event", "Tickets", "Amount", "Currency", "Method", "Status", "Created"]
     const escape = (value: string | number) => `"${String(value ?? "").replace(/"/g, '""')}"`
     const csvRows = filteredBookings.map((booking, index) => [
       index + 1,
       booking.id,
       booking.customer,
       booking.email,
+      booking.role,
       booking.event,
       booking.tickets,
       booking.amount,

@@ -31,6 +31,7 @@ type Attendee = {
   attendeeNumber: string
   name: string
   email: string
+  role: string
   phone: string
   event: string
   ticket: string
@@ -50,6 +51,7 @@ function normalizeAttendee(row: any): Attendee {
     attendeeNumber: row.attendee_number || `ATT-${row.id}`,
     name: row.full_name || "Attendee",
     email: row.email || "",
+    role: row.customer_role_name_en || "Guest",
     phone: row.phone || "",
     event: row.event_title_en || row.event_title_ar || "Event",
     ticket: row.ticket_name_en || row.ticket_name_ar || "Ticket",
@@ -136,6 +138,34 @@ export function AttendeesManager() {
     }
   }
 
+  function exportAttendees() {
+    const headers = ["#", "Attendee", "Email", "Role", "Event", "Ticket", "Status", "Certificate", "Registered", "Checked In"]
+    const escape = (value: string | number | undefined) => `"${String(value ?? "").replace(/"/g, '""')}"`
+    const csvRows = filteredAttendees.map((attendee, index) => [
+      index + 1,
+      attendee.name,
+      attendee.email,
+      attendee.role,
+      attendee.event,
+      attendee.ticket,
+      attendee.status,
+      attendee.certificate,
+      attendee.registeredAt,
+      attendee.checkedInAt || "",
+    ])
+    const csv = [headers, ...csvRows].map((row) => row.map(escape).join(",")).join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "stylish-events-attendees.csv"
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    toast.success(adminT(language, "attendees.export"), { description: `${filteredAttendees.length} attendee rows downloaded.` })
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -146,7 +176,7 @@ export function AttendeesManager() {
             {language === "ar" ? "ملفات الحضور والتذاكر وحالة QR والحضور وتسليم الشهادات." : "Live attendee profiles, tickets, QR status, check-in state, and certificate delivery."}
           </p>
         </div>
-        <Button className="h-10 rounded-2xl bg-[hsl(var(--primary))] px-4 text-sm font-extrabold text-white">
+        <Button onClick={exportAttendees} className="h-10 rounded-2xl bg-[hsl(var(--primary))] px-4 text-sm font-extrabold text-white">
           <Download className="h-4 w-4" />
           {adminT(language, "attendees.export")}
         </Button>

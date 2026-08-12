@@ -77,6 +77,8 @@ type AdminUser = {
 type PermissionItem = {
   key: string
   label: string
+  labelEn?: string
+  labelAr?: string
   group: string
   allowed: boolean
 }
@@ -237,7 +239,9 @@ function genderLabel(gender: AdminUser["gender"] | UserForm["gender"], language:
 }
 
 function permissionLabel(permission: PermissionItem | Omit<PermissionItem, "allowed">, language: "ar" | "en") {
-  return language === "ar" ? permissionLabelsAr[permission.key] || permission.label : permission.label
+  const apiLabel = language === "ar" ? permission.labelAr : permission.labelEn
+  const fallback = language === "ar" ? permissionLabelsAr[permission.key] : permission.label
+  return apiLabel || permission.label || fallback || permission.key
 }
 
 function permissionGroup(group: string, language: "ar" | "en") {
@@ -294,7 +298,14 @@ export function UsersManager() {
       }
 
       if (rolesResult.status === "fulfilled" && rolesResult.value?.roles?.length) {
-        setRoles(rolesResult.value.roles)
+        setRoles(rolesResult.value.roles.map((role: RoleOption) => ({
+          ...role,
+          permissions: role.permissions.map((permission: PermissionItem) => ({
+            ...permission,
+            label: permission.label || permission.labelEn || permission.key,
+            group: permission.group || permissionCatalog.find((item) => item.key === permission.key)?.group || "Account",
+          })),
+        })))
       } else {
         setRoles(roleSeeds)
       }
@@ -719,13 +730,11 @@ export function UsersManager() {
               <Select value={form.roleCode} onValueChange={(roleCode) => setForm({ ...form, roleCode })}>
                 <SelectTrigger className="h-12 rounded-2xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {roles
-                    .filter((role) => role.code !== "doctor" || form.roleCode === "doctor")
-                    .map((role) => (
-                      <SelectItem key={role.code} value={role.code}>
-                        {roleName(roles, role.code, language)}{role.code === "doctor" ? " (Legacy)" : ""}
-                      </SelectItem>
-                    ))}
+                  {roles.map((role) => (
+                    <SelectItem key={role.code} value={role.code}>
+                      {roleName(roles, role.code, language)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

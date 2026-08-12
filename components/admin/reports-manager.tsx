@@ -19,6 +19,7 @@ type ReportRow = {
   id: string
   eventId: number
   event: string
+  roles: string[]
   revenue: number
   currency: string
   bookings: number
@@ -56,6 +57,7 @@ export function ReportsManager() {
     const headers = [
       "Report ID",
       "Event",
+      "Roles",
       ...(mode === "revenue" || mode === "full" ? ["Revenue", "Currency", "Bookings"] : []),
       ...(mode === "attendance" || mode === "full" ? ["Attendees", "Checked In", "Check-in Rate", "Capacity"] : []),
       ...(mode === "tickets" || mode === "full" ? ["Tickets Sold", "Top Ticket"] : []),
@@ -65,6 +67,7 @@ export function ReportsManager() {
     const csvRows = filteredRows.map((row) => [
       row.id,
       row.event,
+      row.roles.length ? row.roles.join("; ") : "Guest",
       ...(mode === "revenue" || mode === "full" ? [String(row.revenue), row.currency, String(row.bookings)] : []),
       ...(mode === "attendance" || mode === "full" ? [String(row.attendees), String(row.checkedIn), `${percent(row.checkedIn, row.attendees)}%`, String(row.capacity)] : []),
       ...(mode === "tickets" || mode === "full" ? [String(row.ticketsSold), row.topTicket] : []),
@@ -103,12 +106,17 @@ export function ReportsManager() {
           const eventRegistrations = (registrations || []).filter((registration: any) => Number(registration.event_id) === Number(event.id))
           const eventAttendees = (attendees || []).filter((attendee: any) => Number(attendee.event_id) === Number(event.id))
           const eventPerformance = (performance || []).filter((item: any) => item.event_title_en === event.title_en)
+          const roleNames = Array.from(new Set([
+            ...eventRegistrations.map((registration: any) => registration.customer_role_name_en || "Guest"),
+            ...eventAttendees.map((attendee: any) => attendee.customer_role_name_en || "Guest"),
+          ].filter(Boolean))) as string[]
           const topTicket = [...eventPerformance].sort((a: any, b: any) => Number(b.registrations || 0) - Number(a.registrations || 0))[0]
           const eventTitle = language === "ar" ? event.title_ar || event.title_en || "فعالية" : event.title_en || event.title_ar || "Event"
           return {
             id: `RPT-${event.id}`,
             eventId: Number(event.id),
             event: eventTitle,
+            roles: roleNames,
             revenue: eventRegistrations.reduce((sum: number, item: any) => sum + Number(item.payment_status === "approved" ? item.selected_price || 0 : 0), 0),
             currency: eventRegistrations.find((item: any) => item.selected_currency)?.selected_currency || defaultCurrency,
             bookings: eventRegistrations.length,
