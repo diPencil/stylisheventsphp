@@ -196,7 +196,7 @@ class PhaseGTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('data.imageUrl', '');
 
-        $path = base_path('../uploads/assets/' . basename($url));
+        $path = public_path('uploads/assets/' . basename($url));
         if (is_file($path)) {
             unlink($path);
         }

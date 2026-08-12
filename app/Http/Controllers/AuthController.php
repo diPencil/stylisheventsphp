@@ -276,7 +276,7 @@ class AuthController extends Controller
             throw new \Exception('Avatar image must be 2MB or smaller', 413);
         }
 
-        $uploadRoot = base_path('../uploads/avatars');
+        $uploadRoot = public_path('uploads/avatars');
         if (!File::exists($uploadRoot)) {
             File::makeDirectory($uploadRoot, 0755, true);
         }
@@ -296,7 +296,7 @@ class AuthController extends Controller
         if (!$url || !str_starts_with($url, '/uploads/avatars/')) return;
         $fileName = basename($url);
         if (!$fileName) return;
-        $path = base_path('../uploads/avatars/' . $fileName);
+        $path = public_path('uploads/avatars/' . $fileName);
         if (File::exists($path)) {
             File::delete($path);
         }

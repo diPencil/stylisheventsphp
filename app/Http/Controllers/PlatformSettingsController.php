@@ -273,8 +273,8 @@ class PlatformSettingsController extends Controller
 
         $savedFileName = time() * 1000 . '-' . $safeBase . '.' . $extension;
 
-        // Save to the shared uploads path served to the frontend as /uploads/assets/.
-        $uploadRoot = base_path('../uploads/assets');
+        // Keep the public URL contract as /uploads/assets/... under the Laravel public root.
+        $uploadRoot = public_path('uploads/assets');
         if (!is_dir($uploadRoot)) {
             mkdir($uploadRoot, 0755, true);
         }
