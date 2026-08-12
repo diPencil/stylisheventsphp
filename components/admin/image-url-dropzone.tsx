@@ -153,7 +153,7 @@ export function ImageUrlDropzone({
             {value && previewUrl && isVideo ? (
               <video src={previewUrl} className="h-full w-full object-cover" muted playsInline controls />
             ) : value && previewUrl ? (
-              <img src={previewUrl} alt={`${label} preview`} className="h-full w-full object-contain" />
+              <img src={previewUrl} alt={`${label} preview`} onError={(event) => { event.currentTarget.style.display = "none" }} className="h-full w-full object-contain" />
             ) : (
               <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-slate-300">
                 <ImagePlus className="h-5 w-5" />
@@ -246,7 +246,7 @@ export function ImageGalleryDropzone({ label, value, onChange, className }: Imag
           <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
             {images.slice(0, 10).map((image) => (
               <div key={image} className="aspect-square overflow-hidden rounded-xl bg-white ring-1 ring-slate-100">
-                <img src={apiAssetUrl(image)} alt={adminT(language, "common.imagePreview")} className="h-full w-full object-cover" />
+                <img src={apiAssetUrl(image)} alt={adminT(language, "common.imagePreview")} onError={(event) => { event.currentTarget.style.display = "none" }} className="h-full w-full object-cover" />
               </div>
             ))}
           </div>

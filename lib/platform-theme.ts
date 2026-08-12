@@ -1,5 +1,5 @@
 import type { PlatformThemeSettings } from "@/types/platform"
-import { apiAssetUrl } from "@/lib/platform-api"
+import { cacheableBackendAssetUrl } from "@/lib/asset-url"
 
 export const platformThemeStorageKey = "stylish-events-theme-settings"
 
@@ -170,11 +170,7 @@ export function applyPlatformTheme(theme: PlatformThemeSettings) {
 }
 
 function cacheableAssetUrl(value: string) {
-  const url = apiAssetUrl(value) || defaultPlatformTheme.faviconUrl
-  if (/^data:/i.test(url)) return url
-
-  const separator = url.includes("?") ? "&" : "?"
-  return `${url}${separator}v=${Date.now()}`
+  return cacheableBackendAssetUrl(value) || defaultPlatformTheme.faviconUrl
 }
 
 function ensureIconLink(rel: string) {

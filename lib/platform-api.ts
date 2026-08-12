@@ -1,4 +1,5 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.nexrobnb.com"
+import { API_BASE_URL, backendAssetUrl } from "@/lib/asset-url"
+
 const LOCAL_API_ORIGIN = /^https?:\/\/(?:127\.0\.0\.1|localhost):\d+$/i
 
 function apiRequestBaseUrl() {
@@ -9,17 +10,7 @@ function apiRequestBaseUrl() {
 }
 
 export function apiAssetUrl(url?: string | null) {
-  if (!url) return ""
-  if (url.startsWith(API_BASE_URL)) {
-    const path = url.slice(API_BASE_URL.length) || ""
-    return path.startsWith("/uploads/") ? url : path || ""
-  }
-  if (/^blob:/i.test(url)) return ""
-  if (/^(https?:|data:)/i.test(url)) return url
-  if (url.startsWith("/uploads/")) return `${API_BASE_URL}${url}`
-  if (url.startsWith("uploads/")) return `${API_BASE_URL}/${url}`
-  if (url.startsWith("/")) return url
-  return `/${url}`
+  return backendAssetUrl(url)
 }
 
 export function currentAuthToken() {

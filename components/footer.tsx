@@ -164,6 +164,9 @@ export function Footer() {
                 <img
                   src={isRtl ? (themeSettings?.logoArUrl ? apiAssetUrl(themeSettings.logoArUrl) : "/LogoAR.png") : (themeSettings?.logoEnUrl ? apiAssetUrl(themeSettings.logoEnUrl) : "/logo.png")}
                   alt={t("common.brand")}
+                  onError={(event) => {
+                    event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png"
+                  }}
                   className="h-full w-full object-contain object-left rtl:object-right"
                 />
               </div>

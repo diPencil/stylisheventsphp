@@ -6,6 +6,7 @@ import { PlatformThemeProvider } from "@/components/platform-theme-provider"
 import { LanguageProvider } from "@/contexts/language-context"
 import { Toaster } from "@/components/ui/sonner"
 import { ScrollToTop } from "@/components/ui/scroll-to-top"
+import { backendAssetUrl } from "@/lib/asset-url"
 
 const baseMetadata: Metadata = {
   metadataBase: new URL("https://stylish-events.com"),
@@ -91,14 +92,7 @@ async function fetchPublicThemeSettings() {
 }
 
 function resolveAssetUrl(value?: string | null) {
-  if (!value) return ""
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.nexrobnb.com"
-  const v = String(value)
-  if (/^data:/i.test(v) || /^https?:\/\//i.test(v)) return v
-  if (v.startsWith("/uploads/")) return `${API_BASE}${v}`
-  if (v.startsWith("uploads/")) return `${API_BASE}/${v}`
-  if (v.startsWith("/")) return v
-  return `/${v}`
+  return backendAssetUrl(value)
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -195,26 +189,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     root.style.setProperty('--platform-font', platformFontStack(fontToUse));
                     root.dataset.platformButton = theme.buttonStyle || 'solid';
                     root.dataset.platformDensity = theme.density || 'comfortable';
-                    if (theme.faviconUrl) {
-                      var apiBase = '${process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.nexrobnb.com"}';
-                      var faviconUrl = String(theme.faviconUrl || '/favicon.png');
-                      if (faviconUrl.indexOf('/uploads/') === 0) faviconUrl = apiBase + faviconUrl;
-                      if (faviconUrl.indexOf('uploads/') === 0) faviconUrl = apiBase + '/' + faviconUrl;
-                      if (faviconUrl.indexOf('data:') !== 0) faviconUrl += (faviconUrl.indexOf('?') === -1 ? '?' : '&') + 'v=' + Date.now();
-                      var ensureIcon = function(rel) {
-                        var link = document.head.querySelector('link[rel="' + rel + '"]');
-                        if (!link) {
-                          link = document.createElement('link');
-                          link.rel = rel;
-                          document.head.appendChild(link);
-                        }
-                        link.href = faviconUrl;
-                        if (rel === 'icon') link.type = faviconUrl.indexOf('.svg') !== -1 ? 'image/svg+xml' : 'image/png';
-                      };
-                      ensureIcon('icon');
-                      ensureIcon('shortcut icon');
-                      ensureIcon('apple-touch-icon');
-                    }
                 } catch (e) {}
               })();
             `,

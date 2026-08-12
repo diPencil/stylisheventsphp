@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { ConfirmAction } from "@/components/admin/confirm-action"
 import { ImageGalleryDropzone, ImageUrlDropzone } from "@/components/admin/image-url-dropzone"
-import { platformApi } from "@/lib/platform-api"
+import { apiAssetUrl, platformApi } from "@/lib/platform-api"
 import { enabledCurrencyRates, formatCurrencyAmount, readCurrencySettings, type CurrencyRate, type CurrencySettings } from "@/lib/currency-settings"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -332,12 +332,12 @@ export function EventCreatePage() {
               </div>
               <div className="rounded-[22px] border border-slate-100 bg-slate-50 p-3">
                 <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-slate-200">
-                  {form.heroImage ? <img src={form.heroImage} alt="Event hero preview" className="h-full w-full object-cover" /> : <MediaEmpty />}
+                  {form.heroImage ? <img src={apiAssetUrl(form.heroImage)} alt="Event hero preview" className="h-full w-full object-cover" /> : <MediaEmpty />}
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {gallery.slice(0, 6).map((image) => (
                     <div key={image} className="aspect-square overflow-hidden rounded-xl bg-white">
-                      <img src={image} alt="Event gallery preview" className="h-full w-full object-cover" />
+                      <img src={apiAssetUrl(image)} alt="Event gallery preview" className="h-full w-full object-cover" />
                     </div>
                   ))}
                 </div>
@@ -387,7 +387,7 @@ export function EventCreatePage() {
             <CardContent className="space-y-4">
               <div className="overflow-hidden rounded-[24px] bg-slate-950">
                 <div className="aspect-[4/3] bg-slate-200">
-                  {form.heroImage ? <img src={form.heroImage} alt="Event preview" className="h-full w-full object-cover" /> : <MediaEmpty />}
+                  {form.heroImage ? <img src={apiAssetUrl(form.heroImage)} alt="Event preview" className="h-full w-full object-cover" /> : <MediaEmpty />}
                 </div>
                 <div className="p-4 text-white">
                   <Badge className="mb-3 rounded-xl bg-white/15 text-white hover:bg-white/15">{form.type}</Badge>

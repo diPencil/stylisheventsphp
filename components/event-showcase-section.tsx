@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useLanguage } from "@/contexts/language-context"
 import { AnimatedCtaButton } from "@/components/ui/animated-cta-button"
+import { apiAssetUrl } from "@/lib/platform-api"
 
 const defaultEvents = [
   {
@@ -138,7 +139,7 @@ export function EventShowcaseSection() {
               <div className={`relative h-44 overflow-hidden bg-gradient-to-br ${event.gradient} p-6 text-white`}>
                 {event.imageUrl && (
                   <>
-                    <img src={event.imageUrl} alt={event.titleEn} className="absolute inset-0 z-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                    <img src={apiAssetUrl(event.imageUrl)} alt={event.titleEn} className="absolute inset-0 z-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     <div className="absolute inset-0 z-0 bg-slate-900/40 transition-opacity duration-300 group-hover:bg-slate-900/50" />
                   </>
                 )}
