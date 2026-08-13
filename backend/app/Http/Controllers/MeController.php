@@ -4,9 +4,15 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class MeController extends Controller
 {
+    private function hasPaymentMethodColumn()
+    {
+        return Schema::hasColumn('registrations', 'payment_method');
+    }
+
     private function customerRegistrations(Request $request, array $options = [])
     {
         $page = (int) ($options['page'] ?? 1);
@@ -76,6 +82,7 @@ class MeController extends Controller
                 'r.payment_status',
                 'r.selected_currency',
                 'r.selected_price',
+                $this->hasPaymentMethodColumn() ? 'r.payment_method' : DB::raw('NULL as payment_method'),
                 'r.created_at',
                 'r.updated_at',
                 'o.order_number',
@@ -230,6 +237,7 @@ class MeController extends Controller
                 'r.selected_currency',
                 'r.selected_price',
                 'r.payment_reference',
+                $this->hasPaymentMethodColumn() ? 'r.payment_method' : DB::raw('NULL as payment_method'),
                 'r.payment_proof_url',
                 'r.created_at',
                 'r.updated_at',

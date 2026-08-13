@@ -142,6 +142,32 @@ class PublicEventController extends Controller
         ];
     }
 
+    private function paymentMethods()
+    {
+        return DB::table('bank_accounts')
+            ->where('is_active', 1)
+            ->orderBy('currency')
+            ->orderBy('id')
+            ->get()
+            ->map(function ($account) {
+                return [
+                    'id' => 'bank_account:' . $account->id,
+                    'type' => 'bank_transfer',
+                    'label_en' => trim(($account->bank_name ?: 'Bank transfer') . ' - ' . ($account->account_name ?: 'Account')),
+                    'label_ar' => trim(($account->bank_name ?: 'تحويل بنكي') . ' - ' . ($account->account_name ?: 'الحساب')),
+                    'currency' => $account->currency,
+                    'bank_name' => $account->bank_name,
+                    'account_name' => $account->account_name,
+                    'account_number' => $account->account_number,
+                    'iban' => $account->iban,
+                    'swift_code' => $account->swift_code,
+                    'requires_reference' => true,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
     public function index(Request $request)
     {
         $page = trim((string)$request->query('page', ''));
@@ -460,7 +486,8 @@ class PublicEventController extends Controller
                 'event' => $eventData,
                 'sessions' => $sessionsMapped,
                 'reviews' => $reviews['reviews'],
-                'tickets' => $ticketsMapped
+                'tickets' => $ticketsMapped,
+                'paymentMethods' => $this->paymentMethods()
             ]
         ]);
     }

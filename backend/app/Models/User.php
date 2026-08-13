@@ -53,6 +53,9 @@ class User extends Authenticatable
     {
         if (!$this->role_id) return false;
 
+        $roleCode = $this->role()->value('code');
+        if ($roleCode === 'admin') return true;
+
         return \Illuminate\Support\Facades\DB::table('role_permissions')
             ->where('role_id', $this->role_id)
             ->where('permission_key', $permissionKey)

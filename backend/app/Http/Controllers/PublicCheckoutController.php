@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
@@ -212,6 +213,39 @@ class PublicCheckoutController extends Controller
         ];
     }
 
+    private function paymentMethods($currency = null)
+    {
+        $query = DB::table('bank_accounts')
+            ->where('is_active', 1)
+            ->orderBy('currency')
+            ->orderBy('id');
+
+        if ($currency) {
+            $query->where('currency', strtoupper($currency));
+        }
+
+        return $query->get()->map(function ($account) {
+            return [
+                'id' => 'bank_account:' . $account->id,
+                'type' => 'bank_transfer',
+                'label_en' => trim(($account->bank_name ?: 'Bank transfer') . ' - ' . ($account->account_name ?: 'Account')),
+                'label_ar' => trim(($account->bank_name ?: 'تحويل بنكي') . ' - ' . ($account->account_name ?: 'الحساب')),
+                'currency' => $account->currency,
+                'bank_name' => $account->bank_name,
+                'account_name' => $account->account_name,
+                'account_number' => $account->account_number,
+                'iban' => $account->iban,
+                'swift_code' => $account->swift_code,
+                'requires_reference' => true,
+            ];
+        })->values()->all();
+    }
+
+    private function hasPaymentMethodColumn()
+    {
+        return Schema::hasColumn('registrations', 'payment_method');
+    }
+
     private function registrationSummary($registrationId)
     {
         $registration = DB::table('registrations as r')
@@ -223,7 +257,9 @@ class PublicCheckoutController extends Controller
             ->leftJoin('attendees as a', 'a.id', '=', 'gt.attendee_id')
             ->select(
                 'r.id', 'r.registration_number', 'r.registration_status', 'r.payment_status',
-                'r.selected_currency', 'r.selected_price', 'r.payment_reference', 'r.payment_proof_url',
+                'r.selected_currency', 'r.selected_price', 'r.payment_reference',
+                $this->hasPaymentMethodColumn() ? 'r.payment_method' : DB::raw('NULL as payment_method'),
+                'r.payment_proof_url',
                 'r.reservation_expires_at', 'r.capacity_reservation_status', 'r.capacity_released_at',
                 'r.capacity_release_reason', 'r.created_at',
                 'e.slug as event_slug', 'e.title_en as event_title_en', 'e.title_ar as event_title_ar',
@@ -252,6 +288,7 @@ class PublicCheckoutController extends Controller
             'selected_currency' => $registration->selected_currency,
             'selected_price' => $registration->selected_price,
             'payment_reference' => $registration->payment_reference,
+            'payment_method' => $registration->payment_method ?? null,
             'payment_proof_url' => $registration->payment_proof_url,
             'reservation_expires_at' => $registration->reservation_expires_at,
             'capacity_reservation_status' => $registration->capacity_reservation_status,
@@ -402,6 +439,7 @@ class PublicCheckoutController extends Controller
             'specialty' => 'nullable|string',
             'preferredLanguage' => 'nullable|string',
             'paymentReference' => 'nullable|string',
+            'paymentMethod' => 'nullable|string|max:100',
             'paymentProofUrl' => 'nullable|string',
         ]), function ($validator) {
             if ($validator->fails()) {
@@ -416,6 +454,7 @@ class PublicCheckoutController extends Controller
         $input = array_merge($validated, [
             'address' => $validated['address'] ?? '',
             'paymentReference' => $validated['paymentReference'] ?? null,
+            'paymentMethod' => $validated['paymentMethod'] ?? null,
             'paymentProofUrl' => $validated['paymentProofUrl'] ?? null,
             'nationality' => $validated['nationality'] ?? '',
             'city' => $validated['city'] ?? '',
@@ -463,11 +502,13 @@ class PublicCheckoutController extends Controller
                     throw new \Exception(json_encode(['status' => 404, 'message' => 'Event not found']));
                 }
 
+                $authUser = Auth::guard('api')->setRequest($request)->user();
+                $ownerUserId = $authUser ? (int) $authUser->id : null;
                 $policy = $this->normalizeEventPolicy($event);
                 if (!$policy->publicRegistrationEnabled) {
                     throw new \Exception(json_encode(['status' => 409, 'message' => 'Public registration is disabled for this event', 'details' => ['state' => 'disabled']]));
                 }
-                if ($policy->access === 'login_required' && !auth('api')->check()) {
+                if ($policy->access === 'login_required' && !$ownerUserId) {
                     throw new \Exception(json_encode(['status' => 401, 'message' => 'Login is required for this event registration', 'details' => ['state' => 'login_required']]));
                 }
                 if ($input['quantity'] > $policy->maxTicketsPerCheckout) {
@@ -508,9 +549,6 @@ class PublicCheckoutController extends Controller
                     'status' => 'pending',
                     'expires_at' => now()->addMinutes(30),
                 ]);
-
-                $authUser = Auth::guard('api')->setRequest($request)->user();
-                $ownerUserId = $authUser ? (int) $authUser->id : null;
 
                 if ($ownerUserId) {
                     $doctor = DB::table('doctors')->where('user_id', $ownerUserId)->lockForUpdate()->first();
@@ -565,7 +603,8 @@ class PublicCheckoutController extends Controller
                     throw new \Exception(json_encode(['status' => 409, 'message' => 'Manual payment is not enabled for this event', 'details' => ['state' => 'payment_unavailable']]));
                 }
 
-                $initialState = $this->getCheckoutInitialState($isFree, (bool)$input['paymentProofUrl'], $policy->approvalMode);
+                $paymentSubmitted = (bool)($input['paymentReference'] || $input['paymentProofUrl']);
+                $initialState = $this->getCheckoutInitialState($isFree, $paymentSubmitted, $policy->approvalMode);
 
                 $orderId = DB::table('orders')->insertGetId([
                     'customer_id' => $ownerUserId,
@@ -582,7 +621,7 @@ class PublicCheckoutController extends Controller
                     'updated_at' => now(),
                 ]);
 
-                $regId = DB::table('registrations')->insertGetId([
+                $registrationPayload = [
                     'registration_number' => 'REG-' . strtoupper(base_convert(time(), 10, 36) . '-' . bin2hex(random_bytes(3))),
                     'doctor_id' => $doctorId,
                     'event_id' => $event->id,
@@ -600,7 +639,13 @@ class PublicCheckoutController extends Controller
                     'capacity_reservation_status' => 'active',
                     'created_at' => now(),
                     'updated_at' => now(),
-                ]);
+                ];
+
+                if ($this->hasPaymentMethodColumn()) {
+                    $registrationPayload['payment_method'] = $input['paymentMethod'];
+                }
+
+                $regId = DB::table('registrations')->insertGetId($registrationPayload);
 
                 if ($initialState->shouldIssueTicket) {
                     $this->issueTicket($regId);
@@ -669,7 +714,8 @@ class PublicCheckoutController extends Controller
             'message' => $msg,
             'data' => [
                 'registration' => $this->registrationSummary($created->registrationId),
-                'bankAccount' => null, // Placeholder to match legacy shape
+                'bankAccount' => $this->paymentMethods($created->currency)[0] ?? null,
+                'paymentMethods' => $this->paymentMethods($created->currency),
                 'checkout' => [
                     'currency' => $created->currency,
                     'price' => $created->price,
