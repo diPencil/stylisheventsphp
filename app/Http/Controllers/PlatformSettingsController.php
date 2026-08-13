@@ -230,15 +230,15 @@ class PlatformSettingsController extends Controller
     public function uploadAsset(Request $request)
     {
         $user = auth('api')->user();
-        if (!$user || (!$user->hasPermission('website_content.manage') && !$user->hasPermission('certificates.manage'))) {
+        if (!$user || (!$user->hasPermission('website_content.manage') && !$user->hasPermission('certificates.manage') && !$user->hasPermission('events.manage'))) {
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
         $fileName = $request->input('fileName', 'asset');
         $dataUrl = $request->input('dataUrl', '');
 
-        if (!preg_match('/^data:((?:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml))|(?:video\/(?:mp4|webm|ogg)));base64,([A-Za-z0-9+\/]+={0,2})$/', $dataUrl, $match)) {
-            return response()->json(['success' => false, 'message' => 'Only png, jpg, webp, gif, svg, mp4, webm, and ogg assets are allowed'], 400);
+        if (!preg_match('/^data:((?:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml))|(?:video\/(?:mp4|webm|ogg))|(?:application\/pdf));base64,([A-Za-z0-9+\/]+={0,2})$/', $dataUrl, $match)) {
+            return response()->json(['success' => false, 'message' => 'Only png, jpg, webp, gif, svg, mp4, webm, ogg, and pdf assets are allowed'], 400);
         }
 
         $mime = $match[1];
@@ -254,6 +254,7 @@ class PlatformSettingsController extends Controller
             'video/mp4' => 'mp4',
             'video/webm' => 'webm',
             'video/ogg' => 'ogg',
+            'application/pdf' => 'pdf',
         ];
 
         $extension = $extensionByMime[$mime];
