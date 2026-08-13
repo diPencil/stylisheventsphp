@@ -55,6 +55,8 @@ export function isAllowed(userPermissions: readonly string[], rule?: PermissionR
 }
 
 export function userPermissionKeys(user: any): PermissionKey[] {
+  const roleCode = user?.role?.code || user?.roleCode || user?.role_code
+  if (roleCode === "admin") return [...permissionKeys]
   if (!Array.isArray(user?.permissions)) return []
   return user.permissions
     .map((permission: any) => String(permission))

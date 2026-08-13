@@ -23,6 +23,7 @@ const initialForm = {
   specialty: "",
   nationality: "Egyptian",
   preferredLanguage: "en",
+  paymentMethod: "",
   paymentReference: "",
   paymentProofUrl: "",
 }
@@ -85,12 +86,18 @@ export default function EventRegisterPage() {
   const policy = event?.registration_policy || {}
   const currency = form.countryCode.toUpperCase() === "EG" ? "EGP" : "USD"
   const price = selectedTicket ? Number(currency === "EGP" ? selectedTicket.price_egp ?? selectedTicket.price : selectedTicket.price_usd ?? selectedTicket.price) : 0
+  const paymentMethods = useMemo(() => (data?.paymentMethods || []).filter((method: any) => String(method.currency || "").toUpperCase() === currency), [data, currency])
   const registrationUnavailable = policy.publicRegistrationEnabled === false || event?.state !== "open"
   const loginRequired = policy.access === "login_required" && !hasAuthToken
-  const manualPaymentUnavailable = price > 0 && policy.manualPaymentEnabled === false
-  const submitDisabled = submitting || accountPrefillLoading || !selectedTicket || registrationUnavailable || loginRequired || manualPaymentUnavailable
+  const manualPaymentUnavailable = price > 0 && (policy.manualPaymentEnabled === false || paymentMethods.length === 0)
+  const submitDisabled = submitting || accountPrefillLoading || !selectedTicket || registrationUnavailable || loginRequired || manualPaymentUnavailable || (price > 0 && !form.paymentReference.trim())
 
   const update = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }))
+
+  useEffect(() => {
+    if (price <= 0 || paymentMethods.length === 0) return
+    setForm((current) => paymentMethods.some((method: any) => method.id === current.paymentMethod) ? current : { ...current, paymentMethod: paymentMethods[0].id })
+  }, [paymentMethods, price])
 
   async function submit(eventSubmit: FormEvent) {
     eventSubmit.preventDefault()
@@ -104,6 +111,7 @@ export default function EventRegisterPage() {
         quantity: 1,
         idempotencyKey: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
         paymentReference: form.paymentReference || null,
+        paymentMethod: form.paymentMethod || null,
         paymentProofUrl: form.paymentProofUrl || null,
       })
       const reference = result?.registration?.registration_number
@@ -208,9 +216,32 @@ export default function EventRegisterPage() {
                     : (isRtl ? "الدفع اليدوي متاح. يمكنك ترك بيانات التحويل فارغة وإرسالها لاحقاً، أو إضافتها الآن للمراجعة." : "Manual payment is available. You may submit bank-transfer details now or add them later for review.")}
               </p>
               {price > 0 && !manualPaymentUnavailable ? (
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="mt-4 space-y-4">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {paymentMethods.map((method: any) => (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => update("paymentMethod", method.id)}
+                        className={cn(
+                          "rounded-2xl border bg-white p-4 text-start transition",
+                          form.paymentMethod === method.id ? "border-primary shadow-[0_12px_30px_rgba(15,23,42,0.10)]" : "border-slate-200 hover:border-primary/50"
+                        )}
+                      >
+                        <span className="block text-sm font-black text-slate-950">{isRtl ? method.label_ar : method.label_en}</span>
+                        <span className="mt-2 block text-xs font-bold text-slate-500" dir="ltr">{method.currency}</span>
+                        <span className="mt-3 block text-xs font-bold leading-5 text-slate-500">
+                          {method.bank_name ? `${method.bank_name} - ${method.account_name || ""}` : (isRtl ? "تحويل بنكي" : "Bank transfer")}
+                        </span>
+                        {method.account_number ? <span className="mt-1 block text-xs font-bold text-slate-500" dir="ltr">{method.account_number}</span> : null}
+                        {method.iban ? <span className="mt-1 block text-xs font-bold text-slate-500" dir="ltr">{method.iban}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
                   <Field label={isRtl ? "رقم/مرجع التحويل" : "Transfer reference"} value={form.paymentReference} onChange={(v) => update("paymentReference", v)} ltr />
                   <Field label={isRtl ? "رابط إثبات الدفع" : "Payment proof URL"} value={form.paymentProofUrl} onChange={(v) => update("paymentProofUrl", v)} ltr />
+                  </div>
                 </div>
               ) : null}
             </div>

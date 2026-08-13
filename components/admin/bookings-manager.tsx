@@ -54,7 +54,7 @@ function normalizeBooking(row: any): Booking {
     tickets: Number(row.ticket_quantity || 1),
     amount: Number(row.selected_price || row.grand_total || 0),
     currency: row.selected_currency || row.order_currency || row.currency || "USD",
-    method: row.payment_reference ? "Bank transfer" : "Pending proof",
+    method: row.payment_method ? String(row.payment_method).replace("bank_account:", "Bank transfer #") : row.payment_reference ? "Bank transfer" : "Pending proof",
     status,
     createdAt: row.created_at || "",
   }

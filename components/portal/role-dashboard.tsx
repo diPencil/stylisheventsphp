@@ -118,7 +118,7 @@ function DoctorPortalDashboard() {
 
   async function submitProof(registrationId: number) {
     const state = proof[String(registrationId)]
-    if (!state?.url) return
+    if (!state?.reference && !state?.url) return
     setProof((current) => ({ ...current, [registrationId]: { ...state, loading: true } }))
     try {
       await platformApi.submitPaymentProof(registrationId, {
@@ -246,7 +246,7 @@ function DoctorPortalDashboard() {
                           <div className="mt-3 grid gap-2 rounded-2xl bg-slate-50 p-3">
                             <Input className="h-10 rounded-xl bg-white text-sm font-bold" placeholder={isRtl ? "رقم التحويل" : "Transfer reference"} value={proofState.reference} onChange={(event) => setProof((current) => ({ ...current, [item.id]: { ...proofState, reference: event.target.value } }))} />
                             <Input className="h-10 rounded-xl bg-white text-sm font-bold" placeholder={isRtl ? "رابط إثبات الدفع" : "Payment proof URL"} value={proofState.url} onChange={(event) => setProof((current) => ({ ...current, [item.id]: { ...proofState, url: event.target.value } }))} />
-                            <Button onClick={() => submitProof(item.id)} disabled={!proofState.url || proofState.loading} className="h-10 rounded-xl font-black">
+                            <Button onClick={() => submitProof(item.id)} disabled={(!proofState.reference && !proofState.url) || proofState.loading} className="h-10 rounded-xl font-black">
                               {proofState.loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
                               {isRtl ? "إرسال للمراجعة" : "Send for review"}
                             </Button>
