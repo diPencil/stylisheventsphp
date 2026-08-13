@@ -267,6 +267,109 @@ class PhaseDCheckoutTest extends TestCase
             ->assertStatus(404);
     }
 
+    public function test_authenticated_paid_checkout_with_reference_enters_admin_verification_lifecycle()
+    {
+        DB::table('bank_accounts')->insert([
+            'account_name' => 'Stylish Events QA',
+            'bank_name' => 'QA Bank',
+            'account_number' => 'QA-123',
+            'currency' => 'USD',
+            'is_active' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $customerRole = DB::table('roles')->where('code', 'customer')->first();
+        $adminRole = DB::table('roles')->where('code', 'admin')->first();
+        $this->assertNotNull($customerRole);
+        $this->assertNotNull($adminRole);
+
+        $customer = User::create([
+            'role_id' => $customerRole->id,
+            'name' => 'Paid Portal Owner',
+            'email' => 'paid-owner-' . uniqid() . '@test.com',
+            'password_hash' => Hash::make('password123'),
+            'status' => 'active',
+            'preferred_language' => 'en',
+        ]);
+        $otherCustomer = User::create([
+            'role_id' => $customerRole->id,
+            'name' => 'Paid Portal Other',
+            'email' => 'paid-other-' . uniqid() . '@test.com',
+            'password_hash' => Hash::make('password123'),
+            'status' => 'active',
+            'preferred_language' => 'en',
+        ]);
+        $admin = User::create([
+            'role_id' => $adminRole->id,
+            'name' => 'Payment Admin',
+            'email' => 'payment-admin-' . uniqid() . '@test.com',
+            'password_hash' => Hash::make('password123'),
+            'status' => 'active',
+            'preferred_language' => 'en',
+        ]);
+
+        $token = app('auth')->guard('api')->createToken($customer);
+        $otherToken = app('auth')->guard('api')->createToken($otherCustomer);
+        $adminToken = app('auth')->guard('api')->createToken($admin);
+
+        $response = $this->withHeaders(['Authorization' => "Bearer {$token}"])
+            ->postJson("/api/public/events/{$this->slug}/checkout", [
+                'idempotencyKey' => 'sess_paid_reference_' . uniqid(),
+                'ticketTypeId' => $this->ticketId,
+                'quantity' => 1,
+                'email' => $customer->email,
+                'fullName' => 'Paid Portal Owner',
+                'mobile' => '01000000011',
+                'countryCode' => 'US',
+                'countryName' => 'United States',
+                'paymentMethod' => 'bank_account:1',
+                'paymentReference' => 'TXN-' . uniqid(),
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.registration.registration_status', 'pending_verification')
+            ->assertJsonPath('data.registration.payment_status', 'pending');
+
+        $registrationId = $response->json('data.registration.id');
+        $registration = DB::table('registrations')->where('id', $registrationId)->first();
+        $this->assertEquals('pending_verification', $registration->registration_status);
+        $this->assertEquals('pending', $registration->payment_status);
+        $this->assertNotEmpty($registration->payment_reference);
+
+        $this->withHeaders(['Authorization' => "Bearer {$token}"])
+            ->getJson('/api/me/registrations')
+            ->assertStatus(200)
+            ->assertJsonPath('data.data.0.id', $registrationId)
+            ->assertJsonPath('data.data.0.registration_status', 'pending_verification')
+            ->assertJsonPath('data.data.0.payment_status', 'pending');
+
+        $otherRows = $this->withHeaders(['Authorization' => "Bearer {$otherToken}"])
+            ->getJson('/api/me/registrations')
+            ->assertStatus(200)
+            ->json('data.data');
+        $this->assertFalse(collect($otherRows)->contains(fn ($row) => (int)$row['id'] === (int)$registrationId));
+
+        $adminRows = $this->withHeaders(['Authorization' => "Bearer {$adminToken}"])
+            ->getJson('/api/registrations')
+            ->assertStatus(200)
+            ->json('data');
+        $adminRegistration = collect($adminRows)->firstWhere('id', $registrationId);
+        $this->assertNotNull($adminRegistration);
+        $this->assertSame('pending', $adminRegistration['payment_status']);
+
+        $this->withHeaders(['Authorization' => "Bearer {$adminToken}"])
+            ->patchJson("/api/registrations/{$registrationId}/payment-review", ['status' => 'approved'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'approved');
+
+        $this->withHeaders(['Authorization' => "Bearer {$token}"])
+            ->getJson("/api/me/registrations/{$registrationId}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.payment_status', 'approved');
+    }
+
     public function test_registration_lookup()
     {
         // Create registration

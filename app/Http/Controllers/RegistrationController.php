@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class RegistrationController extends Controller
 {
@@ -76,6 +77,11 @@ class RegistrationController extends Controller
             ->where('is_active', 1)
             ->orderBy('id', 'asc')
             ->first();
+    }
+
+    private function hasPaymentMethodColumn()
+    {
+        return Schema::hasColumn('registrations', 'payment_method');
     }
 
     private function countActiveReservations($eventId, $ticketTypeId)
@@ -162,7 +168,9 @@ class RegistrationController extends Controller
             ->select([
                 'r.id', 'r.registration_number', 'r.event_id', 'r.ticket_type_id', 'r.doctor_id',
                 'r.order_id', 'r.source', 'r.registration_status', 'r.payment_status',
-                'r.selected_currency', 'r.selected_price', 'r.payment_reference', 'r.payment_proof_url',
+                'r.selected_currency', 'r.selected_price', 'r.payment_reference',
+                $this->hasPaymentMethodColumn() ? 'r.payment_method' : DB::raw('NULL as payment_method'),
+                'r.payment_proof_url',
                 'r.created_at', 'o.order_number', 'o.status as order_status', 'o.grand_total',
                 'o.currency as order_currency', 'd.full_name as doctor_name', 'd.mobile as doctor_mobile',
                 'd.email as doctor_email', 'd.country_code', 'd.country_name', 'd.specialty',
@@ -261,6 +269,7 @@ class RegistrationController extends Controller
             'nationality' => 'required|string|min:2',
             'preferredLanguage' => 'nullable|string|in:ar,en',
             'paymentReference' => 'nullable|string',
+            'paymentMethod' => 'nullable|string|max:100',
             'paymentProofUrl' => 'nullable|string',
         ]);
 
@@ -269,6 +278,7 @@ class RegistrationController extends Controller
             'preferredLanguage' => $validated['preferredLanguage'] ?? 'en',
             'address' => $validated['address'] ?? '',
             'paymentReference' => $validated['paymentReference'] ?? null,
+            'paymentMethod' => $validated['paymentMethod'] ?? null,
             'paymentProofUrl' => $validated['paymentProofUrl'] ?? null,
         ]);
 
@@ -335,10 +345,10 @@ class RegistrationController extends Controller
                 'customer_phone' => $input['mobile'],
             ]);
 
-            $status = $input['paymentProofUrl'] ? 'pending_verification' : 'pending_payment';
+            $status = ($input['paymentReference'] || $input['paymentProofUrl']) ? 'pending_verification' : 'pending_payment';
             $nextRegistrationNumber = $this->registrationNumber();
 
-            $regId = DB::table('registrations')->insertGetId([
+            $registrationPayload = [
                 'registration_number' => $nextRegistrationNumber,
                 'doctor_id' => $doctorId,
                 'event_id' => $input['eventId'],
@@ -352,7 +362,13 @@ class RegistrationController extends Controller
                 'selected_price_period_id' => $pricePeriod['id'],
                 'payment_reference' => $input['paymentReference'],
                 'payment_proof_url' => $input['paymentProofUrl'],
-            ]);
+            ];
+
+            if ($this->hasPaymentMethodColumn()) {
+                $registrationPayload['payment_method'] = $input['paymentMethod'];
+            }
+
+            $regId = DB::table('registrations')->insertGetId($registrationPayload);
 
             return [
                 'id' => $regId,
@@ -395,6 +411,7 @@ class RegistrationController extends Controller
             'nationality' => 'required|string|min:2',
             'preferredLanguage' => 'nullable|string|in:ar,en',
             'paymentReference' => 'nullable|string',
+            'paymentMethod' => 'nullable|string|max:100',
             'paymentProofUrl' => 'nullable|string',
             'paymentStatus' => 'nullable|string|in:paid,pending',
             'sendEmail' => 'nullable|boolean',
@@ -405,6 +422,7 @@ class RegistrationController extends Controller
             'preferredLanguage' => $validated['preferredLanguage'] ?? 'en',
             'address' => $validated['address'] ?? '',
             'paymentReference' => $validated['paymentReference'] ?? null,
+            'paymentMethod' => $validated['paymentMethod'] ?? null,
             'paymentProofUrl' => $validated['paymentProofUrl'] ?? null,
             'paymentStatus' => $validated['paymentStatus'] ?? 'pending',
             'sendEmail' => $validated['sendEmail'] ?? false,
@@ -475,7 +493,7 @@ class RegistrationController extends Controller
             }
 
             $nextRegistrationNumber = $this->registrationNumber();
-            $regId = DB::table('registrations')->insertGetId([
+            $registrationPayload = [
                 'registration_number' => $nextRegistrationNumber, 'doctor_id' => $doctorId,
                 'event_id' => $input['eventId'], 'ticket_type_id' => $input['ticketTypeId'], 'order_id' => $orderId,
                 'source' => 'manual', 'registration_status' => $approvalState['registrationStatus'],
@@ -483,7 +501,13 @@ class RegistrationController extends Controller
                 'selected_price' => $pricePeriod['selected_price'], 'selected_price_period_id' => $pricePeriod['id'],
                 'payment_reference' => $input['paymentReference'], 'payment_proof_url' => $input['paymentProofUrl'],
                 'created_by_user_id' => $request->user()->id, 'capacity_reservation_status' => 'active',
-            ]);
+            ];
+
+            if ($this->hasPaymentMethodColumn()) {
+                $registrationPayload['payment_method'] = $input['paymentMethod'];
+            }
+
+            $regId = DB::table('registrations')->insertGetId($registrationPayload);
 
             $ticketInfo = [];
             if ($approvalState['shouldIssueTicket']) {
@@ -532,7 +556,8 @@ class RegistrationController extends Controller
     {
         $validated = $request->validate([
             'paymentReference' => 'nullable|string',
-            'paymentProofUrl' => 'required|string|min:2',
+            'paymentMethod' => 'nullable|string|max:100',
+            'paymentProofUrl' => 'nullable|string|min:2',
         ]);
 
         $registration = DB::table('registrations')->where('id', $id)->first();
@@ -541,16 +566,26 @@ class RegistrationController extends Controller
             return response()->json(['success' => false, 'message' => 'Reservation has expired. Please start a new checkout or contact support.'], 409);
         }
 
-        DB::table('registrations')->where('id', $id)->update([
+        if (empty($validated['paymentReference']) && empty($validated['paymentProofUrl'])) {
+            return response()->json(['success' => false, 'message' => 'Payment reference or proof is required'], 422);
+        }
+
+        $paymentUpdate = [
             'payment_reference' => $validated['paymentReference'] ?? null,
-            'payment_proof_url' => $validated['paymentProofUrl'],
+            'payment_proof_url' => $validated['paymentProofUrl'] ?? null,
             'registration_status' => 'pending_verification',
             'payment_status' => 'pending',
             'reservation_expires_at' => null,
             'capacity_reservation_status' => 'active',
             'capacity_released_at' => null,
             'capacity_release_reason' => null
-        ]);
+        ];
+
+        if ($this->hasPaymentMethodColumn()) {
+            $paymentUpdate['payment_method'] = $validated['paymentMethod'] ?? null;
+        }
+
+        DB::table('registrations')->where('id', $id)->update($paymentUpdate);
 
         return response()->json(['success' => true, 'message' => 'Payment proof submitted', 'data' => ['id' => (int)$id]]);
     }
