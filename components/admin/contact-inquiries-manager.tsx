@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { AdminPageHeader, MetricCard } from "@/components/admin/admin-primitives"
+import { PaginationControls } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
 import { platformApi } from "@/lib/platform-api"
@@ -85,20 +86,19 @@ export function ContactInquiriesManager() {
   const [status, setStatus] = useState("all")
   const [type, setType] = useState("all")
   const [date, setDate] = useState("")
-  const [page, setPage] = useState(0)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<ContactInquiry | null>(null)
   const [saving, setSaving] = useState(false)
-  const limit = 10
-
   const queryParams = useMemo(() => ({
     search,
     status: status === "all" ? "" : status,
     type: type === "all" ? "" : type,
     date,
     limit,
-    offset: page * limit,
-  }), [search, status, type, date, page])
+    offset: (page - 1) * limit,
+  }), [search, status, type, date, page, limit])
 
   useEffect(() => {
     let active = true
@@ -166,23 +166,23 @@ export function ContactInquiriesManager() {
             <div className="grid gap-2 md:grid-cols-[minmax(220px,1fr)_170px_180px_150px]">
               <div className="relative">
                 <Search className="absolute top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 ltr:left-3 rtl:right-3" />
-                <Input value={search} onChange={(event) => { setSearch(event.target.value); setPage(0) }} placeholder={language === "ar" ? "بحث..." : "Search..."} className="h-11 rounded-2xl bg-slate-50 ltr:pl-9 rtl:pr-9" />
+                <Input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder={language === "ar" ? "بحث..." : "Search..."} className="h-11 rounded-2xl bg-slate-50 ltr:pl-9 rtl:pr-9" />
               </div>
-              <Select value={status} onValueChange={(value) => { setStatus(value); setPage(0) }}>
+              <Select value={status} onValueChange={(value) => { setStatus(value); setPage(1) }}>
                 <SelectTrigger className="h-11 rounded-2xl bg-slate-50"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{language === "ar" ? "كل الحالات" : "All status"}</SelectItem>
                   {statusOptions.map((item) => <SelectItem key={item.value} value={item.value}>{language === "ar" ? item.labelAr : item.labelEn}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={type} onValueChange={(value) => { setType(value); setPage(0) }}>
+              <Select value={type} onValueChange={(value) => { setType(value); setPage(1) }}>
                 <SelectTrigger className="h-11 rounded-2xl bg-slate-50"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{language === "ar" ? "كل الأنواع" : "All types"}</SelectItem>
                   {inquiryTypeOptions.map((item) => <SelectItem key={item.value} value={item.value}>{language === "ar" ? item.labelAr : item.labelEn}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Input type="date" value={date} onChange={(event) => { setDate(event.target.value); setPage(0) }} className="h-11 rounded-2xl bg-slate-50" />
+              <Input type="date" value={date} onChange={(event) => { setDate(event.target.value); setPage(1) }} className="h-11 rounded-2xl bg-slate-50" />
             </div>
           </div>
         </CardHeader>
@@ -230,13 +230,14 @@ export function ContactInquiriesManager() {
               </div>
             ) : null}
           </div>
-          <div className="flex flex-col gap-3 border-t border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs font-bold text-slate-400">{language === "ar" ? `صفحة ${page + 1} من ${pages}` : `Page ${page + 1} of ${pages}`}</p>
-            <div className="flex gap-2">
-              <Button variant="outline" disabled={page === 0} onClick={() => setPage((current) => Math.max(0, current - 1))} className="h-10 rounded-xl font-bold">{language === "ar" ? "السابق" : "Previous"}</Button>
-              <Button variant="outline" disabled={page + 1 >= pages} onClick={() => setPage((current) => current + 1)} className="h-10 rounded-xl font-bold">{language === "ar" ? "التالي" : "Next"}</Button>
-            </div>
-          </div>
+          <PaginationControls
+            page={page}
+            pageSize={limit}
+            total={total}
+            totalPages={pages}
+            onPageChange={setPage}
+            onPageSizeChange={setLimit}
+          />
         </CardContent>
       </Card>
 

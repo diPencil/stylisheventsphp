@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
+import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
 import { adminT } from "@/lib/admin-translations"
@@ -143,6 +144,7 @@ export function ReportsManager() {
   }, [language])
 
   const filteredRows = rows.filter((row) => row.event.toLowerCase().includes(search.toLowerCase()))
+  const reportPagination = useTablePagination(filteredRows, [search])
 
   const totals = useMemo(() => {
     const revenue = rows.reduce((sum, row) => sum + row.revenue, 0)
@@ -178,11 +180,11 @@ export function ReportsManager() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRows.map((row, index) => {
+              {reportPagination.paginatedRows.map((row, index) => {
                 const checkInRate = percent(row.checkedIn, row.attendees)
                 return (
                   <TableRow key={row.id} className="hover:bg-[hsl(var(--primary)/0.04)]">
-                    <TableCell className="text-sm font-extrabold text-slate-400" dir="ltr">{index + 1}</TableCell>
+                    <TableCell className="text-sm font-extrabold text-slate-400" dir="ltr">{(reportPagination.page - 1) * reportPagination.pageSize + index + 1}</TableCell>
                     <TableCell className="max-w-[260px]"><p className="line-clamp-2 text-sm font-extrabold text-[#17172f]">{row.event}</p><p className={cn("text-xs font-semibold text-slate-400", isRtl && "inline-block")} dir="ltr">{row.id}</p></TableCell>
                     {(mode === "revenue" || mode === "full") && <TableCell className="text-sm font-extrabold" dir="ltr">{money(row.revenue, row.currency)}</TableCell>}
                     {(mode === "revenue" || mode === "full") && <TableCell className="text-sm font-extrabold" dir="ltr">{row.bookings.toLocaleString()}</TableCell>}
@@ -198,6 +200,14 @@ export function ReportsManager() {
           </Table>
           {filteredRows.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{adminT(language, "reports.noRows")}</div>}
         </div>
+        <PaginationControls
+          page={reportPagination.page}
+          pageSize={reportPagination.pageSize}
+          total={filteredRows.length}
+          totalPages={reportPagination.totalPages}
+          onPageChange={reportPagination.setPage}
+          onPageSizeChange={reportPagination.setPageSize}
+        />
       </CardContent>
     </Card>
   )

@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
 import { ConfirmAction } from "@/components/admin/confirm-action"
+import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
 import { useAdminPermissions } from "@/components/admin/admin-shell"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
@@ -126,8 +127,10 @@ export function ReviewsManager() {
     }
   }
 
-  const renderTable = (items: Review[]) => (
-    <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
+  const renderTable = (items: Review[]) => {
+    const reviewPagination = useTablePagination(items, [search, items.length])
+    return (
+      <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
       <CardHeader className="flex flex-col gap-3 border-b border-slate-100 md:flex-row md:items-center md:justify-between">
         <div>
           <CardTitle className="text-base font-extrabold">{adminT(language, "reviews.table")}</CardTitle>
@@ -151,9 +154,9 @@ export function ReviewsManager() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((review, index) => (
+              {reviewPagination.paginatedRows.map((review, index) => (
                 <TableRow key={review.id} className="hover:bg-[hsl(var(--primary)/0.04)]">
-                  <TableCell className="text-sm font-extrabold text-slate-400">{index + 1}</TableCell>
+                  <TableCell className="text-sm font-extrabold text-slate-400">{(reviewPagination.page - 1) * reviewPagination.pageSize + index + 1}</TableCell>
                   <TableCell>
                     <p className="text-sm font-extrabold text-[#17172f]">{review.customer}</p>
                     <p className="text-xs font-semibold text-slate-400">{review.email}</p>
@@ -211,10 +214,20 @@ export function ReviewsManager() {
               ))}
             </TableBody>
           </Table>
+          {items.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{language === "ar" ? "لا توجد مراجعات." : "No reviews found."}</div>}
         </div>
+        <PaginationControls
+          page={reviewPagination.page}
+          pageSize={reviewPagination.pageSize}
+          total={items.length}
+          totalPages={reviewPagination.totalPages}
+          onPageChange={reviewPagination.setPage}
+          onPageSizeChange={reviewPagination.setPageSize}
+        />
       </CardContent>
-    </Card>
-  )
+      </Card>
+    )
+  }
 
   return (
     <div className="space-y-5">

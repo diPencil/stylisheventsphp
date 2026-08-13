@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ConfirmAction } from "@/components/admin/confirm-action"
+import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
 import { adminStatusT, adminT } from "@/lib/admin-translations"
@@ -100,6 +101,7 @@ export function AttendeesManager() {
     if (!query) return attendees
     return attendees.filter((attendee) => `${attendee.name} ${attendee.email} ${attendee.event} ${attendee.ticket}`.toLowerCase().includes(query))
   }, [attendees, search])
+  const attendeePagination = useTablePagination(filteredAttendees, [search])
 
   const totals = useMemo(() => {
     const checkedIn = attendees.filter((attendee) => attendee.status === "checked_in").length
@@ -217,9 +219,9 @@ export function AttendeesManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAttendees.map((attendee, index) => (
+                {attendeePagination.paginatedRows.map((attendee, index) => (
                   <TableRow key={attendee.id} className="hover:bg-[hsl(var(--primary)/0.04)]">
-                    <TableCell className="text-sm font-extrabold text-slate-400">{index + 1}</TableCell>
+                    <TableCell className="text-sm font-extrabold text-slate-400">{(attendeePagination.page - 1) * attendeePagination.pageSize + index + 1}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[hsl(var(--primary)/0.10)] text-[hsl(var(--primary))]"><Users className="h-4 w-4" /></div>
@@ -266,6 +268,14 @@ export function AttendeesManager() {
             </Table>
             {filteredAttendees.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{language === "ar" ? "لا يوجد حضور في قاعدة البيانات حالياً." : "No attendees in database yet."}</div>}
           </div>
+          <PaginationControls
+            page={attendeePagination.page}
+            pageSize={attendeePagination.pageSize}
+            total={filteredAttendees.length}
+            totalPages={attendeePagination.totalPages}
+            onPageChange={attendeePagination.setPage}
+            onPageSizeChange={attendeePagination.setPageSize}
+          />
         </CardContent>
       </Card>
     </div>

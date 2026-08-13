@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react"
 import { Search } from "lucide-react"
+import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,11 +12,16 @@ type PageHeaderProps = {
   eyebrow: string
   title: string
   description: string
-  action?: {
+  action?: PageHeaderAction
+  actions?: PageHeaderAction[]
+}
+
+type PageHeaderAction = {
     label: string
     icon?: LucideIcon
     onClick?: () => void
-  }
+    href?: string
+    variant?: "primary" | "outline"
 }
 
 type MetricCardProps = {
@@ -30,8 +36,8 @@ type TableSearchProps = {
   placeholder: string
 }
 
-export function AdminPageHeader({ eyebrow, title, description, action }: PageHeaderProps) {
-  const ActionIcon = action?.icon
+export function AdminPageHeader({ eyebrow, title, description, action, actions = [] }: PageHeaderProps) {
+  const headerActions = [...actions, ...(action ? [action] : [])]
   const { isRtl } = useLanguage()
 
   return (
@@ -41,14 +47,28 @@ export function AdminPageHeader({ eyebrow, title, description, action }: PageHea
         <h1 className="text-xl font-extrabold tracking-tight text-[#17172f] md:text-2xl">{title}</h1>
         <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500">{description}</p>
       </div>
-      {action && (
-        <Button
-          onClick={action.onClick}
-          className="h-10 rounded-2xl bg-[hsl(var(--primary))] px-4 text-sm font-extrabold text-white hover:bg-[hsl(var(--primary)/0.9)]"
-        >
-          {ActionIcon && <ActionIcon className="h-4 w-4" />}
-          {action.label}
-        </Button>
+      {headerActions.length > 0 && (
+        <div className={cn("flex flex-wrap gap-2", isRtl && "justify-end")}>
+          {headerActions.map((item) => {
+            const ActionIcon = item.icon
+            const button = (
+              <Button
+                onClick={item.onClick}
+                variant={item.variant === "outline" ? "outline" : "default"}
+                className={cn(
+                  "h-10 rounded-2xl px-4 text-sm font-extrabold",
+                  item.variant === "outline"
+                    ? "border-slate-200 bg-white text-[#17172f] hover:bg-slate-50"
+                    : "bg-[hsl(var(--primary))] text-white hover:bg-[hsl(var(--primary)/0.9)]"
+                )}
+              >
+                {ActionIcon && <ActionIcon className="h-4 w-4" />}
+                {item.label}
+              </Button>
+            )
+            return item.href ? <Link key={`${item.href}-${item.label}`} href={item.href}>{button}</Link> : <span key={item.label}>{button}</span>
+          })}
+        </div>
       )}
     </div>
   )

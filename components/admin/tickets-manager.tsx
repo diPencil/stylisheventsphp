@@ -18,6 +18,7 @@ import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
 import { ConfirmAction } from "@/components/admin/confirm-action"
+import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
 import { adminStatusT, adminT } from "@/lib/admin-translations"
@@ -108,6 +109,7 @@ export function TicketsManager() {
     if (!query) return bookings
     return bookings.filter((booking) => `${booking.id} ${booking.customer} ${booking.email} ${booking.event} ${booking.ticketType}`.toLowerCase().includes(query))
   }, [bookings, search])
+  const ticketPagination = useTablePagination(filteredBookings, [search])
 
   const totals = useMemo(() => {
     const totalTickets = bookings.reduce((sum, booking) => sum + booking.quantity, 0)
@@ -221,9 +223,9 @@ export function TicketsManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBookings.map((booking, index) => (
+                {ticketPagination.paginatedRows.map((booking, index) => (
                   <TableRow key={booking.id} className="hover:bg-[hsl(var(--primary)/0.04)]">
-                    <TableCell className="text-sm font-extrabold text-slate-400">{index + 1}</TableCell>
+                    <TableCell className="text-sm font-extrabold text-slate-400">{(ticketPagination.page - 1) * ticketPagination.pageSize + index + 1}</TableCell>
                     <TableCell>
                       <p className="text-sm font-extrabold">{booking.id}</p>
                       <div className="mt-1"><TableDateTime value={booking.bookedAt} /></div>
@@ -266,6 +268,14 @@ export function TicketsManager() {
             </Table>
             {filteredBookings.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{adminT(language, "ticketsPage.empty")}</div>}
           </div>
+          <PaginationControls
+            page={ticketPagination.page}
+            pageSize={ticketPagination.pageSize}
+            total={filteredBookings.length}
+            totalPages={ticketPagination.totalPages}
+            onPageChange={ticketPagination.setPage}
+            onPageSizeChange={ticketPagination.setPageSize}
+          />
         </CardContent>
       </Card>
 

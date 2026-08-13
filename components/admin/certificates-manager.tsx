@@ -36,6 +36,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { ImageUrlDropzone } from "@/components/admin/image-url-dropzone"
 import { ConfirmAction } from "@/components/admin/confirm-action"
+import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
 import { useAdminPermissions } from "@/components/admin/admin-shell"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
@@ -192,6 +193,7 @@ export function CertificatesManager() {
       return matchesEvent && matchesSearch
     })
   }, [assets, eventFilter, search])
+  const assetPagination = useTablePagination(visibleAssets, [search, eventFilter])
 
   const selectableAssets = visibleAssets.filter((asset) => asset.certificateId && asset.certificateStatus === "sent")
   const selectableIds = selectableAssets.map((asset) => asset.certificateId)
@@ -454,7 +456,7 @@ export function CertificatesManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {visibleAssets.map((asset, index) => (
+                {assetPagination.paginatedRows.map((asset, index) => (
                   <TableRow key={asset.id} className="hover:bg-[hsl(var(--primary)/0.04)]">
                     <TableCell>
                       <Checkbox
@@ -464,7 +466,7 @@ export function CertificatesManager() {
                         aria-label={`${language === "ar" ? "تحديد شهادة" : "Select certificate"} ${asset.attendee}`}
                       />
                     </TableCell>
-                    <TableCell className="text-sm font-extrabold text-slate-400">{index + 1}</TableCell>
+                    <TableCell className="text-sm font-extrabold text-slate-400">{(assetPagination.page - 1) * assetPagination.pageSize + index + 1}</TableCell>
                     <TableCell>
                       <div>
                         <p className="text-sm font-extrabold text-[#17172f]">{asset.attendee}</p>
@@ -593,6 +595,14 @@ export function CertificatesManager() {
               </TableBody>
             </Table>
           </div>
+          <PaginationControls
+            page={assetPagination.page}
+            pageSize={assetPagination.pageSize}
+            total={visibleAssets.length}
+            totalPages={assetPagination.totalPages}
+            onPageChange={assetPagination.setPage}
+            onPageSizeChange={assetPagination.setPageSize}
+          />
         </CardContent>
       </Card>
 
