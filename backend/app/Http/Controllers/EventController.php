@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class EventController extends Controller
 {
@@ -39,6 +40,7 @@ class EventController extends Controller
               e.cover_image_url,
               e.banner_image_url,
               e.event_details_image_url,
+              e.event_pdf_url,
               e.gallery_json,
               e.google_maps_url,
               e.max_attendees,
@@ -100,6 +102,7 @@ class EventController extends Controller
             'cover_image_url' => $event->cover_image_url,
             'banner_image_url' => $event->banner_image_url,
             'event_details_image_url' => $event->event_details_image_url,
+            'event_pdf_url' => $event->event_pdf_url ?? null,
             'gallery_json' => $event->gallery_json !== null ? (string)$event->gallery_json : "[]", // string response expected by frontend (it does JSON.parse)
             'google_maps_url' => $event->google_maps_url,
             'max_attendees' => $event->max_attendees !== null ? (int) $event->max_attendees : null,
@@ -212,7 +215,7 @@ class EventController extends Controller
               e.registration_starts_at, e.registration_ends_at, e.public_registration_enabled,
               e.registration_approval_mode, e.registration_access, e.max_tickets_per_checkout,
               e.capacity_hold_hours_override, e.manual_payment_enabled, e.timezone, e.cover_image_url,
-              e.banner_image_url, e.event_details_image_url, e.gallery_json, e.google_maps_url,
+              e.banner_image_url, e.event_details_image_url, e.event_pdf_url, e.gallery_json, e.google_maps_url,
               e.max_attendees, e.created_at, e.updated_at,
               v.name_en, v.name_ar, v.city_en, v.city_ar, v.capacity, u.name
             ORDER BY $orderBy
@@ -246,17 +249,17 @@ class EventController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'slug' => 'required|string|min:2',
+            'slug' => 'required_without:titleEn|nullable|string|min:2',
             'titleEn' => 'required|string|min:2',
-            'titleAr' => 'required|string|min:2',
+            'titleAr' => 'required_without:titleEn|nullable|string|min:2',
             'summaryEn' => 'nullable|string',
             'summaryAr' => 'nullable|string',
             'descriptionEn' => 'nullable|string',
             'descriptionAr' => 'nullable|string',
             'type' => 'nullable|in:conference,exhibition,workshop,festival,webinar,other',
             'status' => 'nullable|in:draft,published,cancelled,completed,deleted',
-            'startsAt' => 'required|string|min:1',
-            'endsAt' => 'required|string|min:1',
+            'startsAt' => 'required_without:titleEn|nullable|string|min:1',
+            'endsAt' => 'required_without:titleEn|nullable|string|min:1',
             'registrationStartsAt' => 'nullable|string',
             'registrationEndsAt' => 'nullable|string',
             'publicRegistrationEnabled' => 'nullable|boolean',
@@ -270,24 +273,37 @@ class EventController extends Controller
             'coverImageUrl' => 'nullable|string',
             'bannerImageUrl' => 'nullable|string',
             'eventDetailsImageUrl' => 'nullable|string',
+            'eventPdfUrl' => 'nullable|string',
             'gallery' => 'nullable|array',
-            'googleMapsUrl' => 'nullable|string',
+            'googleMapsUrl' => 'required_without:slug|nullable|string',
             'venueId' => 'nullable|integer|min:1',
             'organizerId' => 'nullable|integer|min:1',
         ]);
 
+        $titleEn = trim($validated['titleEn']);
+        $titleAr = trim($validated['titleAr'] ?? '') ?: $titleEn;
+        $slug = trim($validated['slug'] ?? '') ?: Str::slug($titleEn);
+        if (!$slug) $slug = 'event-' . time();
+        $baseSlug = $slug;
+        $counter = 2;
+        while (DB::table('events')->where('slug', $slug)->exists()) {
+            $slug = $baseSlug . '-' . $counter++;
+        }
+        $startsAt = $validated['startsAt'] ?? now()->addDay()->format('Y-m-d H:i:s');
+        $endsAt = $validated['endsAt'] ?? Carbon::parse($startsAt)->addHours(2)->format('Y-m-d H:i:s');
+
         $event = [
-            'slug' => $validated['slug'],
-            'title_en' => $validated['titleEn'],
-            'title_ar' => $validated['titleAr'],
+            'slug' => $slug,
+            'title_en' => $titleEn,
+            'title_ar' => $titleAr,
             'summary_en' => $validated['summaryEn'] ?? null,
             'summary_ar' => $validated['summaryAr'] ?? null,
             'description_en' => $validated['descriptionEn'] ?? null,
             'description_ar' => $validated['descriptionAr'] ?? null,
             'type' => $validated['type'] ?? 'conference',
             'status' => $validated['status'] ?? 'draft',
-            'starts_at' => $validated['startsAt'],
-            'ends_at' => $validated['endsAt'],
+            'starts_at' => $startsAt,
+            'ends_at' => $endsAt,
             'registration_starts_at' => $validated['registrationStartsAt'] ?? null,
             'registration_ends_at' => $validated['registrationEndsAt'] ?? null,
             'public_registration_enabled' => $validated['publicRegistrationEnabled'] ?? true,
@@ -301,6 +317,7 @@ class EventController extends Controller
             'cover_image_url' => $validated['coverImageUrl'] ?? null,
             'banner_image_url' => $validated['bannerImageUrl'] ?? null,
             'event_details_image_url' => $validated['eventDetailsImageUrl'] ?? null,
+            'event_pdf_url' => $validated['eventPdfUrl'] ?? null,
             'gallery_json' => isset($validated['gallery']) ? json_encode($validated['gallery']) : json_encode([]),
             'google_maps_url' => $validated['googleMapsUrl'] ?? null,
             'venue_id' => $validated['venueId'] ?? null,
@@ -324,17 +341,17 @@ class EventController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'slug' => 'required|string|min:2',
+            'slug' => 'required_without:titleEn|nullable|string|min:2',
             'titleEn' => 'required|string|min:2',
-            'titleAr' => 'required|string|min:2',
+            'titleAr' => 'required_without:titleEn|nullable|string|min:2',
             'summaryEn' => 'nullable|string',
             'summaryAr' => 'nullable|string',
             'descriptionEn' => 'nullable|string',
             'descriptionAr' => 'nullable|string',
             'type' => 'nullable|in:conference,exhibition,workshop,festival,webinar,other',
             'status' => 'nullable|in:draft,published,cancelled,completed,deleted',
-            'startsAt' => 'required|string|min:1',
-            'endsAt' => 'required|string|min:1',
+            'startsAt' => 'required_without:titleEn|nullable|string|min:1',
+            'endsAt' => 'required_without:titleEn|nullable|string|min:1',
             'registrationStartsAt' => 'nullable|string',
             'registrationEndsAt' => 'nullable|string',
             'publicRegistrationEnabled' => 'nullable|boolean',
@@ -348,8 +365,9 @@ class EventController extends Controller
             'coverImageUrl' => 'nullable|string',
             'bannerImageUrl' => 'nullable|string',
             'eventDetailsImageUrl' => 'nullable|string',
+            'eventPdfUrl' => 'nullable|string',
             'gallery' => 'nullable|array',
-            'googleMapsUrl' => 'nullable|string',
+            'googleMapsUrl' => 'required_without:slug|nullable|string',
             'venueId' => 'nullable|integer|min:1',
             'organizerId' => 'nullable|integer|min:1',
         ]);
@@ -366,18 +384,24 @@ class EventController extends Controller
             }
         }
 
+        $titleEn = trim($validated['titleEn']);
+        $titleAr = trim($validated['titleAr'] ?? '') ?: $titleEn;
+        $slug = trim($validated['slug'] ?? '') ?: ($existing->slug ?: Str::slug($titleEn));
+        $startsAt = $validated['startsAt'] ?? $existing->starts_at;
+        $endsAt = $validated['endsAt'] ?? $existing->ends_at;
+
         $event = [
-            'slug' => $validated['slug'],
-            'title_en' => $validated['titleEn'],
-            'title_ar' => $validated['titleAr'],
+            'slug' => $slug,
+            'title_en' => $titleEn,
+            'title_ar' => $titleAr,
             'summary_en' => $validated['summaryEn'] ?? null,
             'summary_ar' => $validated['summaryAr'] ?? null,
             'description_en' => $validated['descriptionEn'] ?? null,
             'description_ar' => $validated['descriptionAr'] ?? null,
             'type' => $validated['type'] ?? 'conference',
             'status' => $validated['status'] ?? 'draft',
-            'starts_at' => $validated['startsAt'],
-            'ends_at' => $validated['endsAt'],
+            'starts_at' => $startsAt,
+            'ends_at' => $endsAt,
             'registration_starts_at' => $validated['registrationStartsAt'] ?? null,
             'registration_ends_at' => $validated['registrationEndsAt'] ?? null,
             'public_registration_enabled' => $validated['publicRegistrationEnabled'] ?? true,
@@ -391,6 +415,7 @@ class EventController extends Controller
             'cover_image_url' => $validated['coverImageUrl'] ?? null,
             'banner_image_url' => $validated['bannerImageUrl'] ?? null,
             'event_details_image_url' => $validated['eventDetailsImageUrl'] ?? null,
+            'event_pdf_url' => $validated['eventPdfUrl'] ?? ($existing->event_pdf_url ?? null),
             'gallery_json' => isset($validated['gallery']) ? json_encode($validated['gallery']) : json_encode([]),
             'google_maps_url' => $validated['googleMapsUrl'] ?? null,
             'venue_id' => $validated['venueId'] ?? null,

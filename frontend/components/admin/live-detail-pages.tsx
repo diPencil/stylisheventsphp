@@ -181,6 +181,54 @@ function TextAreaField({ label, inputValue, onChange }: { label: string; inputVa
   )
 }
 
+function PdfUploadField({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+  const { language } = useLanguage()
+  const [uploading, setUploading] = useState(false)
+
+  async function upload(file?: File | null) {
+    if (!file) return
+    if (file.type !== "application/pdf") {
+      toast.error(language === "ar" ? "ملف PDF فقط" : "PDF only")
+      return
+    }
+    setUploading(true)
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result || ""))
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const uploaded = await platformApi.uploadPlatformAsset({ fileName: file.name, dataUrl })
+      onChange(uploaded.url || "")
+      toast.success(language === "ar" ? "تم رفع ملف الفعالية" : "Event PDF uploaded")
+    } catch (error) {
+      toast.error(language === "ar" ? "فشل رفع PDF" : "PDF upload failed", { description: error instanceof Error ? error.message : "" })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">{language === "ar" ? "ملف الفعالية PDF" : "Event PDF"}</Label>
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
+        <Input type="file" accept="application/pdf" disabled={uploading} onChange={(event) => upload(event.target.files?.[0])} className="h-11 rounded-xl bg-white font-bold" />
+        {value ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button asChild variant="outline" className="h-9 rounded-xl text-xs font-bold">
+              <Link href={apiAssetUrl(value)} target="_blank">{language === "ar" ? "عرض PDF" : "View PDF"}</Link>
+            </Button>
+            <Button type="button" variant="outline" onClick={() => onChange("")} className="h-9 rounded-xl text-xs font-bold text-red-600">
+              {language === "ar" ? "إزالة" : "Remove"}
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 function toLocalInput(input?: string) {
   if (!input) return ""
   const date = new Date(input)
@@ -227,6 +275,7 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
           coverImageUrl: value(event, "cover_image_url"),
           bannerImageUrl: value(event, "banner_image_url"),
           eventDetailsImageUrl: value(event, "event_details_image_url"),
+          eventPdfUrl: value(event, "event_pdf_url"),
           gallery: parseStringArrayField(value(event, "gallery_json"), "Event gallery").join("\n"),
           googleMapsUrl: value(event, "google_maps_url"),
           publicRegistrationEnabled: Number(value(event, "public_registration_enabled") || 1) === 1,
@@ -279,6 +328,7 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
         coverImageUrl: form.coverImageUrl || null,
         bannerImageUrl: form.bannerImageUrl || null,
         eventDetailsImageUrl: form.eventDetailsImageUrl || null,
+        eventPdfUrl: form.eventPdfUrl || null,
         gallery: gallery,
         googleMapsUrl: form.googleMapsUrl || null,
         venueId: event?.venue_id || null,
@@ -466,6 +516,7 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
             <div className="grid gap-4 lg:grid-cols-2">
               <ImageUrlDropzone label="Cover image URL" value={form.coverImageUrl} onChange={(next) => setForm({ ...form, coverImageUrl: next })} />
               <ImageUrlDropzone label="Event details image URL" value={form.eventDetailsImageUrl} onChange={(next) => setForm({ ...form, eventDetailsImageUrl: next })} />
+              <PdfUploadField value={form.eventPdfUrl || ""} onChange={(next) => setForm({ ...form, eventPdfUrl: next })} />
               <ImageGalleryDropzone label="Gallery images" value={form.gallery} onChange={(next) => setForm({ ...form, gallery: next })} />
             </div>
           </EditorSection>

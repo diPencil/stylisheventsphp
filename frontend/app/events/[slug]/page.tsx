@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { ArrowRight, CalendarDays, CheckCircle2, MapPin, MessageSquareText, Star, Ticket, Users } from "lucide-react"
+import { ArrowRight, CalendarDays, CheckCircle2, FileText, MapPin, MessageSquareText, Star, Ticket, Users } from "lucide-react"
 import { PublicPageFrame, PublicPageHero } from "@/components/public/page-building-blocks"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/contexts/language-context"
@@ -109,6 +109,14 @@ export default function PublicEventPage() {
               <p className="mt-4 whitespace-pre-line text-base font-semibold leading-8 text-slate-600">
                 {isRtl ? event.description_ar || event.summary_ar : event.description_en || event.summary_en}
               </p>
+              {event.event_pdf_url ? (
+                <Button asChild variant="outline" className="mt-6 h-11 rounded-2xl border-primary/20 bg-white font-black text-primary hover:bg-primary/5">
+                  <Link href={apiAssetUrl(event.event_pdf_url)} target="_blank">
+                    <FileText className="h-4 w-4" />
+                    {isRtl ? "عرض / تحميل ملف الفعالية" : "View / Download Event PDF"}
+                  </Link>
+                </Button>
+              ) : null}
             </div>
 
             <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-3">

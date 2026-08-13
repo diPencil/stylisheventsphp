@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { CheckCircle2, CreditCard, Eye, MoreHorizontal, ReceiptText, RefreshCcw, Ticket, User, XCircle } from "lucide-react"
+import { CheckCircle2, CreditCard, Eye, MoreHorizontal, ReceiptText, RefreshCcw, Ticket, User, UserPlus, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
+import { useAdminPermissions } from "@/components/admin/admin-shell"
 import { ConfirmAction } from "@/components/admin/confirm-action"
+import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
 import { adminStatusT, adminT } from "@/lib/admin-translations"
@@ -71,6 +73,7 @@ function money(value: number, currency = "USD") {
 
 export function BookingsManager() {
   const { language } = useLanguage()
+  const { can } = useAdminPermissions()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [search, setSearch] = useState("")
 
@@ -93,6 +96,7 @@ export function BookingsManager() {
     if (!query) return bookings
     return bookings.filter((booking) => `${booking.id} ${booking.customer} ${booking.email} ${booking.event}`.toLowerCase().includes(query))
   }, [bookings, search])
+  const bookingPagination = useTablePagination(filteredBookings, [search])
 
   const totals = useMemo(() => {
     const paidRevenue = bookings.filter((booking) => booking.status === "paid").reduce((sum, booking) => sum + booking.amount, 0)
@@ -149,7 +153,12 @@ export function BookingsManager() {
         eyebrow={adminT(language, "bookings.operations")}
         title={adminT(language, "bookings.title")}
         description={adminT(language, "bookings.subtitle")}
-        action={{ label: adminT(language, "bookings.export"), icon: ReceiptText, onClick: exportOrders }}
+        actions={[
+          ...(can("registrations.create_manual")
+            ? [{ label: language === "ar" ? "Ø­Ø¬Ø² ÙŠØ¯ÙˆÙŠ" : "Manual Booking", icon: UserPlus, href: "/admin/registrations/create", variant: "outline" as const }]
+            : []),
+          { label: adminT(language, "bookings.export"), icon: ReceiptText, onClick: exportOrders },
+        ]}
       />
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -185,9 +194,9 @@ export function BookingsManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBookings.map((booking, index) => (
+                {bookingPagination.paginatedRows.map((booking, index) => (
                   <TableRow key={booking.id} className="hover:bg-[hsl(var(--primary)/0.04)]">
-                    <TableCell className="text-sm font-extrabold text-slate-400">{index + 1}</TableCell>
+                    <TableCell className="text-sm font-extrabold text-slate-400">{(bookingPagination.page - 1) * bookingPagination.pageSize + index + 1}</TableCell>
                     <TableCell><p className="text-sm font-extrabold">{booking.id}</p></TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -238,6 +247,14 @@ export function BookingsManager() {
             </Table>
             {filteredBookings.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{adminT(language, "bookings.empty")}</div>}
           </div>
+          <PaginationControls
+            page={bookingPagination.page}
+            pageSize={bookingPagination.pageSize}
+            total={filteredBookings.length}
+            totalPages={bookingPagination.totalPages}
+            onPageChange={bookingPagination.setPage}
+            onPageSizeChange={bookingPagination.setPageSize}
+          />
         </CardContent>
       </Card>
     </div>

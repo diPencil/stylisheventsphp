@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
 import {
   Dialog,
   DialogContent,
@@ -325,6 +326,7 @@ export function UsersManager() {
       return matchesSearch && matchesRole && matchesStatus
     })
   }, [roleFilter, search, statusFilter, users])
+  const userPagination = useTablePagination(filteredUsers, [search, roleFilter, statusFilter])
 
   const metrics = useMemo(() => ({
     total: users.length,
@@ -550,9 +552,9 @@ export function UsersManager() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsers.map((user, index) => (
+                    {userPagination.paginatedRows.map((user, index) => (
                       <tr key={user.id} className="border-t border-slate-100 transition hover:bg-[hsl(var(--primary)/0.04)]">
-                        <td className="px-6 py-4 text-sm font-extrabold text-slate-400">{index + 1}</td>
+                        <td className="px-6 py-4 text-sm font-extrabold text-slate-400">{(userPagination.page - 1) * userPagination.pageSize + index + 1}</td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             {user.avatarUrl ? (
@@ -606,6 +608,14 @@ export function UsersManager() {
                   </tbody>
                 </table>
               </div>
+              <PaginationControls
+                page={userPagination.page}
+                pageSize={userPagination.pageSize}
+                total={filteredUsers.length}
+                totalPages={userPagination.totalPages}
+                onPageChange={userPagination.setPage}
+                onPageSizeChange={userPagination.setPageSize}
+              />
             </CardContent>
           </Card>
         </TabsContent>

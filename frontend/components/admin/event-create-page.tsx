@@ -49,6 +49,7 @@ type CreateEventForm = {
   terms: string
   heroImage: string
   detailsImage: string
+  eventPdfUrl: string
   galleryImages: string
   seoTitle: string
   seoDescription: string
@@ -93,6 +94,7 @@ const initialForm: CreateEventForm = {
   terms: "",
   heroImage: "",
   detailsImage: "",
+  eventPdfUrl: "",
   galleryImages: "",
   seoTitle: "",
   seoDescription: "",
@@ -145,15 +147,15 @@ export function EventCreatePage() {
   }, [currencySettings.rates, form.openingPrice, form.ticketCurrency])
 
   const saveDraft = async () => {
-    if (!form.titleEn.trim() || !form.titleAr.trim() || !form.slug.trim() || !form.startsAt || !form.endsAt) {
+    if (!form.titleEn.trim() || !form.location.trim()) {
       toast.error(language === "ar" ? "بيانات الفعالية غير مكتملة" : "Missing event data", { description: language === "ar" ? "العنوان العربي والإنجليزي والرابط وتاريخ البداية والنهاية مطلوبة." : "Arabic title, English title, slug, start date, and end date are required." })
       return
     }
 
     try {
       const event = await platformApi.createEvent({
-        slug: form.slug.trim(),
-        titleAr: form.titleAr.trim(),
+        slug: form.slug.trim() || null,
+        titleAr: form.titleAr.trim() || null,
         titleEn: form.titleEn.trim(),
         summaryAr: form.summaryAr || null,
         summaryEn: form.summaryEn || null,
@@ -161,8 +163,8 @@ export function EventCreatePage() {
         descriptionEn: [form.summaryEn, form.agenda, form.checkInNotes, form.terms].filter(Boolean).join("\n\n") || null,
         type: form.type.toLowerCase(),
         status: form.status,
-        startsAt: form.startsAt,
-        endsAt: form.endsAt,
+        startsAt: form.startsAt || null,
+        endsAt: form.endsAt || null,
         registrationStartsAt: form.registrationOpensAt || null,
         registrationEndsAt: form.registrationClosesAt || null,
         publicRegistrationEnabled: form.publicRegistrationEnabled,
@@ -176,6 +178,7 @@ export function EventCreatePage() {
         coverImageUrl: form.heroImage || null,
         bannerImageUrl: form.heroImage || null,
         eventDetailsImageUrl: form.detailsImage || null,
+        eventPdfUrl: form.eventPdfUrl || null,
         gallery: gallery,
         googleMapsUrl: form.location || null,
         venueId: null,
@@ -328,6 +331,7 @@ export function EventCreatePage() {
               <div className="space-y-4">
                 <ImageUrlDropzone label="Event image URL" value={form.heroImage} onChange={(value) => setField("heroImage", value)} />
                 <ImageUrlDropzone label="Event details image URL" value={form.detailsImage} onChange={(value) => setField("detailsImage", value)} />
+                <PdfUploadField value={form.eventPdfUrl} onChange={(value) => setField("eventPdfUrl", value)} />
                 <ImageGalleryDropzone label="Gallery images" value={form.galleryImages} onChange={(value) => setField("galleryImages", value)} />
               </div>
               <div className="rounded-[22px] border border-slate-100 bg-slate-50 p-3">
@@ -481,6 +485,54 @@ function CurrencySelect({ value, onChange, currencies }: { value: string; onChan
           ))}
         </SelectContent>
       </Select>
+    </div>
+  )
+}
+
+function PdfUploadField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { language } = useLanguage()
+  const [uploading, setUploading] = useState(false)
+
+  async function upload(file?: File | null) {
+    if (!file) return
+    if (file.type !== "application/pdf") {
+      toast.error(language === "ar" ? "ملف PDF فقط" : "PDF only")
+      return
+    }
+    setUploading(true)
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result || ""))
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const uploaded = await platformApi.uploadPlatformAsset({ fileName: file.name, dataUrl })
+      onChange(uploaded.url || "")
+      toast.success(language === "ar" ? "تم رفع ملف الفعالية" : "Event PDF uploaded")
+    } catch (error) {
+      toast.error(language === "ar" ? "فشل رفع PDF" : "PDF upload failed", { description: error instanceof Error ? error.message : "" })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">{language === "ar" ? "ملف الفعالية PDF" : "Event PDF"}</Label>
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
+        <Input type="file" accept="application/pdf" disabled={uploading} onChange={(event) => upload(event.target.files?.[0])} className="h-11 rounded-xl bg-white font-bold" />
+        {value ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button asChild variant="outline" className="h-9 rounded-xl text-xs font-bold">
+              <Link href={apiAssetUrl(value)} target="_blank">{language === "ar" ? "عرض PDF" : "View PDF"}</Link>
+            </Button>
+            <Button type="button" variant="outline" onClick={() => onChange("")} className="h-9 rounded-xl text-xs font-bold text-red-600">
+              {language === "ar" ? "إزالة" : "Remove"}
+            </Button>
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }

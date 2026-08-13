@@ -41,6 +41,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ConfirmAction } from "@/components/admin/confirm-action"
+import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
 import { adminStatusT, adminT } from "@/lib/admin-translations"
@@ -763,6 +764,14 @@ function EventsTable({
   updateStatus: (id: number, status: EventStatus) => void
   deleteEvent: (id: number) => void
 }) {
+  const [search, setSearch] = useState("")
+  const filteredEvents = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    if (!query) return events
+    return events.filter((event) => `${event.title_en} ${event.title_ar} ${event.slug} ${event.location}`.toLowerCase().includes(query))
+  }, [events, search])
+  const eventPagination = useTablePagination(filteredEvents, [search])
+
   return (
     <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
       <CardHeader className="flex flex-col gap-3 border-b border-slate-100 md:flex-row md:items-center md:justify-between">
@@ -772,7 +781,7 @@ function EventsTable({
         </div>
         <div className="relative md:w-72">
           <Search className="absolute left-3 top-3 h-4 w-4 text-slate-300" />
-          <Input className="h-10 rounded-2xl bg-[#f8f5fb] pl-9" placeholder={language === "ar" ? "ابحث عن فعالية..." : "Search event..."} />
+          <Input value={search} onChange={(event) => setSearch(event.target.value)} className="h-10 rounded-2xl bg-[#f8f5fb] pl-9" placeholder={language === "ar" ? "ابحث عن فعالية..." : "Search event..."} />
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -793,11 +802,11 @@ function EventsTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {events.map((event, index) => {
+              {eventPagination.paginatedRows.map((event, index) => {
                 const seatsPercent = Math.min(100, Math.round((event.attendees_count / event.max_attendees) * 100))
                 return (
                   <TableRow key={event.id} className="align-top hover:bg-[hsl(var(--primary)/0.04)]">
-                    <TableCell className="text-center text-sm font-bold text-slate-400">{index + 1}</TableCell>
+                    <TableCell className="text-center text-sm font-bold text-slate-400">{(eventPagination.page - 1) * eventPagination.pageSize + index + 1}</TableCell>
                     <TableCell>
                       <div className="max-w-[230px]">
                         <p className="line-clamp-1 text-sm font-extrabold text-[#17172f]">{eventTitle(event)}</p>
@@ -879,6 +888,14 @@ function EventsTable({
             </TableBody>
           </Table>
         </div>
+        <PaginationControls
+          page={eventPagination.page}
+          pageSize={eventPagination.pageSize}
+          total={filteredEvents.length}
+          totalPages={eventPagination.totalPages}
+          onPageChange={eventPagination.setPage}
+          onPageSizeChange={eventPagination.setPageSize}
+        />
       </CardContent>
     </Card>
   )
