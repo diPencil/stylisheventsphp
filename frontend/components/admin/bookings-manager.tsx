@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
 import { useAdminPermissions } from "@/components/admin/admin-shell"
 import { ConfirmAction } from "@/components/admin/confirm-action"
-import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
+import { PaginationControls } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
 import { adminStatusT, adminT } from "@/lib/admin-translations"
@@ -76,12 +76,17 @@ export function BookingsManager() {
   const { can } = useAdminPermissions()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalBookings, setTotalBookings] = useState(0)
 
   useEffect(() => {
     let active = true
-    platformApi.listRegistrations()
-      .then((rows) => {
-        if (active) setBookings((rows || []).map(normalizeBooking))
+    platformApi.listRegistrations({ search, limit: pageSize, offset: (page - 1) * pageSize, includeMeta: true })
+      .then((result: any) => {
+        if (!active) return
+        setBookings((result.data || []).map(normalizeBooking))
+        setTotalBookings(Number(result.pagination?.total || 0))
       })
       .catch((error) => {
         if (active) toast.error("Could not load bookings", { description: error instanceof Error ? error.message : "Check the backend connection." })
@@ -89,14 +94,13 @@ export function BookingsManager() {
     return () => {
       active = false
     }
-  }, [])
+  }, [page, pageSize, search])
 
-  const filteredBookings = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    if (!query) return bookings
-    return bookings.filter((booking) => `${booking.id} ${booking.customer} ${booking.email} ${booking.event}`.toLowerCase().includes(query))
-  }, [bookings, search])
-  const bookingPagination = useTablePagination(filteredBookings, [search])
+  useEffect(() => {
+    setPage(1)
+  }, [search, pageSize])
+
+  const totalPages = Math.max(1, Math.ceil(totalBookings / pageSize))
 
   const totals = useMemo(() => {
     const paidRevenue = bookings.filter((booking) => booking.status === "paid").reduce((sum, booking) => sum + booking.amount, 0)
@@ -106,10 +110,17 @@ export function BookingsManager() {
     return { paidRevenue, pendingRevenue, refundedRevenue, cancelled }
   }, [bookings])
 
-  function exportOrders() {
+  async function exportOrders() {
+    let exportRows = bookings
+    try {
+      const rows = await platformApi.listRegistrations({ search, limit: 1000, offset: 0 })
+      exportRows = (rows || []).map(normalizeBooking)
+    } catch (error) {
+      toast.error("Export used visible rows", { description: error instanceof Error ? error.message : "Could not load the full filtered order list." })
+    }
     const headers = ["#", "Order", "Customer", "Email", "Role", "Event", "Tickets", "Amount", "Currency", "Method", "Status", "Created"]
     const escape = (value: string | number) => `"${String(value ?? "").replace(/"/g, '""')}"`
-    const csvRows = filteredBookings.map((booking, index) => [
+    const csvRows = exportRows.map((booking, index) => [
       index + 1,
       booking.id,
       booking.customer,
@@ -133,7 +144,7 @@ export function BookingsManager() {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
-    toast.success("Orders exported", { description: `${filteredBookings.length} booking rows downloaded.` })
+    toast.success("Orders exported", { description: `${exportRows.length} booking rows downloaded.` })
   }
 
   async function updateStatus(booking: Booking, status: BookingStatus) {
@@ -194,9 +205,9 @@ export function BookingsManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bookingPagination.paginatedRows.map((booking, index) => (
+                {bookings.map((booking, index) => (
                   <TableRow key={booking.id} className="hover:bg-[hsl(var(--primary)/0.04)]">
-                    <TableCell className="text-sm font-extrabold text-slate-400">{(bookingPagination.page - 1) * bookingPagination.pageSize + index + 1}</TableCell>
+                    <TableCell className="text-sm font-extrabold text-slate-400">{(page - 1) * pageSize + index + 1}</TableCell>
                     <TableCell><p className="text-sm font-extrabold">{booking.id}</p></TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -245,15 +256,15 @@ export function BookingsManager() {
                 ))}
               </TableBody>
             </Table>
-            {filteredBookings.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{adminT(language, "bookings.empty")}</div>}
+            {bookings.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{adminT(language, "bookings.empty")}</div>}
           </div>
           <PaginationControls
-            page={bookingPagination.page}
-            pageSize={bookingPagination.pageSize}
-            total={filteredBookings.length}
-            totalPages={bookingPagination.totalPages}
-            onPageChange={bookingPagination.setPage}
-            onPageSizeChange={bookingPagination.setPageSize}
+            page={page}
+            pageSize={pageSize}
+            total={totalBookings}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
           />
         </CardContent>
       </Card>

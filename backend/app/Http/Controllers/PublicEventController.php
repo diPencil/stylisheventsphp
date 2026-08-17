@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class PublicEventController extends Controller
 {
@@ -168,6 +169,16 @@ class PublicEventController extends Controller
             ->all();
     }
 
+    private function publicListCacheKey(Request $request)
+    {
+        return 'public_events:api_list:' . md5(json_encode([
+            'version' => Cache::get('public_events:list_version', 1),
+            'page' => trim((string)$request->query('page', '')),
+            'sortMode' => trim((string)$request->query('sortMode', 'default')),
+            'limit' => max(1, min((int)$request->query('limit', 250), 500)),
+        ]));
+    }
+
     public function index(Request $request)
     {
         $page = trim((string)$request->query('page', ''));
@@ -206,7 +217,8 @@ class PublicEventController extends Controller
             default => $page === 'previous' ? 'e.ends_at DESC, e.starts_at DESC' : 'e.starts_at ASC, e.created_at DESC',
         };
 
-        $rows = DB::select("
+        $events = Cache::remember($this->publicListCacheKey($request), now()->addMinute(), function () use ($where, $orderBy, $limit) {
+            $rows = DB::select("
             SELECT
               e.id,
               e.slug,
@@ -220,21 +232,7 @@ class PublicEventController extends Controller
               e.status,
               e.starts_at,
               e.ends_at,
-              e.registration_starts_at,
-              e.registration_ends_at,
-              e.public_registration_enabled,
-              e.registration_approval_mode,
-              e.registration_access,
-              e.max_tickets_per_checkout,
-              e.capacity_hold_hours_override,
-              e.manual_payment_enabled,
-              e.timezone,
               e.cover_image_url,
-              e.banner_image_url,
-              e.event_details_image_url,
-              e.event_pdf_url,
-              e.gallery_json,
-              e.google_maps_url,
               e.max_attendees,
               e.created_at,
               e.updated_at,
@@ -242,68 +240,40 @@ class PublicEventController extends Controller
               v.name_ar AS venue_name_ar,
               v.city_en AS venue_city_en,
               v.city_ar AS venue_city_ar,
-              v.capacity AS venue_capacity,
-              COUNT(DISTINCT tt.id) AS ticket_types_count,
-              COUNT(DISTINCT a.id) AS attendees_count,
-              COUNT(DISTINCT r.id) AS registrations_count,
-              COALESCE(AVG(rv.rating), 0) AS average_rating
+              v.capacity AS venue_capacity
             FROM events e
             LEFT JOIN venues v ON v.id = e.venue_id
-            LEFT JOIN ticket_types tt ON tt.event_id = e.id
-            LEFT JOIN attendees a ON a.event_id = e.id
-            LEFT JOIN registrations r ON r.event_id = e.id
-            LEFT JOIN reviews rv ON rv.event_id = e.id AND rv.status = 'approved'
             WHERE " . implode(' AND ', $where) . "
-            GROUP BY e.id
             ORDER BY {$orderBy}
             LIMIT ?
-        ", [$limit]);
+            ", [$limit]);
 
-        $formatDate = fn ($date) => $date ? Carbon::parse($date, 'Africa/Cairo')->setTimezone('UTC')->format('Y-m-d\TH:i:s.000\Z') : null;
+            $formatDate = fn ($date) => $date ? Carbon::parse($date, 'Africa/Cairo')->setTimezone('UTC')->format('Y-m-d\TH:i:s.000\Z') : null;
 
-        $events = array_map(function ($event) use ($formatDate) {
-            return [
-                'id' => (int)$event->id,
-                'slug' => $event->slug,
-                'title_en' => $event->title_en,
-                'title_ar' => $event->title_ar,
-                'summary_en' => $event->summary_en,
-                'summary_ar' => $event->summary_ar,
-                'description_en' => $event->description_en,
-                'description_ar' => $event->description_ar,
-                'type' => $event->type,
-                'status' => $event->status,
-                'starts_at' => $formatDate($event->starts_at),
-                'ends_at' => $formatDate($event->ends_at),
-                'registration_starts_at' => $formatDate($event->registration_starts_at),
-                'registration_ends_at' => $formatDate($event->registration_ends_at),
-                'public_registration_enabled' => (int)$event->public_registration_enabled,
-                'registration_approval_mode' => $event->registration_approval_mode,
-                'registration_access' => $event->registration_access,
-                'max_tickets_per_checkout' => (int)$event->max_tickets_per_checkout,
-                'capacity_hold_hours_override' => $event->capacity_hold_hours_override !== null ? (int)$event->capacity_hold_hours_override : null,
-                'manual_payment_enabled' => (int)$event->manual_payment_enabled,
-                'timezone' => $event->timezone,
-                'cover_image_url' => $event->cover_image_url,
-                'banner_image_url' => $event->banner_image_url,
-                'event_details_image_url' => $event->event_details_image_url,
-                'event_pdf_url' => $event->event_pdf_url ?? null,
-                'gallery_json' => $event->gallery_json !== null ? (string)$event->gallery_json : '[]',
-                'google_maps_url' => $event->google_maps_url,
-                'max_attendees' => $event->max_attendees !== null ? (int)$event->max_attendees : null,
-                'created_at' => $formatDate($event->created_at),
-                'updated_at' => $formatDate($event->updated_at),
-                'venue_name_en' => $event->venue_name_en,
-                'venue_name_ar' => $event->venue_name_ar,
-                'venue_city_en' => $event->venue_city_en,
-                'venue_city_ar' => $event->venue_city_ar,
-                'venue_capacity' => $event->venue_capacity !== null ? (int)$event->venue_capacity : null,
-                'ticket_types_count' => (int)$event->ticket_types_count,
-                'attendees_count' => (int)$event->attendees_count,
-                'registrations_count' => (int)$event->registrations_count,
-                'average_rating' => number_format((float)$event->average_rating, 4, '.', ''),
-            ];
-        }, $rows);
+            return array_map(function ($event) use ($formatDate) {
+                return [
+                    'id' => (int)$event->id,
+                    'slug' => $event->slug,
+                    'title_en' => $event->title_en,
+                    'title_ar' => $event->title_ar,
+                    'summary_en' => $event->summary_en,
+                    'summary_ar' => $event->summary_ar,
+                    'type' => $event->type,
+                    'status' => $event->status,
+                    'starts_at' => $formatDate($event->starts_at),
+                    'ends_at' => $formatDate($event->ends_at),
+                    'cover_image_url' => $event->cover_image_url,
+                    'max_attendees' => $event->max_attendees !== null ? (int)$event->max_attendees : null,
+                    'created_at' => $formatDate($event->created_at),
+                    'updated_at' => $formatDate($event->updated_at),
+                    'venue_name_en' => $event->venue_name_en,
+                    'venue_name_ar' => $event->venue_name_ar,
+                    'venue_city_en' => $event->venue_city_en,
+                    'venue_city_ar' => $event->venue_city_ar,
+                    'venue_capacity' => $event->venue_capacity !== null ? (int)$event->venue_capacity : null,
+                ];
+            }, $rows);
+        });
 
         return response()->json([
             'success' => true,

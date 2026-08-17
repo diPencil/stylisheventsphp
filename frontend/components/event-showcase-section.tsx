@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { useLanguage } from "@/contexts/language-context"
 import { AnimatedCtaButton } from "@/components/ui/animated-cta-button"
 import { apiAssetUrl } from "@/lib/platform-api"
+import { publicEventHref } from "@/components/public/page-building-blocks"
 
 const defaultEvents = [
   {
@@ -99,6 +100,7 @@ export function EventShowcaseSection() {
       price: "$50",
       gradient: defaultEvents[idx % defaultEvents.length].gradient,
       imageUrl: event.cover_image_url || event.coverImageUrl,
+      slug: event.slug,
     }))
 
     setEvents(mappedEvents.slice(0, 3))
@@ -131,7 +133,9 @@ export function EventShowcaseSection() {
         </div>
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {events.map((event, index) => (
+          {events.map((event, index) => {
+            const href = publicEventHref(event)
+            return (
             <article
               key={index}
               className="group cursor-pointer overflow-hidden rounded-[30px] bg-white shadow-[0_18px_50px_rgba(15,23,42,0.07)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_22px_70px_rgba(15,23,42,0.10)]"
@@ -176,13 +180,22 @@ export function EventShowcaseSection() {
                     <p className="mt-1 text-sm font-black">{event.price}</p>
                   </div>
                 </div>
-                <Button variant="outline" className="h-12 w-full rounded-2xl border-slate-200 font-black">
-                  <Users className="h-4 w-4" />
-                  {isRtl ? "عرض التفاصيل" : "View Details"}
+                <Button asChild={Boolean(href)} variant="outline" disabled={!href} className="h-12 w-full rounded-2xl border-slate-200 font-black">
+                  {href ? (
+                    <Link href={href}>
+                      <Users className="h-4 w-4" />
+                      {isRtl ? "عرض التفاصيل" : "View Details"}
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      {isRtl ? "التفاصيل غير متاحة" : "Details unavailable"}
+                    </span>
+                  )}
                 </Button>
               </div>
             </article>
-          ))}
+          )})}
         </div>
       </div>
     </section>

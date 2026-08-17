@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 use Exception;
 
 class PlatformSettingsController extends Controller
@@ -51,14 +52,21 @@ class PlatformSettingsController extends Controller
 
     private function readProjectSetting($key, $fallback = [])
     {
-        $setting = DB::table('project_settings')->where('setting_key', $key)->first();
-        if (!$setting || !$setting->setting_value) return $fallback;
+        return Cache::remember("project_settings:{$key}", now()->addMinutes(5), function () use ($key, $fallback) {
+            $setting = DB::table('project_settings')->where('setting_key', $key)->first();
+            if (!$setting || !$setting->setting_value) return $fallback;
 
-        $decoded = json_decode($setting->setting_value, true);
-        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-            return $decoded;
-        }
-        return $fallback;
+            $decoded = json_decode($setting->setting_value, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                return $decoded;
+            }
+            return $fallback;
+        });
+    }
+
+    private function forgetProjectSetting($key)
+    {
+        Cache::forget("project_settings:{$key}");
     }
 
     public function getTheme()
@@ -100,6 +108,7 @@ class PlatformSettingsController extends Controller
             VALUES (?, ?)
             ON DUPLICATE KEY UPDATE setting_value = ?
         ", ['theme', json_encode($theme), json_encode($theme)]);
+        $this->forgetProjectSetting('theme');
 
         return response()->json([
             'success' => true,
@@ -154,6 +163,7 @@ class PlatformSettingsController extends Controller
             VALUES (?, ?)
             ON DUPLICATE KEY UPDATE setting_value = ?
         ", ['site_content', json_encode($updated), json_encode($updated)]);
+        $this->forgetProjectSetting('site_content');
 
         return response()->json([
             'success' => true,
@@ -194,6 +204,7 @@ class PlatformSettingsController extends Controller
             VALUES (?, ?)
             ON DUPLICATE KEY UPDATE setting_value = ?
         ", ['currency', json_encode($payload), json_encode($payload)]);
+        $this->forgetProjectSetting('currency');
 
         return response()->json([
             'success' => true,
@@ -219,6 +230,7 @@ class PlatformSettingsController extends Controller
             VALUES (?, ?)
             ON DUPLICATE KEY UPDATE setting_value = ?
         ", ['card_template', json_encode($template), json_encode($template)]);
+        $this->forgetProjectSetting('card_template');
 
         return response()->json([
             'success' => true,

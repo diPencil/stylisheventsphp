@@ -10,6 +10,12 @@ import { apiAssetUrl } from "@/lib/platform-api"
 import { cn } from "@/lib/utils"
 import type { LucideIcon } from "lucide-react"
 
+export function publicEventHref(event: any) {
+  const slug = typeof event?.slug === "string" ? event.slug.trim() : ""
+  if (!slug || slug === "undefined" || slug === "null") return ""
+  return `/events/${encodeURIComponent(slug)}`
+}
+
 export function PublicPageFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="public-site min-h-screen overflow-x-clip bg-[hsl(var(--primary)/0.07)] text-[#111827]">
@@ -181,6 +187,10 @@ export function FeatureGrid({ items }: { items: Array<{ icon: LucideIcon; titleE
 
 export function EventCard({ event, previous = false }: { event: any; previous?: boolean }) {
   const { isRtl } = useLanguage()
+  const href = previous ? publicEventHref(event) || "/contact" : publicEventHref(event)
+  const ctaText = previous
+    ? (isRtl ? "عرض التفاصيل" : "View Details")
+    : (isRtl ? "عرض التفاصيل والتسجيل" : "View details and register")
 
   return (
     <article className="group overflow-hidden rounded-[24px] md:rounded-[32px] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
@@ -209,11 +219,15 @@ export function EventCard({ event, previous = false }: { event: any; previous?: 
           <MiniMeta icon={previous ? Star : Users} label={previous ? event.satisfaction : event.seats} />
           <MiniMeta icon={previous ? CheckCircle2 : Ticket} label={isRtl ? event.statusAr || event.attendees : event.statusEn || event.attendees} />
         </div>
-        <Button asChild variant={previous ? "outline" : "default"} className="h-11 w-full rounded-2xl font-extrabold">
-          <Link href={previous ? "/contact" : (event.slug ? `/events/${event.slug}` : "/upcoming-events")}>
-            {previous ? (isRtl ? "اطلب دراسة حالة مشابهة" : "Request similar case") : (isRtl ? "عرض التفاصيل والتسجيل" : "View details and register")}
-            <ArrowRight className={cn("h-4 w-4", isRtl && "rotate-180")} />
-          </Link>
+        <Button asChild={Boolean(href)} disabled={!href} variant={previous ? "outline" : "default"} className="h-11 w-full rounded-2xl font-extrabold">
+          {href ? (
+            <Link href={href}>
+              {ctaText}
+              <ArrowRight className={cn("h-4 w-4", isRtl && "rotate-180")} />
+            </Link>
+          ) : (
+            <span>{isRtl ? "التفاصيل غير متاحة" : "Details unavailable"}</span>
+          )}
         </Button>
       </div>
     </article>

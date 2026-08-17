@@ -112,6 +112,10 @@ class CertificateController extends Controller
     public function getDelivery(Request $request)
     {
         $eventId = (int) $request->query('eventId', 0);
+        $limit = min(max((int) $request->query('limit', 500), 1), 1000);
+        $offset = max((int) $request->query('offset', 0), 0);
+        $search = trim((string) $request->query('search', ''));
+        $includeMeta = filter_var($request->query('meta', false), FILTER_VALIDATE_BOOLEAN);
         $user = $request->user();
 
         if ($eventId !== 0 && !$this->requireEventScope($user, $eventId)) {
@@ -154,12 +158,36 @@ class CertificateController extends Controller
 
         $this->applyEventScope($query, $user, 'a.event_id');
 
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $like = '%' . $search . '%';
+                $q->where('a.full_name', 'like', $like)
+                    ->orWhere('a.email', 'like', $like)
+                    ->orWhere('a.attendee_number', 'like', $like)
+                    ->orWhere('c.certificate_number', 'like', $like)
+                    ->orWhere('tt.name_en', 'like', $like)
+                    ->orWhere('tt.name_ar', 'like', $like);
+            });
+        }
+
+        $total = (clone $query)->count();
+        $query->offset($offset)->limit($limit);
         $rows = $query->get();
 
-        return response()->json([
+        $response = [
             'status' => 'success',
             'data' => $rows
-        ]);
+        ];
+
+        if ($includeMeta) {
+            $response['pagination'] = [
+                'total' => $total,
+                'limit' => $limit,
+                'offset' => $offset,
+            ];
+        }
+
+        return response()->json($response);
     }
 
     public function storeTemplate(Request $request)

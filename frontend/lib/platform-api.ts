@@ -35,6 +35,19 @@ function clearAuthSession() {
   window.localStorage.removeItem("stylish-events-admin-user")
 }
 
+const publicGetCache = new Map<string, { expiresAt: number; promise: Promise<any> }>()
+const PUBLIC_GET_TTL_MS = 60_000
+
+function clearPublicGetCache(prefix?: string) {
+  if (!prefix) {
+    publicGetCache.clear()
+    return
+  }
+  for (const key of Array.from(publicGetCache.keys())) {
+    if (key.includes(prefix)) publicGetCache.delete(key)
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response
   try {
@@ -77,6 +90,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return payload.data as T
+}
+
+function cachedPublicRequest<T>(path: string, ttlMs = PUBLIC_GET_TTL_MS): Promise<T> {
+  const key = `${apiRequestBaseUrl()}${path}`
+  const now = Date.now()
+  const cached = publicGetCache.get(key)
+  if (cached && cached.expiresAt > now) return cached.promise as Promise<T>
+  const promise = request<T>(path).catch((error) => {
+    publicGetCache.delete(key)
+    throw error
+  })
+  publicGetCache.set(key, { expiresAt: now + ttlMs, promise })
+  return promise
 }
 
 async function requestEnvelope<T>(path: string, init?: RequestInit): Promise<T> {
@@ -142,12 +168,18 @@ export const platformApi = {
     request<any>("/api/auth/me/password", { method: "PATCH", body: JSON.stringify(data) }),
   bootstrapAdmin: (data: Record<string, unknown>) =>
     request<any>("/api/auth/bootstrap-admin", { method: "POST", body: JSON.stringify(data) }),
-  getThemeSettings: () => request<any>("/api/platform/settings/theme"),
-  updateThemeSettings: (data: Record<string, unknown>) =>
-    request<any>("/api/platform/settings/theme", { method: "PUT", body: JSON.stringify(data) }),
-  getSiteContentSettings: () => request<any>("/api/platform/settings/site-content"),
-  updateSiteContentSettings: (data: Record<string, unknown>) =>
-    request<any>("/api/platform/settings/site-content", { method: "PUT", body: JSON.stringify(data) }),
+  getThemeSettings: () => cachedPublicRequest<any>("/api/platform/settings/theme", 120_000),
+  updateThemeSettings: async (data: Record<string, unknown>) => {
+    const result = await request<any>("/api/platform/settings/theme", { method: "PUT", body: JSON.stringify(data) })
+    clearPublicGetCache("/api/platform/settings/theme")
+    return result
+  },
+  getSiteContentSettings: () => cachedPublicRequest<any>("/api/platform/settings/site-content", 120_000),
+  updateSiteContentSettings: async (data: Record<string, unknown>) => {
+    const result = await request<any>("/api/platform/settings/site-content", { method: "PUT", body: JSON.stringify(data) })
+    clearPublicGetCache("/api/platform/settings/site-content")
+    return result
+  },
   submitEventBrief: (data: Record<string, unknown>) =>
     request<any>("/api/booking", { method: "POST", body: JSON.stringify(data) }),
   submitContactInquiry: (data: Record<string, unknown>) =>
@@ -214,12 +246,18 @@ export const platformApi = {
   getContactInquiry: (id: number | string) => request<any>(`/api/contact-inquiries/${id}`),
   updateContactInquiry: (id: number | string, data: Record<string, unknown>) =>
     request<any>(`/api/contact-inquiries/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-  getCurrencySettings: () => request<any>("/api/platform/settings/currency"),
-  updateCurrencySettings: (data: Record<string, unknown>) =>
-    request<any>("/api/platform/settings/currency", { method: "PUT", body: JSON.stringify(data) }),
-  getCardTemplateSettings: () => request<any>("/api/platform/settings/card-template"),
-  updateCardTemplateSettings: (data: Record<string, unknown>) =>
-    request<any>("/api/platform/settings/card-template", { method: "PUT", body: JSON.stringify(data) }),
+  getCurrencySettings: () => cachedPublicRequest<any>("/api/platform/settings/currency", 120_000),
+  updateCurrencySettings: async (data: Record<string, unknown>) => {
+    const result = await request<any>("/api/platform/settings/currency", { method: "PUT", body: JSON.stringify(data) })
+    clearPublicGetCache("/api/platform/settings/currency")
+    return result
+  },
+  getCardTemplateSettings: () => cachedPublicRequest<any>("/api/platform/settings/card-template", 120_000),
+  updateCardTemplateSettings: async (data: Record<string, unknown>) => {
+    const result = await request<any>("/api/platform/settings/card-template", { method: "PUT", body: JSON.stringify(data) })
+    clearPublicGetCache("/api/platform/settings/card-template")
+    return result
+  },
   uploadPlatformAsset: (data: { fileName: string; dataUrl: string }) =>
     request<any>("/api/platform/assets/upload", { method: "POST", body: JSON.stringify(data) }),
   listEvents: (params?: { status?: string; includeDeleted?: boolean; page?: 'upcoming' | 'previous'; sortMode?: string; limit?: number }) => {
@@ -230,7 +268,9 @@ export const platformApi = {
     if (params?.sortMode) searchParams.set("sortMode", params.sortMode)
     if (params?.limit) searchParams.set("limit", String(params.limit))
     const queryString = searchParams.toString()
-    return request<any[]>(`/api/events${queryString ? `?${queryString}` : ""}`)
+    const path = `/api/events${queryString ? `?${queryString}` : ""}`
+    if (!currentAuthToken() && (params?.status === "published" || params?.page)) return cachedPublicRequest<any[]>(path, 60_000)
+    return request<any[]>(path)
   },
   getEvent: async (id: number | string) => {
     const data = await request<any>(`/api/events/${id}`)
@@ -266,8 +306,18 @@ export const platformApi = {
     request<any>(`/api/tickets/price-periods/${id}`, { method: "DELETE" }),
   listPricePeriods: (ticketTypeId: number | string) =>
     request<any[]>(`/api/tickets/${ticketTypeId}/price-periods`),
-  listAttendees: (eventId?: number) =>
-    request<any[]>(`/api/attendees${eventId ? `?eventId=${eventId}` : ""}`),
+  listAttendees: (params?: number | { eventId?: number; limit?: number; offset?: number; search?: string; includeMeta?: boolean }) => {
+    const options = typeof params === "number" ? { eventId: params } : params
+    const searchParams = new URLSearchParams()
+    if (options?.eventId) searchParams.set("eventId", String(options.eventId))
+    if (typeof options?.limit === "number") searchParams.set("limit", String(options.limit))
+    if (typeof options?.offset === "number") searchParams.set("offset", String(options.offset))
+    if (options?.search) searchParams.set("search", options.search)
+    const queryString = searchParams.toString()
+    const path = `/api/attendees${queryString ? `?${queryString}` : ""}`
+    if (options?.includeMeta) return requestEnvelope<any>(`${path}${queryString ? "&" : "?"}meta=true`)
+    return request<any[]>(path)
+  },
   getAttendee: (id: number | string) => request<any>(`/api/attendees/${id}`),
   checkin: (qrToken: string, eventId?: number | string) =>
     request<any>("/api/attendees/checkin", {
@@ -308,7 +358,18 @@ export const platformApi = {
     request<any>(`/api/registrations/${id}/review`, { method: "PATCH", body: JSON.stringify(data) }),
   updateRegistrationOrderStatus: (id: number | string, status: "paid" | "cancelled" | "refunded") =>
     request<any>(`/api/registrations/${id}/order-status`, { method: "PATCH", body: JSON.stringify({ status }) }),
-  listReviews: () => request<any[]>("/api/reviews"),
+  listReviews: (params?: { eventId?: number; status?: string; limit?: number; offset?: number; search?: string; includeMeta?: boolean }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.eventId) searchParams.set("eventId", String(params.eventId))
+    if (params?.status) searchParams.set("status", params.status)
+    if (typeof params?.limit === "number") searchParams.set("limit", String(params.limit))
+    if (typeof params?.offset === "number") searchParams.set("offset", String(params.offset))
+    if (params?.search) searchParams.set("search", params.search)
+    const queryString = searchParams.toString()
+    const path = `/api/reviews${queryString ? `?${queryString}` : ""}`
+    if (params?.includeMeta) return requestEnvelope<any>(`${path}${queryString ? "&" : "?"}meta=true`)
+    return request<any[]>(path)
+  },
   getReview: (id: number | string) => request<any>(`/api/reviews/${id}`),
   updateReviewStatus: (id: number | string, status: string) =>
     request<any>(`/api/reviews/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
@@ -328,8 +389,18 @@ export const platformApi = {
     request<any[]>(`/api/reports/ticket-performance${eventId ? `?eventId=${eventId}` : ""}`),
   listCertificateTemplates: (eventId?: number) =>
     request<any[]>(`/api/certificates/templates${eventId ? `?eventId=${eventId}` : ""}`),
-  listCertificateDelivery: (eventId?: number) =>
-    request<any[]>(`/api/certificates/delivery${eventId ? `?eventId=${eventId}` : ""}`),
+  listCertificateDelivery: (params?: number | { eventId?: number; limit?: number; offset?: number; search?: string; includeMeta?: boolean }) => {
+    const options = typeof params === "number" ? { eventId: params } : params
+    const searchParams = new URLSearchParams()
+    if (options?.eventId) searchParams.set("eventId", String(options.eventId))
+    if (typeof options?.limit === "number") searchParams.set("limit", String(options.limit))
+    if (typeof options?.offset === "number") searchParams.set("offset", String(options.offset))
+    if (options?.search) searchParams.set("search", options.search)
+    const queryString = searchParams.toString()
+    const path = `/api/certificates/delivery${queryString ? `?${queryString}` : ""}`
+    if (options?.includeMeta) return requestEnvelope<any>(`${path}${queryString ? "&" : "?"}meta=true`)
+    return request<any[]>(path)
+  },
   createCertificateTemplate: (data: Record<string, unknown>) =>
     request<any>("/api/certificates/templates", { method: "POST", body: JSON.stringify(data) }),
   updateCertificateTemplateStatus: (id: number | string, isActive: boolean) =>
@@ -340,13 +411,17 @@ export const platformApi = {
     request<any>("/api/certificates/event-card", { method: "POST", body: JSON.stringify(data) }),
   emailCertificates: (data: { certificateIds: number[]; eventId?: number }) =>
     request<any>("/api/certificates/email/bulk", { method: "POST", body: JSON.stringify(data) }),
-  listUsers: (params?: { search?: string; role?: string; status?: string }) => {
+  listUsers: (params?: { search?: string; role?: string; status?: string; limit?: number; offset?: number; includeMeta?: boolean }) => {
     const searchParams = new URLSearchParams()
     if (params?.search) searchParams.set("search", params.search)
     if (params?.role) searchParams.set("role", params.role)
     if (params?.status) searchParams.set("status", params.status)
+    if (typeof params?.limit === "number") searchParams.set("limit", String(params.limit))
+    if (typeof params?.offset === "number") searchParams.set("offset", String(params.offset))
     const queryString = searchParams.toString()
-    return request<any[]>(`/api/users${queryString ? `?${queryString}` : ""}`)
+    const path = `/api/users${queryString ? `?${queryString}` : ""}`
+    if (params?.includeMeta) return requestEnvelope<any>(`${path}${queryString ? '&' : '?'}meta=true`)
+    return request<any[]>(path)
   },
   getUser: (id: number | string) => request<any>(`/api/users/${id}`),
   createUser: (data: Record<string, unknown>) =>

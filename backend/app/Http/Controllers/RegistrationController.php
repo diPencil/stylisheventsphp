@@ -151,6 +151,7 @@ class RegistrationController extends Controller
         $eventId = (int)$request->query('eventId', 0);
         $limit = min(1000, max(1, (int)$request->query('limit', 300)));
         $offset = max(0, (int)$request->query('offset', 0));
+        $search = trim((string)$request->query('search', ''));
 
         if ($eventId && !$request->user()->hasEventScope($eventId)) {
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
@@ -190,6 +191,19 @@ class RegistrationController extends Controller
         }
         if ($eventId) {
             $query->where('r.event_id', $eventId);
+        }
+        if ($search !== '') {
+            $query->where(function($q) use ($search) {
+                $like = '%' . $search . '%';
+                $q->where('r.registration_number', 'like', $like)
+                  ->orWhere('o.order_number', 'like', $like)
+                  ->orWhere('d.full_name', 'like', $like)
+                  ->orWhere('d.email', 'like', $like)
+                  ->orWhere('e.title_en', 'like', $like)
+                  ->orWhere('e.title_ar', 'like', $like)
+                  ->orWhere('tt.name_en', 'like', $like)
+                  ->orWhere('tt.name_ar', 'like', $like);
+            });
         }
 
         $request->user()->applyEventScope($query, 'r.event_id');

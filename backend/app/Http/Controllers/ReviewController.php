@@ -37,6 +37,11 @@ class ReviewController extends Controller
     public function index(Request $request)
     {
         $eventId = (int)$request->query('eventId', 0);
+        $limit = min(max((int) $request->query('limit', 150), 1), 1000);
+        $offset = max((int) $request->query('offset', 0), 0);
+        $search = trim((string) $request->query('search', ''));
+        $status = trim((string) $request->query('status', ''));
+        $includeMeta = filter_var($request->query('meta', false), FILTER_VALIDATE_BOOLEAN);
         $user = auth('api')->user();
 
         if ($eventId && !$this->requireEventScope($user, $eventId)) {
@@ -52,9 +57,31 @@ class ReviewController extends Controller
             $where[] = "r.event_id = ?";
             $bindings[] = $eventId;
         }
+        if ($search !== '') {
+            $where[] = "(r.title LIKE ? OR r.comment LIKE ? OR e.title_en LIKE ? OR e.title_ar LIKE ? OR a.full_name LIKE ? OR a.email LIKE ? OR u.name LIKE ? OR u.email LIKE ?)";
+            $like = '%' . $search . '%';
+            array_push($bindings, $like, $like, $like, $like, $like, $like, $like, $like);
+        }
+        if ($status !== '') {
+            $databaseStatus = $status === 'published' ? 'approved' : $status;
+            if (in_array($databaseStatus, ['approved', 'pending', 'rejected'], true)) {
+                $where[] = "r.status = ?";
+                $bindings[] = $databaseStatus;
+            }
+        }
         $where[] = "($scopeClause)";
         $whereClause = 'WHERE ' . implode(' AND ', $where);
 
+        $total = (int) DB::selectOne("
+            SELECT COUNT(*) AS aggregate
+            FROM reviews r
+            JOIN events e ON e.id = r.event_id
+            LEFT JOIN attendees a ON a.id = r.attendee_id
+            LEFT JOIN users u ON u.id = r.customer_id
+            $whereClause
+        ", $bindings)->aggregate;
+
+        $listBindings = array_merge($bindings, [$limit, $offset]);
         $rows = DB::select("
             SELECT
               r.id,
@@ -75,8 +102,8 @@ class ReviewController extends Controller
             LEFT JOIN users u ON u.id = r.customer_id
             $whereClause
             ORDER BY r.created_at DESC
-            LIMIT 150
-        ", $bindings);
+            LIMIT ? OFFSET ?
+        ", $listBindings);
 
         $formatDate = function ($date) {
             return $date ? Carbon::parse($date, 'Africa/Cairo')->setTimezone('UTC')->format('Y-m-d\TH:i:s.000\Z') : null;
@@ -99,11 +126,21 @@ class ReviewController extends Controller
             ];
         }, $rows);
 
-        return response()->json([
+        $response = [
             'success' => true,
             'message' => 'OK',
             'data' => $mapped
-        ]);
+        ];
+
+        if ($includeMeta) {
+            $response['pagination'] = [
+                'total' => $total,
+                'limit' => $limit,
+                'offset' => $offset,
+            ];
+        }
+
+        return response()->json($response);
     }
 
     public function show(Request $request, $id)

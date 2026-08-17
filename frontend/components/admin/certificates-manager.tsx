@@ -36,7 +36,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { ImageUrlDropzone } from "@/components/admin/image-url-dropzone"
 import { ConfirmAction } from "@/components/admin/confirm-action"
-import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
+import { PaginationControls } from "@/components/admin/table-pagination"
 import { useAdminPermissions } from "@/components/admin/admin-shell"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
@@ -156,6 +156,9 @@ export function CertificatesManager() {
   const [events, setEvents] = useState<CertificateEvent[]>([])
   const [eventFilter, setEventFilter] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalAssets, setTotalAssets] = useState(0)
   const [selectedCertificateIds, setSelectedCertificateIds] = useState<string[]>([])
   const [emailing, setEmailing] = useState(false)
   const [emailSummary, setEmailSummary] = useState<EmailBatchSummary | null>(null)
@@ -165,15 +168,36 @@ export function CertificatesManager() {
 
   useEffect(() => {
     let active = true
-    async function loadDelivery() {
+    async function loadEvents() {
       try {
-        const [eventRows, deliveryRows] = await Promise.all([
-          platformApi.listEvents(),
-          platformApi.listCertificateDelivery(),
-        ])
+        const eventRows = await platformApi.listEvents()
         if (!active) return
         setEvents((eventRows || []).map(normalizeDeliveryEvent))
-        setAssets((deliveryRows || []).map(normalizeDelivery))
+      } catch (error) {
+        if (!active) return
+        toast.error("Could not load certificates", { description: error instanceof Error ? error.message : "Check the backend connection." })
+      }
+    }
+    loadEvents()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    async function loadDelivery() {
+      try {
+        const result = await platformApi.listCertificateDelivery({
+          ...(eventFilter !== "all" ? { eventId: Number(eventFilter) } : {}),
+          search,
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
+          includeMeta: true,
+        })
+        if (!active) return
+        setAssets((result.data || []).map(normalizeDelivery))
+        setTotalAssets(Number(result.pagination?.total || 0))
       } catch (error) {
         if (!active) return
         toast.error("Could not load certificates", { description: error instanceof Error ? error.message : "Check the backend connection." })
@@ -183,30 +207,65 @@ export function CertificatesManager() {
     return () => {
       active = false
     }
-  }, [])
+  }, [eventFilter, page, pageSize, search])
 
-  const visibleAssets = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    return assets.filter((asset) => {
-      const matchesEvent = eventFilter === "all" || asset.eventId === eventFilter
-      const matchesSearch = !query || [asset.attendee, asset.email, asset.certificateNo, asset.ticket].some((value) => value.toLowerCase().includes(query))
-      return matchesEvent && matchesSearch
-    })
-  }, [assets, eventFilter, search])
-  const assetPagination = useTablePagination(visibleAssets, [search, eventFilter])
+  useEffect(() => {
+    setPage(1)
+  }, [eventFilter, search, pageSize])
 
-  const selectableAssets = visibleAssets.filter((asset) => asset.certificateId && asset.certificateStatus === "sent")
+  const totalPages = Math.max(1, Math.ceil(totalAssets / pageSize))
+
+  const selectableAssets = assets.filter((asset) => asset.certificateId && asset.certificateStatus === "sent")
   const selectableIds = selectableAssets.map((asset) => asset.certificateId)
   const allVisibleSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedCertificateIds.includes(id))
 
   const totals = useMemo(() => {
     return {
-      customers: assets.length,
+      customers: totalAssets,
       certificatesSent: assets.filter((asset) => asset.certificateStatus === "sent").length,
       cardsSent: assets.filter((asset) => asset.cardStatus === "sent").length,
       waiting: assets.filter((asset) => asset.certificateStatus === "not_ready").length,
     }
-  }, [assets])
+  }, [assets, totalAssets])
+
+  const exportLog = async () => {
+    let exportRows = assets
+    try {
+      const rows = await platformApi.listCertificateDelivery({
+        ...(eventFilter !== "all" ? { eventId: Number(eventFilter) } : {}),
+        search,
+        limit: 1000,
+        offset: 0,
+      })
+      exportRows = (rows || []).map(normalizeDelivery)
+    } catch (error) {
+      toast.error("Export used visible rows", { description: error instanceof Error ? error.message : "Could not load the full filtered certificate list." })
+    }
+    const headers = ["#", "Customer", "Email", "Ticket", "Certificate", "Certificate Status", "Card", "Card Status", "Checked In"]
+    const escape = (value: string | number | boolean) => `"${String(value ?? "").replace(/"/g, '""')}"`
+    const csvRows = exportRows.map((asset, index) => [
+      index + 1,
+      asset.attendee,
+      asset.email,
+      asset.ticket,
+      asset.certificateNo,
+      asset.certificateStatus,
+      asset.cardNo,
+      asset.cardStatus,
+      asset.checkedIn,
+    ])
+    const csv = [headers, ...csvRows].map((row) => row.map(escape).join(",")).join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "stylish-events-certificates.csv"
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    toast.success(language === "ar" ? "تم تصدير السجل" : "Certificate log exported", { description: `${exportRows.length} rows downloaded.` })
+  }
 
   const updateAsset = (id: string, patch: Partial<CustomerAsset>, message: string) => {
     setAssets((current) => current.map((asset) => (asset.id === id ? { ...asset, ...patch } : asset)))
@@ -314,7 +373,7 @@ export function CertificatesManager() {
               </Link>
             </Button>
           )}
-          <Button className="h-10 rounded-2xl bg-[hsl(var(--primary))] px-4 text-sm font-extrabold text-white hover:bg-[hsl(var(--primary)/0.9)]">
+          <Button onClick={exportLog} className="h-10 rounded-2xl bg-[hsl(var(--primary))] px-4 text-sm font-extrabold text-white hover:bg-[hsl(var(--primary)/0.9)]">
             <Download className="h-4 w-4" />
             {language === "ar" ? "تصدير السجل" : "Export Log"}
           </Button>
@@ -456,7 +515,7 @@ export function CertificatesManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {assetPagination.paginatedRows.map((asset, index) => (
+                {assets.map((asset, index) => (
                   <TableRow key={asset.id} className="hover:bg-[hsl(var(--primary)/0.04)]">
                     <TableCell>
                       <Checkbox
@@ -466,7 +525,7 @@ export function CertificatesManager() {
                         aria-label={`${language === "ar" ? "تحديد شهادة" : "Select certificate"} ${asset.attendee}`}
                       />
                     </TableCell>
-                    <TableCell className="text-sm font-extrabold text-slate-400">{(assetPagination.page - 1) * assetPagination.pageSize + index + 1}</TableCell>
+                    <TableCell className="text-sm font-extrabold text-slate-400">{(page - 1) * pageSize + index + 1}</TableCell>
                     <TableCell>
                       <div>
                         <p className="text-sm font-extrabold text-[#17172f]">{asset.attendee}</p>
@@ -596,12 +655,12 @@ export function CertificatesManager() {
             </Table>
           </div>
           <PaginationControls
-            page={assetPagination.page}
-            pageSize={assetPagination.pageSize}
-            total={visibleAssets.length}
-            totalPages={assetPagination.totalPages}
-            onPageChange={assetPagination.setPage}
-            onPageSizeChange={assetPagination.setPageSize}
+            page={page}
+            pageSize={pageSize}
+            total={totalAssets}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
           />
         </CardContent>
       </Card>

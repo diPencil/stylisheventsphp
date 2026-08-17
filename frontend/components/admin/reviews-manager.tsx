@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
 import { ConfirmAction } from "@/components/admin/confirm-action"
-import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
+import { PaginationControls } from "@/components/admin/table-pagination"
 import { useAdminPermissions } from "@/components/admin/admin-shell"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
@@ -78,12 +78,24 @@ export function ReviewsManager() {
   const canManageReviews = can("reviews.manage")
   const [reviews, setReviews] = useState<Review[]>([])
   const [search, setSearch] = useState("")
+  const [activeStatus, setActiveStatus] = useState<"all" | ReviewStatus>("all")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalReviews, setTotalReviews] = useState(0)
 
   useEffect(() => {
     let active = true
-    platformApi.listReviews()
-      .then((rows) => {
-        if (active) setReviews((rows || []).map(normalizeReview))
+    platformApi.listReviews({
+      search,
+      status: activeStatus === "all" ? undefined : activeStatus,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+      includeMeta: true,
+    })
+      .then((result: any) => {
+        if (!active) return
+        setReviews((result.data || []).map(normalizeReview))
+        setTotalReviews(Number(result.pagination?.total || 0))
       })
       .catch((error) => {
         if (active) toast.error("Could not load reviews", { description: error instanceof Error ? error.message : "Check the backend connection." })
@@ -91,11 +103,13 @@ export function ReviewsManager() {
     return () => {
       active = false
     }
-  }, [])
+  }, [activeStatus, page, pageSize, search])
 
-  const filteredReviews = reviews.filter((review) =>
-    `${review.customer} ${review.event} ${review.title}`.toLowerCase().includes(search.toLowerCase())
-  )
+  useEffect(() => {
+    setPage(1)
+  }, [activeStatus, search, pageSize])
+
+  const totalPages = Math.max(1, Math.ceil(totalReviews / pageSize))
 
   const totals = useMemo(() => {
     const average = reviews.length ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0
@@ -109,7 +123,7 @@ export function ReviewsManager() {
 
   const setStatus = async (id: string, status: ReviewStatus) => {
     try {
-      await platformApi.updateReviewStatus(id, status)
+      await platformApi.updateReviewStatus(id, status === "published" ? "approved" : status)
       setReviews((current) => current.map((review) => review.id === id ? { ...review, status } : review))
       toast.success("Review updated", { description: `Review is now ${status}.` })
     } catch (error) {
@@ -127,8 +141,7 @@ export function ReviewsManager() {
     }
   }
 
-  const renderTable = (items: Review[]) => {
-    const reviewPagination = useTablePagination(items, [search, items.length])
+  const renderTable = () => {
     return (
       <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
       <CardHeader className="flex flex-col gap-3 border-b border-slate-100 md:flex-row md:items-center md:justify-between">
@@ -154,9 +167,9 @@ export function ReviewsManager() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {reviewPagination.paginatedRows.map((review, index) => (
+              {reviews.map((review, index) => (
                 <TableRow key={review.id} className="hover:bg-[hsl(var(--primary)/0.04)]">
-                  <TableCell className="text-sm font-extrabold text-slate-400">{(reviewPagination.page - 1) * reviewPagination.pageSize + index + 1}</TableCell>
+                  <TableCell className="text-sm font-extrabold text-slate-400">{(page - 1) * pageSize + index + 1}</TableCell>
                   <TableCell>
                     <p className="text-sm font-extrabold text-[#17172f]">{review.customer}</p>
                     <p className="text-xs font-semibold text-slate-400">{review.email}</p>
@@ -214,15 +227,15 @@ export function ReviewsManager() {
               ))}
             </TableBody>
           </Table>
-          {items.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{language === "ar" ? "لا توجد مراجعات." : "No reviews found."}</div>}
+          {reviews.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{language === "ar" ? "لا توجد مراجعات." : "No reviews found."}</div>}
         </div>
         <PaginationControls
-          page={reviewPagination.page}
-          pageSize={reviewPagination.pageSize}
-          total={items.length}
-          totalPages={reviewPagination.totalPages}
-          onPageChange={reviewPagination.setPage}
-          onPageSizeChange={reviewPagination.setPageSize}
+          page={page}
+          pageSize={pageSize}
+          total={totalReviews}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
         />
       </CardContent>
       </Card>
@@ -249,16 +262,16 @@ export function ReviewsManager() {
         })}
       </div>
 
-      <Tabs defaultValue="all" className="space-y-5">
+      <Tabs value={activeStatus} onValueChange={(value) => setActiveStatus(value as "all" | ReviewStatus)} className="space-y-5">
         <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-white/70 p-1 lg:w-[680px]">
           <TabsTrigger value="all" className="rounded-xl">{language === "ar" ? "كل المراجعات" : "All Reviews"}</TabsTrigger>
           <TabsTrigger value="pending" className="rounded-xl">{adminT(language, "reviews.pending")}</TabsTrigger>
           <TabsTrigger value="published" className="rounded-xl">{adminT(language, "reviews.published")}</TabsTrigger>
           <TabsTrigger value="rejected" className="rounded-xl">{adminT(language, "reviews.rejected")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="all">{renderTable(filteredReviews)}</TabsContent>
+        <TabsContent value="all">{renderTable()}</TabsContent>
         {(["pending", "published", "rejected"] as ReviewStatus[]).map((status) => (
-          <TabsContent key={status} value={status}>{renderTable(filteredReviews.filter((review) => review.status === status))}</TabsContent>
+          <TabsContent key={status} value={status}>{renderTable()}</TabsContent>
         ))}
       </Tabs>
     </div>
