@@ -31,6 +31,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useLanguage } from "@/contexts/language-context"
+import { clearStoredAuthSession, readStoredAuthToken } from "@/lib/auth-session"
 import { apiAssetUrl, platformApi } from "@/lib/platform-api"
 import { defaultPlatformTheme, normalizePlatformTheme, readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
 import { cn } from "@/lib/utils"
@@ -103,15 +104,11 @@ function t(text: LangText, isRtl: boolean) {
 }
 
 function token() {
-  if (typeof window === "undefined") return ""
-  return window.localStorage.getItem("stylish-events-admin-token") || window.localStorage.getItem("stylish-events-auth-token") || window.localStorage.getItem("stylish-events-token") || ""
+  return readStoredAuthToken()
 }
 
 function clearSession() {
-  window.localStorage.removeItem("stylish-events-admin-token")
-  window.localStorage.removeItem("stylish-events-auth-token")
-  window.localStorage.removeItem("stylish-events-token")
-  window.localStorage.removeItem("stylish-events-admin-user")
+  clearStoredAuthSession()
 }
 
 function cleanDisplayName(value?: string | null) {

@@ -8,7 +8,8 @@ import { PublicPageFrame, PublicPageHero } from "@/components/public/page-buildi
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useLanguage } from "@/contexts/language-context"
-import { apiAssetUrl, currentAuthToken, platformApi } from "@/lib/platform-api"
+import { useAuthSession } from "@/lib/auth-session"
+import { apiAssetUrl, platformApi } from "@/lib/platform-api"
 import { applyAccountRegistrationPrefill } from "@/lib/registration-prefill"
 import { cn } from "@/lib/utils"
 
@@ -38,8 +39,8 @@ export default function EventRegisterPage() {
   const [form, setForm] = useState(initialForm)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
-  const [hasAuthToken, setHasAuthToken] = useState(false)
   const [accountPrefillLoading, setAccountPrefillLoading] = useState(false)
+  const authSession = useAuthSession()
 
   useEffect(() => {
     let active = true
@@ -60,25 +61,19 @@ export default function EventRegisterPage() {
   }, [language])
 
   useEffect(() => {
-    const token = currentAuthToken()
-    const authToken = typeof token === "string" ? token : ""
-    setHasAuthToken(Boolean(authToken))
-    if (!authToken) return
-
-    let active = true
-    setAccountPrefillLoading(true)
-    platformApi.me(authToken)
-      .then((user) => {
-        if (!active) return
-        setForm((current) => applyAccountRegistrationPrefill(current, user))
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (active) setAccountPrefillLoading(false)
-      })
-
-    return () => { active = false }
-  }, [])
+    if (!authSession.token) {
+      setAccountPrefillLoading(false)
+      return
+    }
+    if (authSession.status === "loading") {
+      setAccountPrefillLoading(true)
+      return
+    }
+    setAccountPrefillLoading(false)
+    if (authSession.status === "authenticated" && authSession.user) {
+      setForm((current) => applyAccountRegistrationPrefill(current, authSession.user))
+    }
+  }, [authSession.status, authSession.token, authSession.user])
 
   const event = data?.event
   const tickets = data?.tickets || []
@@ -88,9 +83,10 @@ export default function EventRegisterPage() {
   const price = selectedTicket ? Number(currency === "EGP" ? selectedTicket.price_egp ?? selectedTicket.price : selectedTicket.price_usd ?? selectedTicket.price) : 0
   const paymentMethods = useMemo(() => (data?.paymentMethods || []).filter((method: any) => String(method.currency || "").toUpperCase() === currency), [data, currency])
   const registrationUnavailable = policy.publicRegistrationEnabled === false || event?.state !== "open"
-  const loginRequired = policy.access === "login_required" && !hasAuthToken
+  const authRequiredLoading = policy.access === "login_required" && authSession.status === "loading"
+  const loginRequired = policy.access === "login_required" && authSession.status === "guest"
   const manualPaymentUnavailable = price > 0 && (policy.manualPaymentEnabled === false || paymentMethods.length === 0)
-  const submitDisabled = submitting || accountPrefillLoading || !selectedTicket || registrationUnavailable || loginRequired || manualPaymentUnavailable || (price > 0 && !form.paymentReference.trim())
+  const submitDisabled = submitting || accountPrefillLoading || authRequiredLoading || !selectedTicket || registrationUnavailable || loginRequired || manualPaymentUnavailable || (price > 0 && !form.paymentReference.trim())
 
   const update = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }))
 
@@ -183,6 +179,11 @@ export default function EventRegisterPage() {
             {registrationUnavailable ? (
               <div className="mb-5 rounded-2xl bg-amber-50 p-4 text-sm font-bold text-amber-700">
                 {isRtl ? "التسجيل غير متاح لهذه الفعالية حالياً." : "Registration is not available for this event right now."}
+              </div>
+            ) : null}
+            {authRequiredLoading ? (
+              <div className="mb-5 rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-700">
+                {isRtl ? "جاري التحقق من تسجيل الدخول..." : "Checking your sign-in before registration..."}
               </div>
             ) : null}
             {loginRequired ? (

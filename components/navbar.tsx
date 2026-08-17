@@ -8,6 +8,7 @@ import { CalendarDays, History, Home, Info, Languages, LayoutDashboard, LogIn, M
 import { Button } from "@/components/ui/button"
 import { AnimatedCtaButton } from "@/components/ui/animated-cta-button"
 import { useLanguage } from "@/contexts/language-context"
+import { useAuthSession } from "@/lib/auth-session"
 import { apiAssetUrl, platformApi } from "@/lib/platform-api"
 import { defaultPlatformTheme, normalizePlatformTheme, readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
 import { publicNavLinks } from "@/lib/public-pages-content"
@@ -51,38 +52,6 @@ function brandAssetsFromTheme(theme: any) {
   }
 }
 
-function roleFromToken(token: string) {
-  try {
-    const encoded = token.split(".")[0]
-    if (!encoded) return ""
-    const payload = JSON.parse(atob(encoded.replace(/-/g, "+").replace(/_/g, "/")))
-    return payload?.role || ""
-  } catch {
-    return ""
-  }
-}
-
-function readAuthCta() {
-  if (typeof window === "undefined") return { href: "/login", isLoggedIn: false }
-
-  const token =
-    window.localStorage.getItem("stylish-events-admin-token") ||
-    window.localStorage.getItem("stylish-events-auth-token") ||
-    window.localStorage.getItem("stylish-events-token")
-  if (!token) return { href: "/login", isLoggedIn: false }
-
-  try {
-    const savedUser = window.localStorage.getItem("stylish-events-admin-user")
-    const user = savedUser ? JSON.parse(savedUser) : null
-    const role = user?.role_code || user?.role?.code || user?.role || roleFromToken(token)
-    const href = ["admin", "organizer", "employee", "back_office"].includes(role) ? "/admin" : "/dashboard"
-    return { href, isLoggedIn: true }
-  } catch {
-    const role = roleFromToken(token)
-    return { href: ["admin", "organizer", "employee", "back_office"].includes(role) ? "/admin" : "/dashboard", isLoggedIn: true }
-  }
-}
-
 function MobileNavIcon({ href }: { href: string }) {
   if (href === "/") return <Home className="h-4 w-4" />
   if (href.startsWith("/upcoming-events")) return <CalendarDays className="h-4 w-4" />
@@ -97,28 +66,19 @@ export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [menuLinks, setMenuLinks] = useState<PublicMenuLink[]>(() => publicNavLinks.filter((link) => link.href !== "/why-us"))
   const [brandAssets, setBrandAssets] = useState(() => brandAssetsFromTheme(defaultPlatformTheme))
-  const [authCta, setAuthCta] = useState({ href: "/login", isLoggedIn: false })
   const pathname = usePathname()
   const { language, setLanguage, isRtl } = useLanguage()
-
-  useEffect(() => {
-    setAuthCta(readAuthCta())
-  }, [])
+  const authSession = useAuthSession()
+  const isAuthLoading = authSession.status === "loading"
+  const authCta = {
+    href: authSession.status === "authenticated" ? authSession.dashboardHref : "/login",
+    isLoggedIn: authSession.status === "authenticated",
+  }
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10)
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
-
-  useEffect(() => {
-    const syncAuthCta = () => setAuthCta(readAuthCta())
-    window.addEventListener("storage", syncAuthCta)
-    window.addEventListener("focus", syncAuthCta)
-    return () => {
-      window.removeEventListener("storage", syncAuthCta)
-      window.removeEventListener("focus", syncAuthCta)
-    }
   }, [])
 
   useEffect(() => {
@@ -226,13 +186,23 @@ export function Navbar() {
             {language === "ar" ? "EN" : "AR"}
           </Button>
 
-          <Link href={authCta.href} aria-label={authCta.isLoggedIn ? (isRtl ? "\u0644\u0648\u062d\u0629 \u0627\u0644\u062a\u062d\u0643\u0645" : "Dashboard") : (isRtl ? "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644" : "Log in")} className="hidden md:block">
-            <div className="flex items-center">
-              <AnimatedCtaButton style={{ '--main-size': '0.8em' } as React.CSSProperties}>
-                {authCta.isLoggedIn ? (isRtl ? "\u0644\u0648\u062d\u0629 \u0627\u0644\u062a\u062d\u0643\u0645" : "Dashboard") : (isRtl ? "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644" : "Log in")}
-              </AnimatedCtaButton>
+          {isAuthLoading ? (
+            <div aria-label={isRtl ? "\u062c\u0627\u0631\u064a \u0627\u0644\u062a\u062d\u0642\u0642" : "Checking sign-in"} className="hidden md:block">
+              <div className="flex items-center">
+                <AnimatedCtaButton style={{ '--main-size': '0.8em' } as React.CSSProperties}>
+                  {isRtl ? "\u062c\u0627\u0631\u064a..." : "Checking..."}
+                </AnimatedCtaButton>
+              </div>
             </div>
-          </Link>
+          ) : (
+            <Link href={authCta.href} aria-label={authCta.isLoggedIn ? (isRtl ? "\u0644\u0648\u062d\u0629 \u0627\u0644\u062a\u062d\u0643\u0645" : "Dashboard") : (isRtl ? "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644" : "Log in")} className="hidden md:block">
+              <div className="flex items-center">
+                <AnimatedCtaButton style={{ '--main-size': '0.8em' } as React.CSSProperties}>
+                  {authCta.isLoggedIn ? (isRtl ? "\u0644\u0648\u062d\u0629 \u0627\u0644\u062a\u062d\u0643\u0645" : "Dashboard") : (isRtl ? "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644" : "Log in")}
+                </AnimatedCtaButton>
+              </div>
+            </Link>
+          )}
 
           <button
             type="button"
@@ -313,12 +283,19 @@ export function Navbar() {
                     <span className="text-sm font-extrabold uppercase text-primary">{language === "ar" ? "English" : "\u0627\u0644\u0639\u0631\u0628\u064a\u0629"}</span>
                   </button>
 
-                  <Link href={authCta.href} onClick={() => setIsMobileMenuOpen(false)}>
-                    <Button className="h-11 w-full rounded-2xl bg-[hsl(var(--primary))] text-sm font-extrabold text-white shadow-[0_12px_25px_hsl(var(--primary)/0.20)] hover:bg-[hsl(var(--primary)/0.90)]">
-                      {authCta.isLoggedIn ? <LayoutDashboard className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
-                      {authCta.isLoggedIn ? (isRtl ? "\u0644\u0648\u062d\u0629 \u0627\u0644\u062a\u062d\u0643\u0645" : "Dashboard") : (isRtl ? "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644" : "Log in")}
+                  {isAuthLoading ? (
+                    <Button disabled className="h-11 w-full rounded-2xl bg-[hsl(var(--primary))] text-sm font-extrabold text-white shadow-[0_12px_25px_hsl(var(--primary)/0.20)]">
+                      <LogIn className="h-4 w-4" />
+                      {isRtl ? "\u062c\u0627\u0631\u064a \u0627\u0644\u062a\u062d\u0642\u0642..." : "Checking sign-in..."}
                     </Button>
-                  </Link>
+                  ) : (
+                    <Link href={authCta.href} onClick={() => setIsMobileMenuOpen(false)}>
+                      <Button className="h-11 w-full rounded-2xl bg-[hsl(var(--primary))] text-sm font-extrabold text-white shadow-[0_12px_25px_hsl(var(--primary)/0.20)] hover:bg-[hsl(var(--primary)/0.90)]">
+                        {authCta.isLoggedIn ? <LayoutDashboard className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
+                        {authCta.isLoggedIn ? (isRtl ? "\u0644\u0648\u062d\u0629 \u0627\u0644\u062a\u062d\u0643\u0645" : "Dashboard") : (isRtl ? "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644" : "Log in")}
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </div>
             </motion.div>
