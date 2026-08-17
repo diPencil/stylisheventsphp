@@ -25,7 +25,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
+import { PaginationControls } from "@/components/admin/table-pagination"
 import {
   Dialog,
   DialogContent,
@@ -282,15 +282,26 @@ export function UsersManager() {
   const [form, setForm] = useState<UserForm>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalUsers, setTotalUsers] = useState(0)
 
   useEffect(() => {
     let active = true
     async function loadData() {
-      const [usersResult, rolesResult] = await Promise.allSettled([platformApi.listUsers(), platformApi.listRoles()])
+      const usersResult = await platformApi.listUsers({
+        search: search.trim() || undefined,
+        role: roleFilter === "all" ? undefined : roleFilter,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+        includeMeta: true,
+      }).then((value) => ({ status: "fulfilled" as const, value }), (reason) => ({ status: "rejected" as const, reason }))
       if (!active) return
 
       if (usersResult.status === "fulfilled") {
-        setUsers(usersResult.value || [])
+        setUsers(usersResult.value?.data || [])
+        setTotalUsers(Number(usersResult.value?.pagination?.total || 0))
       } else {
         const message = usersResult.reason instanceof Error ? usersResult.reason.message : "Check the backend connection."
         toast.error(language === "ar" ? "تعذر تحميل المستخدمين" : "Could not load users", {
@@ -298,42 +309,51 @@ export function UsersManager() {
         })
       }
 
-      if (rolesResult.status === "fulfilled" && rolesResult.value?.roles?.length) {
-        setRoles(rolesResult.value.roles.map((role: RoleOption) => ({
-          ...role,
-          permissions: role.permissions.map((permission: PermissionItem) => ({
-            ...permission,
-            label: permission.label || permission.labelEn || permission.key,
-            group: permission.group || permissionCatalog.find((item) => item.key === permission.key)?.group || "Account",
-          })),
-        })))
-      } else {
-        setRoles(roleSeeds)
-      }
     }
     loadData()
     return () => {
       active = false
     }
+  }, [language, page, pageSize, roleFilter, search, statusFilter])
+
+  useEffect(() => {
+    let active = true
+    platformApi.listRoles()
+      .then((rolesResult) => {
+        if (!active) return
+        if (rolesResult?.roles?.length) {
+          setRoles(rolesResult.roles.map((role: RoleOption) => ({
+            ...role,
+            permissions: role.permissions.map((permission: PermissionItem) => ({
+              ...permission,
+              label: permission.label || permission.labelEn || permission.key,
+              group: permission.group || permissionCatalog.find((item) => item.key === permission.key)?.group || "Account",
+            })),
+          })))
+        } else {
+          setRoles(roleSeeds)
+        }
+      })
+      .catch(() => {
+        if (active) setRoles(roleSeeds)
+      })
+    return () => {
+      active = false
+    }
   }, [language])
 
-  const filteredUsers = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    return users.filter((user) => {
-      const matchesSearch = !query || [user.name, user.email, user.username, user.phone, user.countryName, user.role.nameEn].some((value) => String(value || "").toLowerCase().includes(query))
-      const matchesRole = roleFilter === "all" || user.role.code === roleFilter
-      const matchesStatus = statusFilter === "all" || user.status === statusFilter
-      return matchesSearch && matchesRole && matchesStatus
-    })
-  }, [roleFilter, search, statusFilter, users])
-  const userPagination = useTablePagination(filteredUsers, [search, roleFilter, statusFilter])
+  useEffect(() => {
+    setPage(1)
+  }, [search, roleFilter, statusFilter, pageSize])
+
+  const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize))
 
   const metrics = useMemo(() => ({
-    total: users.length,
+    total: totalUsers,
     active: users.filter((user) => user.status === "active").length,
     roles: roles.length,
     blocked: users.filter((user) => user.status === "blocked").length,
-  }), [roles.length, users])
+  }), [roles.length, totalUsers, users])
 
   function openCreate() {
     setForm({ ...emptyForm, phone: applyCountryDialCode("", emptyForm.countryCode) })
@@ -390,8 +410,9 @@ export function UsersManager() {
           createdAt: new Date().toISOString(),
           lastLoginAt: null,
         }
-        return form.id ? current.map((user) => (user.id === form.id ? normalized : user)) : [normalized, ...current]
+        return form.id ? current.map((user) => (user.id === form.id ? normalized : user)) : [normalized, ...current].slice(0, pageSize)
       })
+      if (!form.id) setTotalUsers((current) => current + 1)
       toast.success(form.id ? adminT(language, "users.userUpdated") : adminT(language, "users.userCreated"), {
         description: language === "ar" ? `تم حفظ ${form.name || "المستخدم"} بنجاح.` : `${form.name || "User"} was saved successfully.`,
       })
@@ -552,9 +573,9 @@ export function UsersManager() {
                     </tr>
                   </thead>
                   <tbody>
-                    {userPagination.paginatedRows.map((user, index) => (
+                    {users.map((user, index) => (
                       <tr key={user.id} className="border-t border-slate-100 transition hover:bg-[hsl(var(--primary)/0.04)]">
-                        <td className="px-6 py-4 text-sm font-extrabold text-slate-400">{(userPagination.page - 1) * userPagination.pageSize + index + 1}</td>
+                        <td className="px-6 py-4 text-sm font-extrabold text-slate-400">{(page - 1) * pageSize + index + 1}</td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             {user.avatarUrl ? (
@@ -609,12 +630,12 @@ export function UsersManager() {
                 </table>
               </div>
               <PaginationControls
-                page={userPagination.page}
-                pageSize={userPagination.pageSize}
-                total={filteredUsers.length}
-                totalPages={userPagination.totalPages}
-                onPageChange={userPagination.setPage}
-                onPageSizeChange={userPagination.setPageSize}
+                page={page}
+                pageSize={pageSize}
+                total={totalUsers}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
               />
             </CardContent>
           </Card>

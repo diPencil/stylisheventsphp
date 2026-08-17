@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ConfirmAction } from "@/components/admin/confirm-action"
-import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
+import { PaginationControls } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
 import { adminStatusT, adminT } from "@/lib/admin-translations"
@@ -81,12 +81,17 @@ export function AttendeesManager() {
   const { language } = useLanguage()
   const [attendees, setAttendees] = useState<Attendee[]>([])
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalAttendees, setTotalAttendees] = useState(0)
 
   useEffect(() => {
     let active = true
-    platformApi.listAttendees()
-      .then((rows) => {
-        if (active) setAttendees((rows || []).map(normalizeAttendee))
+    platformApi.listAttendees({ search, limit: pageSize, offset: (page - 1) * pageSize, includeMeta: true })
+      .then((result: any) => {
+        if (!active) return
+        setAttendees((result.data || []).map(normalizeAttendee))
+        setTotalAttendees(Number(result.pagination?.total || 0))
       })
       .catch((error) => {
         if (active) toast.error("Could not load attendees", { description: error instanceof Error ? error.message : "Check the backend connection." })
@@ -94,14 +99,13 @@ export function AttendeesManager() {
     return () => {
       active = false
     }
-  }, [])
+  }, [page, pageSize, search])
 
-  const filteredAttendees = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    if (!query) return attendees
-    return attendees.filter((attendee) => `${attendee.name} ${attendee.email} ${attendee.event} ${attendee.ticket}`.toLowerCase().includes(query))
-  }, [attendees, search])
-  const attendeePagination = useTablePagination(filteredAttendees, [search])
+  useEffect(() => {
+    setPage(1)
+  }, [search, pageSize])
+
+  const totalPages = Math.max(1, Math.ceil(totalAttendees / pageSize))
 
   const totals = useMemo(() => {
     const checkedIn = attendees.filter((attendee) => attendee.status === "checked_in").length
@@ -140,10 +144,17 @@ export function AttendeesManager() {
     }
   }
 
-  function exportAttendees() {
+  async function exportAttendees() {
+    let exportRows = attendees
+    try {
+      const rows = await platformApi.listAttendees({ search, limit: 1000, offset: 0 })
+      exportRows = (rows || []).map(normalizeAttendee)
+    } catch (error) {
+      toast.error("Export used visible rows", { description: error instanceof Error ? error.message : "Could not load the full filtered attendee list." })
+    }
     const headers = ["#", "Attendee", "Email", "Role", "Event", "Ticket", "Status", "Certificate", "Registered", "Checked In"]
     const escape = (value: string | number | undefined) => `"${String(value ?? "").replace(/"/g, '""')}"`
-    const csvRows = filteredAttendees.map((attendee, index) => [
+    const csvRows = exportRows.map((attendee, index) => [
       index + 1,
       attendee.name,
       attendee.email,
@@ -165,7 +176,7 @@ export function AttendeesManager() {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
-    toast.success(adminT(language, "attendees.export"), { description: `${filteredAttendees.length} attendee rows downloaded.` })
+    toast.success(adminT(language, "attendees.export"), { description: `${exportRows.length} attendee rows downloaded.` })
   }
 
   return (
@@ -185,7 +196,7 @@ export function AttendeesManager() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Metric label={language === "ar" ? "إجمالي الحضور" : "Total Attendees"} value={attendees.length} icon={Users} />
+        <Metric label={language === "ar" ? "إجمالي الحضور" : "Total Attendees"} value={totalAttendees} icon={Users} />
         <Metric label={adminT(language, "overview.checkedIn")} value={totals.checkedIn} icon={UserCheck} />
         <Metric label={adminT(language, "overview.certificates")} value={totals.certificatesReady} icon={BadgeCheck} />
         <Metric label={adminT(language, "bookings.cancelled")} value={totals.cancelled} icon={XCircle} />
@@ -219,9 +230,9 @@ export function AttendeesManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {attendeePagination.paginatedRows.map((attendee, index) => (
+                {attendees.map((attendee, index) => (
                   <TableRow key={attendee.id} className="hover:bg-[hsl(var(--primary)/0.04)]">
-                    <TableCell className="text-sm font-extrabold text-slate-400">{(attendeePagination.page - 1) * attendeePagination.pageSize + index + 1}</TableCell>
+                    <TableCell className="text-sm font-extrabold text-slate-400">{(page - 1) * pageSize + index + 1}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[hsl(var(--primary)/0.10)] text-[hsl(var(--primary))]"><Users className="h-4 w-4" /></div>
@@ -266,15 +277,15 @@ export function AttendeesManager() {
                 ))}
               </TableBody>
             </Table>
-            {filteredAttendees.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{language === "ar" ? "لا يوجد حضور في قاعدة البيانات حالياً." : "No attendees in database yet."}</div>}
+            {attendees.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{language === "ar" ? "لا يوجد حضور في قاعدة البيانات حالياً." : "No attendees in database yet."}</div>}
           </div>
           <PaginationControls
-            page={attendeePagination.page}
-            pageSize={attendeePagination.pageSize}
-            total={filteredAttendees.length}
-            totalPages={attendeePagination.totalPages}
-            onPageChange={attendeePagination.setPage}
-            onPageSizeChange={attendeePagination.setPageSize}
+            page={page}
+            pageSize={pageSize}
+            total={totalAttendees}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
           />
         </CardContent>
       </Card>

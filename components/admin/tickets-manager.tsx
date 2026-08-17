@@ -18,7 +18,7 @@ import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
 import { ConfirmAction } from "@/components/admin/confirm-action"
-import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
+import { PaginationControls } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
 import { adminStatusT, adminT } from "@/lib/admin-translations"
@@ -83,17 +83,25 @@ export function TicketsManager() {
   const { language } = useLanguage()
   const [bookings, setBookings] = useState<TicketBooking[]>([])
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalBookings, setTotalBookings] = useState(0)
 
   useEffect(() => {
     let active = true
     async function loadTickets() {
       try {
-        const [registrations, attendees] = await Promise.all([platformApi.listRegistrations(), platformApi.listAttendees()])
-        const mapped = (registrations || []).map((registration: any) => {
+        const [registrationResult, attendees] = await Promise.all([
+          platformApi.listRegistrations({ search, limit: pageSize, offset: (page - 1) * pageSize, includeMeta: true }),
+          platformApi.listAttendees({ search, limit: 1000, offset: 0 }),
+        ])
+        const mapped = (registrationResult.data || []).map((registration: any) => {
           const attendee = (attendees || []).find((item: any) => item.email === registration.doctor_email && Number(item.event_id) === Number(registration.event_id))
           return normalizeTicketBooking(registration, attendee)
         })
-        if (active) setBookings(mapped)
+        if (!active) return
+        setBookings(mapped)
+        setTotalBookings(Number(registrationResult.pagination?.total || 0))
       } catch (error) {
         if (active) toast.error("Could not load ticket buyers", { description: error instanceof Error ? error.message : "Check the backend connection." })
       }
@@ -102,14 +110,13 @@ export function TicketsManager() {
     return () => {
       active = false
     }
-  }, [])
+  }, [page, pageSize, search])
 
-  const filteredBookings = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    if (!query) return bookings
-    return bookings.filter((booking) => `${booking.id} ${booking.customer} ${booking.email} ${booking.event} ${booking.ticketType}`.toLowerCase().includes(query))
-  }, [bookings, search])
-  const ticketPagination = useTablePagination(filteredBookings, [search])
+  useEffect(() => {
+    setPage(1)
+  }, [search, pageSize])
+
+  const totalPages = Math.max(1, Math.ceil(totalBookings / pageSize))
 
   const totals = useMemo(() => {
     const totalTickets = bookings.reduce((sum, booking) => sum + booking.quantity, 0)
@@ -122,10 +129,23 @@ export function TicketsManager() {
     return { totalTickets, checkedIn, cancelled, confirmed, paid, unpaid, refunded }
   }, [bookings])
 
-  function exportTickets() {
+  async function exportTickets() {
+    let exportRows = bookings
+    try {
+      const [registrations, attendees] = await Promise.all([
+        platformApi.listRegistrations({ search, limit: 1000, offset: 0 }),
+        platformApi.listAttendees({ search, limit: 1000, offset: 0 }),
+      ])
+      exportRows = (registrations || []).map((registration: any) => {
+        const attendee = (attendees || []).find((item: any) => item.email === registration.doctor_email && Number(item.event_id) === Number(registration.event_id))
+        return normalizeTicketBooking(registration, attendee)
+      })
+    } catch (error) {
+      toast.error("Export used visible rows", { description: error instanceof Error ? error.message : "Could not load the full filtered ticket list." })
+    }
     const headers = ["#", "Booking", "Customer", "Email", "Role", "Event", "Ticket", "Quantity", "Amount", "Booking Status", "Payment Status", "QR Token", "Booked At", "Checked In At"]
     const escape = (value: string | number | undefined) => `"${String(value ?? "").replace(/"/g, '""')}"`
-    const csvRows = filteredBookings.map((booking, index) => [
+    const csvRows = exportRows.map((booking, index) => [
       index + 1,
       booking.id,
       booking.customer,
@@ -151,7 +171,7 @@ export function TicketsManager() {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
-    toast.success("Tickets exported", { description: `${filteredBookings.length} ticket buyer rows downloaded.` })
+    toast.success("Tickets exported", { description: `${exportRows.length} ticket buyer rows downloaded.` })
   }
 
   async function checkInBooking(booking: TicketBooking) {
@@ -223,9 +243,9 @@ export function TicketsManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ticketPagination.paginatedRows.map((booking, index) => (
+                {bookings.map((booking, index) => (
                   <TableRow key={booking.id} className="hover:bg-[hsl(var(--primary)/0.04)]">
-                    <TableCell className="text-sm font-extrabold text-slate-400">{(ticketPagination.page - 1) * ticketPagination.pageSize + index + 1}</TableCell>
+                    <TableCell className="text-sm font-extrabold text-slate-400">{(page - 1) * pageSize + index + 1}</TableCell>
                     <TableCell>
                       <p className="text-sm font-extrabold">{booking.id}</p>
                       <div className="mt-1"><TableDateTime value={booking.bookedAt} /></div>
@@ -266,15 +286,15 @@ export function TicketsManager() {
                 ))}
               </TableBody>
             </Table>
-            {filteredBookings.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{adminT(language, "ticketsPage.empty")}</div>}
+            {bookings.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{adminT(language, "ticketsPage.empty")}</div>}
           </div>
           <PaginationControls
-            page={ticketPagination.page}
-            pageSize={ticketPagination.pageSize}
-            total={filteredBookings.length}
-            totalPages={ticketPagination.totalPages}
-            onPageChange={ticketPagination.setPage}
-            onPageSizeChange={ticketPagination.setPageSize}
+            page={page}
+            pageSize={pageSize}
+            total={totalBookings}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
           />
         </CardContent>
       </Card>
