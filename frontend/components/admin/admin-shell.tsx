@@ -43,6 +43,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { useLanguage } from "@/contexts/language-context"
 import { adminT } from "@/lib/admin-translations"
 import { canAccessAdminRoute, isAllowed, isStaffRole, userPermissionKeys, type PermissionKey, type PermissionRule } from "@/lib/admin-permissions"
+import { notifyAuthSessionChanged } from "@/lib/auth-session"
 import { apiAssetUrl, platformApi } from "@/lib/platform-api"
 import { readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
 import { cn } from "@/lib/utils"
@@ -153,6 +154,7 @@ function clearAdminSession() {
   if (typeof window === "undefined") return
   adminTokenKeys.forEach((key) => window.localStorage.removeItem(key))
   window.localStorage.removeItem(profileStorageKey)
+  notifyAuthSessionChanged()
 }
 
 function hexToRgb(hex: string) {

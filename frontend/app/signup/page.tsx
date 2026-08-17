@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CountrySelect } from "@/components/country-select"
 import { AuthBrandHeadline } from "@/components/auth/auth-brand-headline"
 import { useLanguage } from "@/contexts/language-context"
+import { notifyAuthSessionChanged } from "@/lib/auth-session"
 import { applyCountryDialCode } from "@/lib/country-dial-codes"
 import { apiAssetUrl, platformApi } from "@/lib/platform-api"
 import { normalizePlatformTheme, readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
@@ -219,6 +220,7 @@ export default function SignUp() {
       })
       window.localStorage.setItem("stylish-events-auth-token", result.token)
       window.localStorage.setItem("stylish-events-admin-user", JSON.stringify(result.user))
+      notifyAuthSessionChanged()
       setSuccess(text.success)
       router.replace("/customer")
     } catch (registerError) {

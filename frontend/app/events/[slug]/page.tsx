@@ -7,6 +7,7 @@ import { ArrowRight, CalendarDays, CheckCircle2, FileText, MapPin, MessageSquare
 import { PublicPageFrame, PublicPageHero } from "@/components/public/page-building-blocks"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/contexts/language-context"
+import { useAuthSession } from "@/lib/auth-session"
 import { apiAssetUrl, currentAuthToken, platformApi } from "@/lib/platform-api"
 import { cn } from "@/lib/utils"
 
@@ -34,6 +35,7 @@ export default function PublicEventPage() {
   const { isRtl } = useLanguage()
   const [data, setData] = useState<any>(null)
   const [error, setError] = useState("")
+  const authSession = useAuthSession()
 
   useEffect(() => {
     let active = true
@@ -76,7 +78,16 @@ export default function PublicEventPage() {
   const hasAvailableTicket = tickets.some((ticket: any) => ticket.price_period_id && !ticket.is_sold_out)
   const isLoginRequired = policy.access === "login_required"
   const canRegister = Boolean(policy.publicRegistrationEnabled !== false && event.state === "open" && hasAvailableTicket)
-  const registerHref = isLoginRequired ? `/login?next=${encodeURIComponent(`/events/${event.slug}/register`)}` : `/events/${event.slug}/register`
+  const registrationAuthLoading = canRegister && isLoginRequired && authSession.status === "loading"
+  const registrationNeedsLogin = canRegister && isLoginRequired && authSession.status === "guest"
+  const registerHref = registrationNeedsLogin ? `/login?next=${encodeURIComponent(`/events/${event.slug}/register`)}` : `/events/${event.slug}/register`
+  const registerLabel = !canRegister
+    ? (isRtl ? "التسجيل غير متاح" : "Registration unavailable")
+    : registrationAuthLoading
+      ? (isRtl ? "جاري التحقق من تسجيل الدخول..." : "Checking sign-in...")
+      : registrationNeedsLogin
+        ? (isRtl ? "سجل الدخول للتسجيل" : "Login to register")
+        : (isRtl ? "سجل الآن" : "Register now")
 
   return (
     <PublicPageFrame>
@@ -169,12 +180,19 @@ export default function PublicEventPage() {
                 })}
               </div>
               <div className="fixed bottom-0 inset-x-0 z-50 bg-white p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] border-t border-slate-100 lg:static lg:bg-transparent lg:p-0 lg:shadow-none lg:border-none mt-5">
-                <Button asChild disabled={!canRegister} className="h-12 lg:h-12 w-full rounded-2xl bg-[hsl(var(--primary))] font-black text-white shadow-lg lg:shadow-none">
-                  <Link href={canRegister ? registerHref : "#"} aria-disabled={!canRegister}>
-                    {canRegister ? (isLoginRequired ? (isRtl ? "سجل الدخول للتسجيل" : "Login to register") : (isRtl ? "سجل الآن" : "Register now")) : (isRtl ? "التسجيل غير متاح" : "Registration unavailable")}
+                {registrationAuthLoading || !canRegister ? (
+                  <Button disabled className="h-12 lg:h-12 w-full rounded-2xl bg-[hsl(var(--primary))] font-black text-white shadow-lg lg:shadow-none">
+                    {registerLabel}
                     <ArrowRight className={cn("h-4 w-4", isRtl && "rotate-180")} />
-                  </Link>
-                </Button>
+                  </Button>
+                ) : (
+                  <Button asChild className="h-12 lg:h-12 w-full rounded-2xl bg-[hsl(var(--primary))] font-black text-white shadow-lg lg:shadow-none">
+                    <Link href={registerHref}>
+                      {registerLabel}
+                    <ArrowRight className={cn("h-4 w-4", isRtl && "rotate-180")} />
+                    </Link>
+                  </Button>
+                )}
               </div>
             </div>
           </aside>

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AuthBrandHeadline } from "@/components/auth/auth-brand-headline"
 import { useLanguage } from "@/contexts/language-context"
+import { clearStoredAuthSession, dashboardHrefForAuth, notifyAuthSessionChanged, readStoredAuthToken } from "@/lib/auth-session"
 import { apiAssetUrl, platformApi } from "@/lib/platform-api"
 import { normalizePlatformTheme, readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
 import type { PlatformThemeSettings } from "@/types/platform"
@@ -66,16 +67,6 @@ const copy = {
   },
 }
 
-function authToken() {
-  if (typeof window === "undefined") return null
-
-  return (
-    window.localStorage.getItem("stylish-events-admin-token") ||
-    window.localStorage.getItem("stylish-events-auth-token") ||
-    window.localStorage.getItem("stylish-events-token")
-  )
-}
-
 export default function Login() {
   const router = useRouter()
   const { language, setLanguage, isRtl } = useLanguage()
@@ -101,22 +92,19 @@ export default function Login() {
   }, [])
 
   useEffect(() => {
-    const token = authToken()
+    const token = readStoredAuthToken()
     if (!token) return
 
     platformApi
       .me(token)
       .then((user) => {
         window.localStorage.setItem("stylish-events-admin-user", JSON.stringify(user))
-        const role = user?.role_code || user?.role?.code
-        router.replace(["admin", "organizer", "employee", "back_office"].includes(role) ? "/admin" : "/dashboard")
+        notifyAuthSessionChanged()
+        const next = new URLSearchParams(window.location.search).get("next")
+        router.replace(next || dashboardHrefForAuth(user, token))
       })
       .catch(() => {
-        window.localStorage.removeItem("stylish-events-admin-token")
-        window.localStorage.removeItem("stylish-events-auth-token")
-        window.localStorage.removeItem("stylish-events-token")
-        window.localStorage.removeItem("stylish-events-admin-user")
-        window.localStorage.removeItem("stylish-events-admin-profile")
+        clearStoredAuthSession()
       })
   }, [router])
 
@@ -129,11 +117,9 @@ export default function Login() {
       const result = await platformApi.login({ login, password })
       window.localStorage.setItem("stylish-events-admin-token", result.token)
       window.localStorage.setItem("stylish-events-admin-user", JSON.stringify(result.user))
-      const role = result.user?.role_code || result.user?.role?.code
+      notifyAuthSessionChanged()
       const next = new URLSearchParams(window.location.search).get("next")
-      window.location.href = ["admin", "organizer", "employee", "back_office"].includes(role)
-        ? next || "/admin"
-        : next || "/dashboard"
+      window.location.href = next || dashboardHrefForAuth(result.user, result.token)
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : text.errorFallback)
     } finally {
