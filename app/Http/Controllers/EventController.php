@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class EventController extends Controller
@@ -135,6 +136,109 @@ class EventController extends Controller
         return '1 = 0'; // Fallback
     }
 
+    private function publicListCacheKey(Request $request)
+    {
+        $version = Cache::get('public_events:list_version', 1);
+        return 'public_events:list:' . md5(json_encode([
+            'version' => $version,
+            'status' => 'published',
+            'page' => trim((string)$request->query('page', '')),
+            'sortMode' => trim((string)$request->query('sortMode', 'default')),
+            'limit' => max(1, min((int)$request->query('limit', 250), 500)),
+        ]));
+    }
+
+    private function forgetPublicEventLists()
+    {
+        $version = (int) Cache::get('public_events:list_version', 1);
+        Cache::forever('public_events:list_version', $version + 1);
+    }
+
+    private function publicEventList(Request $request)
+    {
+        return Cache::remember($this->publicListCacheKey($request), now()->addMinute(), function () use ($request) {
+            $page = trim((string) $request->query('page', ''));
+            $sortMode = trim((string) $request->query('sortMode', 'default'));
+            $limit = max(1, min((int) $request->query('limit', 250), 500));
+
+            $where = ["e.status = 'published'"];
+            if ($page === 'upcoming') {
+                $where[] = "((e.ends_at IS NOT NULL AND e.ends_at >= NOW()) OR (e.ends_at IS NULL AND e.starts_at >= NOW()))";
+            } elseif ($page === 'previous') {
+                $where[] = "((e.ends_at IS NOT NULL AND e.ends_at < NOW()) OR (e.ends_at IS NULL AND e.starts_at < NOW()))";
+            }
+
+            $orderBy = 'e.starts_at DESC';
+            if ($sortMode === 'nearest') {
+                $orderBy = $page === 'previous' ? 'COALESCE(e.ends_at, e.starts_at, e.created_at) DESC' : 'COALESCE(e.starts_at, e.created_at) ASC';
+            } elseif ($sortMode === 'latest') {
+                $orderBy = 'e.created_at DESC';
+            } elseif ($sortMode === 'oldest') {
+                $orderBy = 'COALESCE(e.starts_at, e.created_at) ASC';
+            } elseif ($page === 'upcoming') {
+                $orderBy = 'COALESCE(e.starts_at, e.created_at) ASC';
+            } elseif ($page === 'previous') {
+                $orderBy = 'COALESCE(e.ends_at, e.starts_at, e.created_at) DESC';
+            }
+
+            $rows = DB::select("
+                SELECT
+                  e.id,
+                  e.slug,
+                  e.title_en,
+                  e.title_ar,
+                  e.summary_en,
+                  e.summary_ar,
+                  e.type,
+                  e.status,
+                  e.starts_at,
+                  e.ends_at,
+                  e.cover_image_url,
+                  e.max_attendees,
+                  e.created_at,
+                  e.updated_at,
+                  v.name_en AS venue_name_en,
+                  v.name_ar AS venue_name_ar,
+                  v.city_en AS venue_city_en,
+                  v.city_ar AS venue_city_ar,
+                  v.capacity AS venue_capacity
+                FROM events e
+                LEFT JOIN venues v ON v.id = e.venue_id
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY {$orderBy}
+                LIMIT ?
+            ", [$limit]);
+
+            $formatDate = function ($date) {
+                return $date ? Carbon::parse($date, 'Africa/Cairo')->setTimezone('UTC')->format('Y-m-d\TH:i:s.000\Z') : null;
+            };
+
+            return array_map(function ($event) use ($formatDate) {
+                return [
+                    'id' => (int)$event->id,
+                    'slug' => $event->slug,
+                    'title_en' => $event->title_en,
+                    'title_ar' => $event->title_ar,
+                    'summary_en' => $event->summary_en,
+                    'summary_ar' => $event->summary_ar,
+                    'type' => $event->type,
+                    'status' => $event->status,
+                    'starts_at' => $formatDate($event->starts_at),
+                    'ends_at' => $formatDate($event->ends_at),
+                    'cover_image_url' => $event->cover_image_url,
+                    'max_attendees' => $event->max_attendees !== null ? (int)$event->max_attendees : null,
+                    'created_at' => $formatDate($event->created_at),
+                    'updated_at' => $formatDate($event->updated_at),
+                    'venue_name_en' => $event->venue_name_en,
+                    'venue_name_ar' => $event->venue_name_ar,
+                    'venue_city_en' => $event->venue_city_en,
+                    'venue_city_ar' => $event->venue_city_ar,
+                    'venue_capacity' => $event->venue_capacity !== null ? (int)$event->venue_capacity : null,
+                ];
+            }, $rows);
+        });
+    }
+
     public function index(Request $request)
     {
         $status = trim((string) $request->query('status', ''));
@@ -163,6 +267,14 @@ class EventController extends Controller
 
         $user = auth('api')->user();
         $canManageEvents = $user && $user->hasPermission('events.manage');
+
+        if (!$canManageEvents) {
+            return response()->json([
+                'success' => true,
+                'message' => 'OK',
+                'data' => $this->publicEventList($request)
+            ]);
+        }
 
         $where = [];
         $bindings = [];
@@ -330,6 +442,7 @@ class EventController extends Controller
         }
 
         $id = DB::table('events')->insertGetId($event);
+        $this->forgetPublicEventLists();
 
         return response()->json([
             'success' => true,
@@ -427,6 +540,7 @@ class EventController extends Controller
         }
 
         DB::table('events')->where('id', $id)->update($event);
+        $this->forgetPublicEventLists();
 
         return response()->json([
             'success' => true,
@@ -454,6 +568,7 @@ class EventController extends Controller
         }
 
         DB::table('events')->where('id', $id)->update(['status' => $validated['status']]);
+        $this->forgetPublicEventLists();
 
         return response()->json([
             'success' => true,
@@ -477,6 +592,7 @@ class EventController extends Controller
         }
 
         DB::table('events')->where('id', $id)->update(['status' => 'deleted']);
+        $this->forgetPublicEventLists();
 
         return response()->json([
             'success' => true,
@@ -500,6 +616,7 @@ class EventController extends Controller
         }
 
         DB::table('events')->where('id', $id)->where('status', 'deleted')->update(['status' => 'draft']);
+        $this->forgetPublicEventLists();
 
         return response()->json([
             'success' => true,

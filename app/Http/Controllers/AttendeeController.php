@@ -24,6 +24,10 @@ class AttendeeController extends Controller
         }
 
         $eventId = (int)$request->query('eventId', 0);
+        $limit = min(max((int) $request->query('limit', 250), 1), 1000);
+        $offset = max((int) $request->query('offset', 0), 0);
+        $search = trim((string) $request->query('search', ''));
+        $includeMeta = filter_var($request->query('meta', false), FILTER_VALIDATE_BOOLEAN);
         if ($eventId && !$request->user()->hasEventScope($eventId)) {
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
@@ -52,7 +56,32 @@ class AttendeeController extends Controller
 
         $request->user()->applyEventScope($query, 'a.event_id');
 
-        $rows = $query->orderBy('a.created_at', 'desc')->limit(250)->get();
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $like = '%' . $search . '%';
+                $q->where('a.full_name', 'like', $like)
+                    ->orWhere('a.email', 'like', $like)
+                    ->orWhere('e.title_en', 'like', $like)
+                    ->orWhere('e.title_ar', 'like', $like)
+                    ->orWhere('tt.name_en', 'like', $like)
+                    ->orWhere('tt.name_ar', 'like', $like);
+            });
+        }
+
+        $total = (clone $query)->count();
+        $rows = $query->orderBy('a.created_at', 'desc')->offset($offset)->limit($limit)->get();
+
+        if ($includeMeta) {
+            return response()->json([
+                'success' => true,
+                'data' => $rows,
+                'pagination' => [
+                    'total' => $total,
+                    'limit' => $limit,
+                    'offset' => $offset,
+                ],
+            ]);
+        }
 
         return response()->json(['success' => true, 'data' => $rows]);
     }

@@ -54,6 +54,9 @@ class UserController extends Controller
 
     public function index(Request $request)
     {
+        $limit = min(max((int) $request->query('limit', 20), 1), 100);
+        $offset = max((int) $request->query('offset', 0), 0);
+        $includeMeta = filter_var($request->query('meta', 'false'), FILTER_VALIDATE_BOOLEAN);
         $query = User::with('role');
 
         if ($request->filled('search')) {
@@ -76,16 +79,33 @@ class UserController extends Controller
             $query->where('status', $request->status);
         }
 
+        $total = (clone $query)->count();
+
         // Keep operational roles first, then participant roles.
         $users = $query->join('roles', 'roles.id', '=', 'users.role_id')
             ->select('users.*', 'roles.code as role_code')
             ->orderByRaw("FIELD(roles.code, 'admin', 'organizer', 'back_office', 'employee', 'chairman', 'speaker', 'doctor', 'customer')")
             ->orderBy('users.created_at', 'DESC')
+            ->limit($limit)
+            ->offset($offset)
             ->get();
 
         $mapped = $users->map(function ($u) {
             return $this->mapUser($u, $u->role);
         });
+
+        if ($includeMeta) {
+            return response()->json([
+                'success' => true,
+                'message' => 'OK',
+                'data' => $mapped,
+                'pagination' => [
+                    'total' => $total,
+                    'limit' => $limit,
+                    'offset' => $offset,
+                ],
+            ]);
+        }
 
         return ApiResponse::ok($mapped);
     }
