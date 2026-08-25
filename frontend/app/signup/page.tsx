@@ -264,7 +264,7 @@ export default function SignUp() {
   const activeDescription = text[`${activeKey}Text` as const]
 
   return (
-    <main className="relative min-h-dvh overflow-x-hidden bg-slate-50 text-slate-950 lg:h-screen lg:overflow-hidden" dir={isRtl ? "rtl" : "ltr"} style={pageStyle}>
+    <main className="relative min-h-dvh overflow-x-hidden bg-slate-50 text-slate-950" dir={isRtl ? "rtl" : "ltr"} style={pageStyle}>
       <div
         className="absolute inset-0"
         style={{
@@ -275,7 +275,7 @@ export default function SignUp() {
       <div className="absolute inset-0 opacity-40" style={{ backgroundImage: "radial-gradient(circle, color-mix(in srgb, var(--signup-primary) 16%, transparent) 1px, transparent 1.8px)", backgroundSize: "88px 88px" }} />
       <div className="absolute bottom-[-12%] left-[-10%] h-72 w-[120%] rotate-[-5deg] rounded-[50%] bg-white/45 blur-sm" />
 
-      <section className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 py-4 sm:px-6 sm:py-6 lg:h-full lg:px-10 lg:py-7">
+      <section className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 py-4 sm:px-6 sm:py-6 lg:px-10 lg:py-7">
         <div className="flex shrink-0 items-center justify-between gap-4">
           <Link href="/" aria-label="Go to homepage" className="block transition hover:opacity-85">
             <img src={logoSrc} alt={text.logoAlt} onError={(event) => { event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png" }} className="h-10 w-auto object-contain sm:h-12" draggable={false} />
