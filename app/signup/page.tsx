@@ -31,6 +31,11 @@ const copy = {
     of: "of",
     contact: "Contact info",
     contactText: "Your booking identity and country-based currency.",
+    accountType: "Account type",
+    customer: "Customer",
+    doctor: "Doctor",
+    specialty: "Specialty",
+    selectSpecialty: "Select specialty",
     profile: "Profile details",
     profileText: "Optional details and your customer avatar.",
     security: "Secure access",
@@ -60,6 +65,7 @@ const copy = {
     success: "Account created successfully",
     errorFallback: "Could not create account",
     requiredFallback: "Please complete the required fields first.",
+    specialtyRequired: "Please choose your medical specialty.",
     avatarUploadFailed: "Avatar upload failed",
     avatarPreview: "Avatar preview",
     toggleLanguage: "Toggle language",
@@ -77,6 +83,11 @@ const copy = {
     of: "من",
     contact: "بيانات التواصل",
     contactText: "هوية الحجز والعملة حسب الدولة.",
+    accountType: "نوع الحساب",
+    customer: "عميل",
+    doctor: "طبيب",
+    specialty: "التخصص",
+    selectSpecialty: "اختر التخصص",
     profile: "بيانات البروفايل",
     profileText: "تفاصيل اختيارية وصورة حساب العميل.",
     security: "الدخول الآمن",
@@ -106,6 +117,7 @@ const copy = {
     success: "تم إنشاء الحساب بنجاح",
     errorFallback: "تعذر إنشاء الحساب",
     requiredFallback: "من فضلك أكمل الحقول المطلوبة أولًا.",
+    specialtyRequired: "من فضلك اختر تخصصك الطبي.",
     avatarUploadFailed: "فشل رفع الصورة الشخصية",
     avatarPreview: "معاينة الصورة الشخصية",
     toggleLanguage: "تغيير اللغة",
@@ -128,7 +140,10 @@ export default function SignUp() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [theme, setTheme] = useState<PlatformThemeSettings | null>(null)
+  const [specialties, setSpecialties] = useState<any[]>([])
   const [formData, setFormData] = useState({
+    accountType: "customer",
+    specialtyId: "",
     fullName: "",
     username: "",
     company: "",
@@ -150,6 +165,7 @@ export default function SignUp() {
 
     syncTheme()
     platformApi.getThemeSettings().then((settings) => setTheme((current) => resolvePlatformTheme(settings, current || undefined))).catch(() => undefined)
+    platformApi.listSpecialties(true).then(setSpecialties).catch(() => setSpecialties([]))
     window.addEventListener("stylish-events-theme-settings-updated", syncTheme)
 
     return () => window.removeEventListener("stylish-events-theme-settings-updated", syncTheme)
@@ -160,7 +176,7 @@ export default function SignUp() {
   }
 
   function canLeaveStep(step: number) {
-    if (step === 0) return Boolean(formData.fullName.trim() && formData.email.trim() && formData.phone.trim())
+    if (step === 0) return Boolean(formData.fullName.trim() && formData.email.trim() && formData.phone.trim() && (formData.accountType !== "doctor" || formData.specialtyId))
     if (step === 2) return Boolean(formData.password.trim() && formData.agreeTerms)
     return true
   }
@@ -168,7 +184,7 @@ export default function SignUp() {
   function goNext() {
     setError("")
     if (!canLeaveStep(currentStep)) {
-      setError(text.requiredFallback)
+      setError(formData.accountType === "doctor" && !formData.specialtyId ? text.specialtyRequired : text.requiredFallback)
       return
     }
     setCurrentStep((step) => Math.min(step + 1, stepKeys.length - 1))
@@ -217,12 +233,14 @@ export default function SignUp() {
         preferredLanguage: language,
         avatarUrl: formData.avatarUrl || null,
         password: formData.password,
+        accountType: formData.accountType,
+        specialtyId: formData.accountType === "doctor" ? Number(formData.specialtyId) : null,
       })
       window.localStorage.setItem("stylish-events-auth-token", result.token)
       window.localStorage.setItem("stylish-events-admin-user", JSON.stringify(result.user))
       notifyAuthSessionChanged()
       setSuccess(text.success)
-      router.replace("/customer")
+      router.replace("/dashboard")
     } catch (registerError) {
       setError(registerError instanceof Error ? registerError.message : text.errorFallback)
     } finally {
@@ -304,6 +322,35 @@ export default function SignUp() {
                         <div className="grid gap-4 sm:grid-cols-2">
                           <AuthInput icon={User} label={text.fullName} name="fullName" value={formData.fullName} onChange={setField} required />
                           <AuthInput icon={Mail} label={text.email} name="email" type="email" value={formData.email} onChange={setField} required />
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-semibold text-slate-900">{text.accountType}</Label>
+                            <Select value={formData.accountType} onValueChange={(accountType) => setFormData((prev) => ({ ...prev, accountType, specialtyId: accountType === "doctor" ? prev.specialtyId : "" }))}>
+                              <SelectTrigger className="h-14 rounded-[8px] border-0 bg-white font-medium ring-1 ring-slate-200/80">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="customer">{text.customer}</SelectItem>
+                                <SelectItem value="doctor">{text.doctor}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {formData.accountType === "doctor" ? (
+                            <div className="space-y-2">
+                              <Label className="text-sm font-semibold text-slate-900">{text.specialty}</Label>
+                              <Select value={formData.specialtyId} onValueChange={(specialtyId) => setField("specialtyId", specialtyId)}>
+                                <SelectTrigger className="h-14 rounded-[8px] border-0 bg-white font-medium ring-1 ring-slate-200/80">
+                                  <SelectValue placeholder={text.selectSpecialty} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {specialties.map((specialty) => (
+                                    <SelectItem key={specialty.id} value={String(specialty.id)}>{language === "ar" ? specialty.nameAr : specialty.nameEn}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          ) : null}
                         </div>
                         <div className="grid gap-4 sm:grid-cols-[0.85fr_1.15fr]">
                           <CountrySelect

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import {
   BadgeCheck,
+  Bell,
   CalendarDays,
   Camera,
   ChevronDown,
@@ -194,6 +195,132 @@ function cardClass(className?: string) {
   return cn("rounded-[var(--radius)] border border-white/70 bg-white shadow-[0_18px_42px_rgba(93,58,138,0.08)]", className)
 }
 
+function notificationTitle(row: any, isRtl: boolean) {
+  return isRtl ? row?.title_ar || row?.title_en : row?.title_en || row?.title_ar
+}
+
+function notificationMessage(row: any, isRtl: boolean) {
+  return isRtl ? row?.message_ar || row?.message_en : row?.message_en || row?.message_ar
+}
+
+function NotificationBell() {
+  const { isRtl } = useLanguage()
+  const [state, setState] = useState<any>({ rows: [], unread: 0 })
+
+  const load = () => platformApi.getMyDashboard()
+    .then((data) => setState({ rows: data.notifications || [], unread: data.summary?.unreadNotifications || 0 }))
+    .catch(() => undefined)
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-2xl bg-[#f8f5fb]" aria-label={isRtl ? "الإشعارات" : "Notifications"}>
+          <Bell className="h-4 w-4" />
+          {state.unread ? <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white">{state.unread}</span> : null}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align={isRtl ? "start" : "end"} className="w-[320px] rounded-2xl p-2">
+        <div className="flex items-center justify-between px-2 py-2">
+          <p className="text-sm font-black">{isRtl ? "الإشعارات" : "Notifications"}</p>
+          <Link href="/dashboard/notifications" className="text-xs font-black text-[hsl(var(--primary))]">{isRtl ? "عرض الكل" : "View all"}</Link>
+        </div>
+        {state.rows.length ? state.rows.slice(0, 5).map((row: any) => (
+          <DropdownMenuItem key={row.id} asChild className="cursor-pointer rounded-2xl p-3">
+            <Link href={row.action_url || "/dashboard/notifications"} onClick={() => platformApi.markMyNotificationRead(row.id).then(load).catch(() => undefined)} className="flex items-start gap-3">
+              <span className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", row.read_at ? "bg-slate-200" : "bg-[hsl(var(--primary))]")} />
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-[#17172f]">{notificationTitle(row, isRtl)}</span>
+                <span className="mt-1 line-clamp-2 block text-xs font-semibold leading-5 text-slate-500">{notificationMessage(row, isRtl)}</span>
+              </span>
+            </Link>
+          </DropdownMenuItem>
+        )) : <p className="px-3 py-5 text-center text-sm font-bold text-slate-400">{isRtl ? "لا توجد إشعارات" : "No notifications"}</p>}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function NotificationsPage() {
+  const { isRtl } = useLanguage()
+  const [state, setState] = useState<any>({ loading: true, rows: [] })
+  const load = () => platformApi.listMyNotifications({ perPage: 30 }).then((data) => setState({ loading: false, rows: data.data || [] })).catch((error) => setState({ loading: false, error }))
+  useEffect(() => { load() }, [])
+  if (state.loading) return <SkeletonGrid />
+  if (state.error) return <ErrorState />
+  return (
+    <section className={cardClass("p-5")}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-black">{isRtl ? "الإشعارات" : "Notifications"}</h2>
+          <p className="mt-1 text-sm font-bold text-slate-500">{isRtl ? "تنبيهات التسجيل والدفع والتذاكر والفعاليات." : "Registration, payment, ticket, and event updates."}</p>
+        </div>
+        <Button variant="outline" className="h-10 rounded-2xl font-black" onClick={async () => { await platformApi.markAllMyNotificationsRead(); await load() }}>{isRtl ? "تعليم الكل كمقروء" : "Mark all read"}</Button>
+      </div>
+      <div className="mt-5 grid gap-3">
+        {state.rows.length ? state.rows.map((row: any) => (
+          <div key={row.id} className={cn("flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between", row.read_at ? "border-slate-100 bg-slate-50" : "border-[hsl(var(--primary)/0.22)] bg-[hsl(var(--primary)/0.05)]")}>
+            <div className="min-w-0">
+              <p className="font-black text-[#17172f]">{notificationTitle(row, isRtl)}</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{notificationMessage(row, isRtl)}</p>
+              <p className="mt-1 text-xs font-bold text-slate-400">{formatDate(row.created_at)} · {formatTime(row.created_at)}</p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              {!row.read_at ? <Button variant="outline" className="h-10 rounded-xl font-bold" onClick={async () => { await platformApi.markMyNotificationRead(row.id); await load() }}>{isRtl ? "مقروء" : "Mark read"}</Button> : null}
+              {row.action_url ? <Button asChild className="h-10 rounded-xl bg-[hsl(var(--primary))] font-bold text-white"><Link href={row.action_url}>{isRtl ? "فتح" : "Open"}</Link></Button> : null}
+            </div>
+          </div>
+        )) : <EmptyState message={isRtl ? "لا توجد إشعارات بعد." : "No notifications yet."} />}
+      </div>
+    </section>
+  )
+}
+
+function EventsForYou() {
+  const { isRtl } = useLanguage()
+  const [state, setState] = useState<any>({ loading: true, rows: [] })
+  useEffect(() => {
+    platformApi.listMyEventsForYou({ perPage: 6 }).then((data) => setState({ loading: false, rows: data.data || [] })).catch((error) => setState({ loading: false, error }))
+  }, [])
+  if (state.loading || state.error || !state.rows.length) return null
+  return (
+    <section className={cardClass("p-5")}>
+      <h3 className="text-xl font-black">{isRtl ? "فعاليات تناسب تخصصك" : "Events For You"}</h3>
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {state.rows.map((event: any) => {
+          const row = {
+            event_title_en: event.title_en,
+            event_title_ar: event.title_ar,
+            event_summary_en: event.summary_en,
+            event_summary_ar: event.summary_ar,
+            starts_at: event.starts_at,
+            ends_at: event.ends_at,
+            cover_image_url: event.cover_image_url,
+            banner_image_url: event.banner_image_url,
+            gallery_json: event.gallery_json,
+            venue_name_en: event.venue_name_en,
+            venue_name_ar: event.venue_name_ar,
+            city_en: event.city_en,
+            city_ar: event.city_ar,
+          }
+          return (
+            <Link key={event.id} href={`/events/${event.slug}`} className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_18px_35px_rgba(93,58,138,0.10)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]">
+              <div className="aspect-[16/10] bg-slate-200">{eventImage(row) ? <img src={eventImage(row)} alt={eventTitle(row, isRtl)} className="h-full w-full object-cover" /> : null}</div>
+              <div className="p-4">
+                <p className="line-clamp-2 font-black text-[#17172f]">{eventTitle(row, isRtl)}</p>
+                <p className="mt-2 text-xs font-bold text-slate-500">{formatDate(event.starts_at)} · {eventLocation(row, isRtl)}</p>
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 export function UserPortal({ view, recordId }: { view: PortalView; recordId?: string }) {
   const router = useRouter()
   const pathname = usePathname() || "/dashboard"
@@ -330,6 +457,7 @@ export function UserPortal({ view, recordId }: { view: PortalView; recordId?: st
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" className="h-10 gap-2 rounded-2xl bg-[#f8f5fb] px-3 font-black text-[#17172f]" onClick={() => setLanguage(language === "ar" ? "en" : "ar")}><Globe2 className="h-4 w-4" />{language === "ar" ? "EN" : "AR"}</Button>
+                <NotificationBell />
                 <Button asChild variant="outline" className="hidden h-10 rounded-2xl border-[hsl(var(--primary)/0.20)] px-4 font-black text-[hsl(var(--primary))] md:inline-flex">
                   <Link href="/"><ExternalLink className="h-4 w-4" />{isRtl ? "الموقع" : "Public site"}</Link>
                 </Button>
@@ -358,7 +486,7 @@ export function UserPortal({ view, recordId }: { view: PortalView; recordId?: st
             {view === "tickets" ? <RecordList kind="tickets" /> : null}
             {view === "ticket-detail" ? <SecureTicketDetail id={recordId || ""} /> : null}
             {view === "certificates" ? <RecordList kind="certificates" /> : null}
-            {view === "notifications" ? <EmptyState message={isRtl ? "الإشعارات غير مفعلة حاليا لهذا الحساب." : "Customer notifications are not enabled yet."} /> : null}
+            {view === "notifications" ? <NotificationsPage /> : null}
             {view === "reviews" ? <Reviews /> : null}
             {view === "profile" ? <ProfileWithPhoto user={user} onUserUpdate={setUser} /> : null}
             {view === "security" ? <Security /> : null}
@@ -396,6 +524,7 @@ function Overview({ user }: { user: any }) {
         <Summary icon={BadgeCheck} label={isRtl ? "إجمالي التسجيلات" : "Total Registrations"} value={summary.totalRegistrations || 0} href="/dashboard/registrations" />
       </div>
       <CustomerNextEventCard row={nextEvent} pending={pending} />
+      {(user?.role_code || user?.role?.code) === "doctor" ? <EventsForYou /> : null}
       <section className={cardClass("p-5")}>
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -727,12 +856,17 @@ function fileToDataUrl(file: File) {
 
 function ProfileWithPhoto({ user, onUserUpdate }: { user: any; onUserUpdate: (user: any) => void }) {
   const { isRtl } = useLanguage()
-  const [form, setForm] = useState({ name: displayName(user, ""), phone: user?.phone || "", preferredLanguage: user?.preferred_language || "en" })
+  const isDoctor = (user?.role_code || user?.role?.code) === "doctor"
+  const [specialties, setSpecialties] = useState<any[]>([])
+  const [form, setForm] = useState({ name: displayName(user, ""), phone: user?.phone || "", preferredLanguage: user?.preferred_language || "en", specialtyId: user?.specialty_id ? String(user.specialty_id) : "" })
   const [photoPreview, setPhotoPreview] = useState("")
   const [saving, setSaving] = useState(false)
   const [photoSaving, setPhotoSaving] = useState(false)
   const [message, setMessage] = useState("")
   const photoSrc = photoPreview || avatarUrl(user)
+  useEffect(() => {
+    if (isDoctor) platformApi.listSpecialties(false).then(setSpecialties).catch(() => setSpecialties([]))
+  }, [isDoctor])
 
   return (
     <section className={cardClass("p-5")}>
@@ -792,6 +926,19 @@ function ProfileWithPhoto({ user, onUserUpdate }: { user: any; onUserUpdate: (us
           <Field label={isRtl ? "الاسم الكامل" : "Full name"} value={form.name} onChange={(name) => setForm({ ...form, name })} />
           <div className="grid gap-2 text-sm font-extrabold text-slate-700">{isRtl ? "البريد الإلكتروني" : "Email"}<Input value={user?.email || ""} readOnly dir="ltr" className="h-11 rounded-2xl border-slate-200 bg-[#f8f5fb] text-slate-500" /><p className="text-xs font-bold text-slate-400">{isRtl ? "تغيير البريد يحتاج تواصل مع الدعم حاليا." : "Email changes currently require support verification."}</p></div>
           <Field label={isRtl ? "الهاتف" : "Phone"} value={form.phone} onChange={(phone) => setForm({ ...form, phone })} />
+          {isDoctor ? (
+            <label className="grid gap-2 text-sm font-extrabold text-slate-700">
+              {isRtl ? "التخصص" : "Specialty"}
+              <Select value={form.specialtyId} onValueChange={(specialtyId) => setForm({ ...form, specialtyId })}>
+                <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-[#f8f5fb]"><SelectValue placeholder={isRtl ? "اختر التخصص" : "Select specialty"} /></SelectTrigger>
+                <SelectContent>
+                  {specialties.filter((specialty) => specialty.isActive || String(specialty.id) === form.specialtyId).map((specialty) => (
+                    <SelectItem key={specialty.id} value={String(specialty.id)}>{isRtl ? specialty.nameAr : specialty.nameEn}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+          ) : null}
         </div>
       </div>
       {message ? <p className="mt-4 text-sm font-bold text-slate-600">{message}</p> : null}
@@ -799,7 +946,7 @@ function ProfileWithPhoto({ user, onUserUpdate }: { user: any; onUserUpdate: (us
         setSaving(true)
         setMessage("")
         try {
-          const updated = await platformApi.updateMe(form)
+          const updated = await platformApi.updateMe({ ...form, specialtyId: isDoctor && form.specialtyId ? Number(form.specialtyId) : undefined })
           window.localStorage.setItem("stylish-events-admin-user", JSON.stringify(updated))
           onUserUpdate((current: any) => ({ ...current, ...updated, customer_full_name: updated.customer_full_name || updated.name || current?.customer_full_name }))
           setMessage(isRtl ? "تم حفظ الملف الشخصي." : "Profile saved.")

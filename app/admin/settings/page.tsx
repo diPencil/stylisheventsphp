@@ -7,6 +7,7 @@ import { adminT } from "@/lib/admin-translations"
 import { ThemeSettingsPanel } from "@/components/admin/theme-settings-panel"
 import { SiteContentSettingsPanel } from "@/components/admin/site-content-settings-panel"
 import { CurrencySettingsPanel } from "@/components/admin/currency-settings-panel"
+import { MedicalSpecialtiesPanel } from "@/components/admin/medical-specialties-panel"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
@@ -30,10 +31,11 @@ export default function AdminSettingsPage() {
       </div>
       <Tabs defaultValue="theme" className="space-y-5">
         <div className="settings-tabs-scroll w-full overflow-x-auto pb-1">
-        <TabsList className="grid h-auto min-w-[680px] rounded-[20px] bg-white p-1 shadow-[0_12px_32px_rgba(15,23,42,0.06)] lg:w-[760px] lg:grid-cols-3">
+        <TabsList className="grid h-auto min-w-[860px] rounded-[20px] bg-white p-1 shadow-[0_12px_32px_rgba(15,23,42,0.06)] lg:w-[920px] lg:grid-cols-4">
           <TabsTrigger value="theme" className="rounded-xl py-2.5 font-extrabold">{adminT(language, "settings.themeIdentity")}</TabsTrigger>
           <TabsTrigger value="website" className="rounded-xl py-2.5 font-extrabold">{adminT(language, "settings.websiteContent")}</TabsTrigger>
           <TabsTrigger value="currency" className="rounded-xl py-2.5 font-extrabold">{adminT(language, "settings.currencyRates")}</TabsTrigger>
+          <TabsTrigger value="specialties" className="rounded-xl py-2.5 font-extrabold">{language === "ar" ? "التخصصات الطبية" : "Medical Specialties"}</TabsTrigger>
         </TabsList>
         </div>
         <TabsContent value="theme" className="mt-0">
@@ -44,6 +46,9 @@ export default function AdminSettingsPage() {
         </TabsContent>
         <TabsContent value="currency" className="mt-0">
           <CurrencySettingsPanel />
+        </TabsContent>
+        <TabsContent value="specialties" className="mt-0">
+          <MedicalSpecialtiesPanel />
         </TabsContent>
       </Tabs>
     </div>

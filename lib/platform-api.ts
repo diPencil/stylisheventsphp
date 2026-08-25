@@ -199,6 +199,13 @@ export const platformApi = {
   getPublicRegistration: (reference: string, token?: string) =>
     request<any>(`/api/public/events/registrations/${encodeURIComponent(reference)}${token ? `?token=${encodeURIComponent(token)}` : ""}`),
   getMyDashboard: () => request<any>("/api/me/dashboard"),
+  listMyEventsForYou: (params?: { page?: number; perPage?: number }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.page) searchParams.set("page", String(params.page))
+    if (params?.perPage) searchParams.set("perPage", String(params.perPage))
+    const queryString = searchParams.toString()
+    return request<any>(`/api/me/events-for-you${queryString ? `?${queryString}` : ""}`)
+  },
   listMyRegistrations: (params?: { search?: string; status?: string; period?: string; page?: number; perPage?: number }) => {
     const searchParams = new URLSearchParams()
     if (params?.search) searchParams.set("search", params.search)
@@ -230,7 +237,17 @@ export const platformApi = {
     const queryString = searchParams.toString()
     return request<any>(`/api/me/certificates${queryString ? `?${queryString}` : ""}`)
   },
-  listMyNotifications: () => request<any>("/api/me/notifications"),
+  listMyNotifications: (params?: { page?: number; perPage?: number }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.page) searchParams.set("page", String(params.page))
+    if (params?.perPage) searchParams.set("perPage", String(params.perPage))
+    const queryString = searchParams.toString()
+    return request<any>(`/api/me/notifications${queryString ? `?${queryString}` : ""}`)
+  },
+  markMyNotificationRead: (id: number | string) =>
+    request<any>(`/api/me/notifications/${id}/read`, { method: "PATCH", body: JSON.stringify({}) }),
+  markAllMyNotificationsRead: () =>
+    request<any>("/api/me/notifications/read-all", { method: "PATCH", body: JSON.stringify({}) }),
   listMyReviews: () => request<any>("/api/me/reviews"),
   listContactInquiries: (params?: { search?: string; status?: string; type?: string; date?: string; limit?: number; offset?: number }) => {
     const searchParams = new URLSearchParams()
@@ -411,11 +428,12 @@ export const platformApi = {
     request<any>("/api/certificates/event-card", { method: "POST", body: JSON.stringify(data) }),
   emailCertificates: (data: { certificateIds: number[]; eventId?: number }) =>
     request<any>("/api/certificates/email/bulk", { method: "POST", body: JSON.stringify(data) }),
-  listUsers: (params?: { search?: string; role?: string; status?: string; limit?: number; offset?: number; includeMeta?: boolean }) => {
+  listUsers: (params?: { search?: string; role?: string; status?: string; specialtyId?: number; limit?: number; offset?: number; includeMeta?: boolean }) => {
     const searchParams = new URLSearchParams()
     if (params?.search) searchParams.set("search", params.search)
     if (params?.role) searchParams.set("role", params.role)
     if (params?.status) searchParams.set("status", params.status)
+    if (params?.specialtyId) searchParams.set("specialtyId", String(params.specialtyId))
     if (typeof params?.limit === "number") searchParams.set("limit", String(params.limit))
     if (typeof params?.offset === "number") searchParams.set("offset", String(params.offset))
     const queryString = searchParams.toString()
@@ -440,4 +458,14 @@ export const platformApi = {
       method: "PUT",
       body: JSON.stringify({ permissions }),
     }),
+  listSpecialties: (activeOnly = false) =>
+    request<any[]>(`/api/specialties${activeOnly ? "?activeOnly=true" : ""}`),
+  createSpecialty: (data: Record<string, unknown>) =>
+    request<any>("/api/specialties", { method: "POST", body: JSON.stringify(data) }),
+  updateSpecialty: (id: number | string, data: Record<string, unknown>) =>
+    request<any>(`/api/specialties/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  updateSpecialtyStatus: (id: number | string, isActive: boolean) =>
+    request<any>(`/api/specialties/${id}/status`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
+  deleteSpecialty: (id: number | string) =>
+    request<any>(`/api/specialties/${id}`, { method: "DELETE" }),
 }

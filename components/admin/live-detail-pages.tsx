@@ -18,6 +18,7 @@ import {
   Search,
   ShieldCheck,
   Star,
+  Stethoscope,
   Ticket,
   ThumbsDown,
   Trash2,
@@ -37,6 +38,7 @@ import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ConfirmAction } from "@/components/admin/confirm-action"
 import { useAdminPermissions } from "@/components/admin/admin-shell"
 import { ImageGalleryDropzone, ImageUrlDropzone } from "@/components/admin/image-url-dropzone"
@@ -246,6 +248,7 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
   const [state, setState] = useState<DetailState<any>>(emptyState)
   const [form, setForm] = useState<any>(null)
   const [periods, setPeriods] = useState<any[]>([])
+  const [specialties, setSpecialties] = useState<any[]>([])
 
   useEffect(() => {
     let active = true
@@ -284,6 +287,8 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
           maxTicketsPerCheckout: String(value(event, "max_tickets_per_checkout") || "1"),
           capacityHoldHoursOverride: String(value(event, "capacity_hold_hours_override") || ""),
           manualPaymentEnabled: Number(value(event, "manual_payment_enabled") || 1) === 1,
+          targetAllSpecialties: Number(value(event, "target_all_specialties")) === 1,
+          specialtyIds: Array.isArray(event?.targetSpecialties) ? event.targetSpecialties.map((item: any) => String(item.id)) : [],
         })
       } catch (error) {
         if (active) setState({ loading: false, error: error instanceof Error ? error.message : "Request failed", data: null })
@@ -294,6 +299,10 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
       active = false
     }
   }, [id])
+
+  useEffect(() => {
+    platformApi.listSpecialties(false).then(setSpecialties).catch(() => setSpecialties([]))
+  }, [])
 
   const event = state.data?.event
   const tickets = state.data?.tickets || []
@@ -333,6 +342,8 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
         googleMapsUrl: form.googleMapsUrl || null,
         venueId: event?.venue_id || null,
         organizerId: event?.organizer_id || null,
+        targetAllSpecialties: Boolean(form.targetAllSpecialties),
+        specialtyIds: form.targetAllSpecialties ? [] : (form.specialtyIds || []).map(Number),
       })
       toast.success(language === "ar" ? "تم حفظ الفعالية" : "Event saved", { description: language === "ar" ? "تم تحديث سجل قاعدة البيانات الفعلي." : "Event details were updated." })
     } catch (error) {
@@ -510,6 +521,28 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
               </Select>
               <Field label={language === "ar" ? "أقصى عدد تذاكر في الطلب" : "Maximum tickets per checkout"} inputValue="1" type="number" onChange={() => setForm({ ...form, maxTicketsPerCheckout: "1" })} disabled />
               <Field label={language === "ar" ? "مدة حجز المقعد بالساعات" : "Seat reservation hours override"} inputValue={form.capacityHoldHoursOverride} type="number" onChange={(next) => setForm({ ...form, capacityHoldHoursOverride: next })} />
+            </div>
+          </EditorSection>
+          <EditorSection icon={Stethoscope} title={language === "ar" ? "التخصصات المستهدفة" : "Target Specialties"}>
+            <div className="space-y-3">
+              <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl bg-slate-50 px-4 text-sm font-extrabold text-slate-700">
+                <Checkbox checked={Boolean(form.targetAllSpecialties)} onCheckedChange={(checked) => setForm({ ...form, targetAllSpecialties: Boolean(checked) })} />
+                {language === "ar" ? "كل التخصصات" : "All Specialties"}
+              </label>
+              {!form.targetAllSpecialties ? (
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {specialties.filter((specialty) => specialty.isActive || form.specialtyIds?.includes(String(specialty.id))).map((specialty) => {
+                    const id = String(specialty.id)
+                    const checked = form.specialtyIds?.includes(id)
+                    return (
+                      <label key={id} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-2xl border border-slate-100 bg-white px-3 text-sm font-bold text-slate-600">
+                        <Checkbox checked={checked} onCheckedChange={(value) => setForm({ ...form, specialtyIds: value ? [...(form.specialtyIds || []), id] : (form.specialtyIds || []).filter((item: string) => item !== id) })} />
+                        {language === "ar" ? specialty.nameAr : specialty.nameEn}
+                      </label>
+                    )
+                  })}
+                </div>
+              ) : null}
             </div>
           </EditorSection>
           <EditorSection icon={ImageIcon} title="Media & Gallery">
