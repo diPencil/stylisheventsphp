@@ -172,6 +172,17 @@ class MeController extends Controller
             ")
             ->first();
 
+        $notifications = Schema::hasTable('user_notifications')
+            ? DB::table('user_notifications')
+                ->where('user_id', $userId)
+                ->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get()
+            : collect();
+        $unreadNotifications = Schema::hasTable('user_notifications')
+            ? DB::table('user_notifications')->where('user_id', $userId)->whereNull('read_at')->count()
+            : 0;
+
         return response()->json([
             'success' => true,
             'message' => 'OK',
@@ -182,12 +193,77 @@ class MeController extends Controller
                     'upcomingRegistrations' => (int) ($counts->upcoming_registrations ?? 0),
                     'activeTickets' => (int) ($counts->active_tickets ?? 0),
                     'availableCertificates' => (int) ($counts->available_certificates ?? 0),
-                    'unreadNotifications' => 0,
+                    'unreadNotifications' => (int) $unreadNotifications,
                 ],
                 'nextEvent' => $upcoming['rows'][0] ?? null,
                 'pendingUpcomingRegistration' => !empty($upcoming['rows'][0]) ? null : ($pendingUpcoming['rows'][0] ?? null),
                 'recentRegistrations' => $recent['rows'],
-                'notifications' => [],
+                'notifications' => $notifications,
+            ],
+        ]);
+    }
+
+    public function eventsForYou(Request $request)
+    {
+        $user = $request->user();
+        $roleCode = $user->role_code ?? $user->role?->code ?? null;
+        if ($roleCode !== 'doctor' || !Schema::hasTable('event_specialty')) {
+            return response()->json(['success' => true, 'message' => 'OK', 'data' => ['data' => [], 'pagination' => ['total' => 0, 'page' => 1, 'perPage' => 6]]]);
+        }
+
+        $doctor = DB::table('doctors')->where('user_id', $user->id)->first();
+        if (!$doctor || !$doctor->specialty_id) {
+            return response()->json(['success' => true, 'message' => 'OK', 'data' => ['data' => [], 'pagination' => ['total' => 0, 'page' => 1, 'perPage' => 6]]]);
+        }
+
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = min(max((int) $request->query('perPage', 6), 1), 24);
+
+        $query = DB::table('events as e')
+            ->leftJoin('venues as v', 'v.id', '=', 'e.venue_id')
+            ->where('e.status', 'published')
+            ->where(function ($q) use ($doctor) {
+                $q->where('e.target_all_specialties', 1)
+                  ->orWhereExists(function ($sub) use ($doctor) {
+                      $sub->select(DB::raw(1))
+                          ->from('event_specialty as es')
+                          ->whereColumn('es.event_id', 'e.id')
+                          ->where('es.specialty_id', $doctor->specialty_id);
+                  });
+            })
+            ->where(function ($q) {
+                $q->whereNull('e.ends_at')->orWhere('e.ends_at', '>=', now());
+            });
+
+        $total = (clone $query)->count();
+        $rows = $query->select([
+                'e.id',
+                'e.slug',
+                'e.title_en',
+                'e.title_ar',
+                'e.summary_en',
+                'e.summary_ar',
+                'e.starts_at',
+                'e.ends_at',
+                'e.cover_image_url',
+                'e.banner_image_url',
+                'e.gallery_json',
+                'v.name_en as venue_name_en',
+                'v.name_ar as venue_name_ar',
+                'v.city_en',
+                'v.city_ar',
+            ])
+            ->orderBy('e.starts_at')
+            ->limit($perPage)
+            ->offset(($page - 1) * $perPage)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'OK',
+            'data' => [
+                'data' => $rows,
+                'pagination' => ['total' => $total, 'page' => $page, 'perPage' => $perPage],
             ],
         ]);
     }
@@ -486,18 +562,49 @@ class MeController extends Controller
 
     public function notifications(Request $request)
     {
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = min(max((int) $request->query('perPage', 10), 1), 50);
+        $query = DB::table('user_notifications')->where('user_id', $request->user()->id);
+        $total = (clone $query)->count();
+        $rows = $query->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
+            ->limit($perPage)
+            ->offset(($page - 1) * $perPage)
+            ->get();
+
         return response()->json([
             'success' => true,
             'message' => 'OK',
             'data' => [
-                'data' => [],
+                'data' => $rows,
                 'pagination' => [
-                    'total' => 0,
-                    'page' => 1,
-                    'perPage' => 10
+                    'total' => $total,
+                    'page' => $page,
+                    'perPage' => $perPage
                 ],
             ],
         ]);
+    }
+
+    public function markNotificationRead(Request $request, $id)
+    {
+        $updated = DB::table('user_notifications')
+            ->where('id', (int) $id)
+            ->where('user_id', $request->user()->id)
+            ->update(['read_at' => DB::raw('COALESCE(read_at, NOW())'), 'updated_at' => now()]);
+
+        if (!$updated) return response()->json(['success' => false, 'message' => 'Notification not found'], 404);
+        return response()->json(['success' => true, 'message' => 'Notification marked read', 'data' => ['id' => (int) $id]]);
+    }
+
+    public function markAllNotificationsRead(Request $request)
+    {
+        DB::table('user_notifications')
+            ->where('user_id', $request->user()->id)
+            ->whereNull('read_at')
+            ->update(['read_at' => now(), 'updated_at' => now()]);
+
+        return response()->json(['success' => true, 'message' => 'Notifications marked read', 'data' => ['read' => true]]);
     }
 
     public function reviews(Request $request)

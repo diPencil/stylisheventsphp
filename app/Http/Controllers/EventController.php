@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use App\Services\UserNotificationService;
 
 class EventController extends Controller
 {
@@ -45,6 +46,7 @@ class EventController extends Controller
               e.gallery_json,
               e.google_maps_url,
               e.max_attendees,
+              e.target_all_specialties,
               e.created_at,
               e.updated_at,
               v.name_en AS venue_name_en,
@@ -107,6 +109,8 @@ class EventController extends Controller
             'gallery_json' => $event->gallery_json !== null ? (string)$event->gallery_json : "[]", // string response expected by frontend (it does JSON.parse)
             'google_maps_url' => $event->google_maps_url,
             'max_attendees' => $event->max_attendees !== null ? (int) $event->max_attendees : null,
+            'target_all_specialties' => isset($event->target_all_specialties) ? (int) $event->target_all_specialties : 0,
+            'targetSpecialties' => isset($event->id) ? $this->eventSpecialties((int) $event->id) : [],
             'created_at' => $formatDate($event->created_at),
             'updated_at' => $formatDate($event->updated_at),
             'venue_name_en' => $event->venue_name_en,
@@ -152,6 +156,49 @@ class EventController extends Controller
     {
         $version = (int) Cache::get('public_events:list_version', 1);
         Cache::forever('public_events:list_version', $version + 1);
+    }
+
+    private function eventSpecialties(int $eventId)
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('event_specialty')) return [];
+        return DB::table('event_specialty as es')
+            ->join('specialties as s', 's.id', '=', 'es.specialty_id')
+            ->where('es.event_id', $eventId)
+            ->orderBy('s.name_en')
+            ->select('s.id', 's.name_en', 's.name_ar', 's.is_active')
+            ->get()
+            ->map(fn ($row) => [
+                'id' => (int) $row->id,
+                'nameEn' => $row->name_en,
+                'nameAr' => $row->name_ar,
+                'isActive' => (bool) $row->is_active,
+            ])->values()->all();
+    }
+
+    private function syncEventSpecialties(int $eventId, bool $targetAll, array $specialtyIds): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('event_specialty')) return;
+        DB::table('event_specialty')->where('event_id', $eventId)->delete();
+        if ($targetAll) return;
+
+        $ids = DB::table('specialties')
+            ->whereIn('id', array_values(array_unique(array_map('intval', $specialtyIds))))
+            ->pluck('id')
+            ->all();
+
+        if (!$ids) return;
+        DB::table('event_specialty')->insert(array_map(fn ($specialtyId) => [
+            'event_id' => $eventId,
+            'specialty_id' => $specialtyId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $ids));
+    }
+
+    private function maybeNotifyPublishedEvent($existingStatus, string $nextStatus, int $eventId): void
+    {
+        if ($existingStatus === 'published' || $nextStatus !== 'published') return;
+        app(UserNotificationService::class)->notifyDoctorsForPublishedEvent($eventId);
     }
 
     private function publicEventList(Request $request)
@@ -328,7 +375,7 @@ class EventController extends Controller
               e.registration_approval_mode, e.registration_access, e.max_tickets_per_checkout,
               e.capacity_hold_hours_override, e.manual_payment_enabled, e.timezone, e.cover_image_url,
               e.banner_image_url, e.event_details_image_url, e.event_pdf_url, e.gallery_json, e.google_maps_url,
-              e.max_attendees, e.created_at, e.updated_at,
+              e.max_attendees, e.target_all_specialties, e.created_at, e.updated_at,
               v.name_en, v.name_ar, v.city_en, v.city_ar, v.capacity, u.name
             ORDER BY $orderBy
             LIMIT ?
@@ -369,7 +416,7 @@ class EventController extends Controller
             'descriptionEn' => 'nullable|string',
             'descriptionAr' => 'nullable|string',
             'type' => 'nullable|in:conference,exhibition,workshop,festival,webinar,other',
-            'status' => 'nullable|in:draft,published,cancelled,completed,deleted',
+            'status' => 'nullable|in:draft,published,sold_out,completed,cancelled,disabled,deleted',
             'startsAt' => 'required_without:titleEn|nullable|string|min:1',
             'endsAt' => 'required_without:titleEn|nullable|string|min:1',
             'registrationStartsAt' => 'nullable|string',
@@ -390,6 +437,9 @@ class EventController extends Controller
             'googleMapsUrl' => 'required_without:slug|nullable|string',
             'venueId' => 'nullable|integer|min:1',
             'organizerId' => 'nullable|integer|min:1',
+            'targetAllSpecialties' => 'nullable|boolean',
+            'specialtyIds' => 'nullable|array',
+            'specialtyIds.*' => 'integer|exists:specialties,id',
         ]);
 
         $titleEn = trim($validated['titleEn']);
@@ -426,6 +476,7 @@ class EventController extends Controller
             'manual_payment_enabled' => $validated['manualPaymentEnabled'] ?? true,
             'timezone' => $validated['timezone'] ?? 'Africa/Cairo',
             'max_attendees' => $validated['maxAttendees'] ?? null,
+            'target_all_specialties' => !empty($validated['targetAllSpecialties']) ? 1 : 0,
             'cover_image_url' => $validated['coverImageUrl'] ?? null,
             'banner_image_url' => $validated['bannerImageUrl'] ?? null,
             'event_details_image_url' => $validated['eventDetailsImageUrl'] ?? null,
@@ -442,7 +493,9 @@ class EventController extends Controller
         }
 
         $id = DB::table('events')->insertGetId($event);
+        $this->syncEventSpecialties($id, !empty($validated['targetAllSpecialties']), $validated['specialtyIds'] ?? []);
         $this->forgetPublicEventLists();
+        $this->maybeNotifyPublishedEvent(null, $event['status'], $id);
 
         return response()->json([
             'success' => true,
@@ -462,7 +515,7 @@ class EventController extends Controller
             'descriptionEn' => 'nullable|string',
             'descriptionAr' => 'nullable|string',
             'type' => 'nullable|in:conference,exhibition,workshop,festival,webinar,other',
-            'status' => 'nullable|in:draft,published,cancelled,completed,deleted',
+            'status' => 'nullable|in:draft,published,sold_out,completed,cancelled,disabled,deleted',
             'startsAt' => 'required_without:titleEn|nullable|string|min:1',
             'endsAt' => 'required_without:titleEn|nullable|string|min:1',
             'registrationStartsAt' => 'nullable|string',
@@ -483,6 +536,9 @@ class EventController extends Controller
             'googleMapsUrl' => 'required_without:slug|nullable|string',
             'venueId' => 'nullable|integer|min:1',
             'organizerId' => 'nullable|integer|min:1',
+            'targetAllSpecialties' => 'nullable|boolean',
+            'specialtyIds' => 'nullable|array',
+            'specialtyIds.*' => 'integer|exists:specialties,id',
         ]);
 
         $id = (int)$id;
@@ -525,6 +581,7 @@ class EventController extends Controller
             'manual_payment_enabled' => $validated['manualPaymentEnabled'] ?? true,
             'timezone' => $validated['timezone'] ?? 'Africa/Cairo',
             'max_attendees' => $validated['maxAttendees'] ?? null,
+            'target_all_specialties' => !empty($validated['targetAllSpecialties']) ? 1 : 0,
             'cover_image_url' => $validated['coverImageUrl'] ?? null,
             'banner_image_url' => $validated['bannerImageUrl'] ?? null,
             'event_details_image_url' => $validated['eventDetailsImageUrl'] ?? null,
@@ -540,7 +597,9 @@ class EventController extends Controller
         }
 
         DB::table('events')->where('id', $id)->update($event);
+        $this->syncEventSpecialties($id, !empty($validated['targetAllSpecialties']), $validated['specialtyIds'] ?? []);
         $this->forgetPublicEventLists();
+        $this->maybeNotifyPublishedEvent($existing->status, $event['status'], $id);
 
         return response()->json([
             'success' => true,
@@ -552,7 +611,7 @@ class EventController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $validated = $request->validate([
-            'status' => 'required|in:draft,published,cancelled,completed,deleted'
+            'status' => 'required|in:draft,published,sold_out,completed,cancelled,disabled,deleted'
         ]);
 
         $id = (int)$id;
@@ -569,6 +628,7 @@ class EventController extends Controller
 
         DB::table('events')->where('id', $id)->update(['status' => $validated['status']]);
         $this->forgetPublicEventLists();
+        $this->maybeNotifyPublishedEvent($existing->status, $validated['status'], $id);
 
         return response()->json([
             'success' => true,

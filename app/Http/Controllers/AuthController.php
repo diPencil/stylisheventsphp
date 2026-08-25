@@ -102,11 +102,27 @@ class AuthController extends Controller
             'preferredLanguage' => 'nullable|in:ar,en',
             'avatarUrl' => 'nullable|string|max:500',
             'password' => 'required|string|min:8',
+            'accountType' => 'nullable|in:customer,doctor',
+            'roleCode' => 'nullable|string',
+            'specialtyId' => 'nullable|integer|exists:specialties,id',
         ]);
 
-        $role = Role::where('code', 'customer')->first();
+        $requestedRoleCode = in_array(($validated['roleCode'] ?? ''), ['customer', 'doctor'], true) ? $validated['roleCode'] : 'customer';
+        $publicRoleCode = $validated['accountType'] ?? $requestedRoleCode;
+        $role = Role::where('code', $publicRoleCode)->first();
         if (! $role) {
-            return ApiResponse::fail('Customer role is missing', 500);
+            return ApiResponse::fail('Public role is missing', 500);
+        }
+
+        $specialty = null;
+        if ($role->code === 'doctor') {
+            if (empty($validated['specialtyId'])) {
+                return ApiResponse::fail('Specialty is required for Doctor accounts', 422);
+            }
+            $specialty = DB::table('specialties')->where('id', $validated['specialtyId'])->where('is_active', 1)->first();
+            if (!$specialty) {
+                return ApiResponse::fail('Active specialty is required for Doctor accounts', 422);
+            }
         }
 
         $exists = User::where('email', $validated['email'])
@@ -135,6 +151,26 @@ class AuthController extends Controller
         $user->avatar_url = $validated['avatarUrl'] ?? null;
         $user->notes = !empty($validated['company']) ? 'Company: ' . $validated['company'] : null;
         $user->save();
+
+        if ($role->code === 'doctor') {
+            DB::table('doctors')->insert([
+                'user_id' => $user->id,
+                'full_name' => $user->name,
+                'mobile' => $user->phone ?: 'N/A',
+                'email' => $user->email,
+                'address' => '',
+                'country_code' => $user->country_code,
+                'country_name' => $user->country_name,
+                'city' => 'N/A',
+                'specialty' => $specialty->name_en,
+                'specialty_id' => $specialty->id,
+                'nationality' => $user->country_name ?: 'N/A',
+                'preferred_language' => $user->preferred_language,
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         Auth::guard('api')->setUser($user);
         $this->auditLog($request, 'auth.register', 'user', $user->id);
@@ -180,6 +216,17 @@ class AuthController extends Controller
         $formatted['customer_address'] = $customerProfile->address ?? null;
         $formatted['customer_city'] = $customerProfile->city ?? null;
         $formatted['customer_specialty'] = $customerProfile->specialty ?? null;
+        $formatted['specialty_id'] = $customerProfile->specialty_id ?? null;
+        if ($customerProfile?->specialty_id) {
+            $specialty = DB::table('specialties')->where('id', $customerProfile->specialty_id)->first();
+            $formatted['specialty'] = $specialty ? [
+                'id' => (int) $specialty->id,
+                'nameEn' => $specialty->name_en,
+                'nameAr' => $specialty->name_ar,
+                'isActive' => (bool) $specialty->is_active,
+                'legacyName' => $customerProfile->specialty,
+            ] : null;
+        }
         $formatted['customer_nationality'] = $customerProfile->nationality ?? null;
         $formatted['last_login_at'] = $user->last_login_at;
 
@@ -198,6 +245,7 @@ class AuthController extends Controller
             'gender' => 'nullable|in:male,female,not_specified',
             'preferredLanguage' => 'nullable|in:ar,en',
             'avatarUrl' => 'nullable|string|max:500',
+            'specialtyId' => 'nullable|integer|exists:specialties,id',
         ]);
 
         $current = Auth::guard('api')->user();
@@ -215,8 +263,28 @@ class AuthController extends Controller
 
             $current->save();
 
-            if ($current->role->code === 'customer' && isset($validated['name'])) {
-                DB::table('doctors')->where('user_id', $current->id)->update(['full_name' => $validated['name']]);
+            if (in_array($current->role->code, ['customer', 'doctor'], true)) {
+                $doctorUpdates = [];
+                if (isset($validated['name'])) $doctorUpdates['full_name'] = $validated['name'];
+                if (array_key_exists('phone', $validated)) $doctorUpdates['mobile'] = $validated['phone'] ?: 'N/A';
+                if (array_key_exists('countryCode', $validated)) $doctorUpdates['country_code'] = $current->country_code ?: 'EG';
+                if (array_key_exists('countryName', $validated)) {
+                    $doctorUpdates['country_name'] = $current->country_name ?: 'Egypt';
+                    $doctorUpdates['nationality'] = $current->country_name ?: 'N/A';
+                }
+                if (isset($validated['preferredLanguage'])) $doctorUpdates['preferred_language'] = $validated['preferredLanguage'];
+                if ($current->role->code === 'doctor' && array_key_exists('specialtyId', $validated)) {
+                    $specialty = DB::table('specialties')->where('id', $validated['specialtyId'])->where('is_active', 1)->first();
+                    if (!$specialty) {
+                        throw \Illuminate\Validation\ValidationException::withMessages(['specialtyId' => 'Active specialty is required.']);
+                    }
+                    $doctorUpdates['specialty_id'] = $specialty->id;
+                    $doctorUpdates['specialty'] = $specialty->name_en;
+                }
+                if (!empty($doctorUpdates)) {
+                    $doctorUpdates['updated_at'] = now();
+                    DB::table('doctors')->where('user_id', $current->id)->update($doctorUpdates);
+                }
             }
         });
 
@@ -228,6 +296,12 @@ class AuthController extends Controller
         } else {
             $formatted['customer_full_name'] = DB::table('doctors')->where('user_id', $current->id)->value('full_name');
         }
+        $doctorProfile = DB::table('doctors')->where('user_id', $current->id)->first();
+        $formatted['customer_specialty'] = $doctorProfile->specialty ?? null;
+        $formatted['specialty_id'] = $doctorProfile->specialty_id ?? null;
+        $formatted['specialty'] = $doctorProfile?->specialty_id
+            ? DB::table('specialties')->where('id', $doctorProfile->specialty_id)->select('id', 'name_en as nameEn', 'name_ar as nameAr', 'is_active as isActive')->first()
+            : null;
 
         return ApiResponse::ok($formatted, 'Profile updated');
     }
