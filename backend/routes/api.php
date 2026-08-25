@@ -14,6 +14,7 @@ use App\Http\Controllers\PlatformSettingsController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\AttendeeController;
 use App\Http\Controllers\MeController;
+use App\Http\Controllers\SpecialtyController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
@@ -44,6 +45,14 @@ Route::middleware('auth:api')->group(function () {
         Route::patch('/{id}/status', [UserController::class, 'updateStatus'])->middleware('permission:users.manage');
         Route::patch('/{id}/password', [UserController::class, 'updatePassword'])->middleware('permission:users.manage');
     });
+});
+
+Route::get('/specialties', [SpecialtyController::class, 'index']);
+Route::middleware(['auth:api', 'permission:settings.manage'])->prefix('specialties')->group(function () {
+    Route::post('/', [SpecialtyController::class, 'store']);
+    Route::put('/{id}', [SpecialtyController::class, 'update']);
+    Route::patch('/{id}/status', [SpecialtyController::class, 'updateStatus']);
+    Route::delete('/{id}', [SpecialtyController::class, 'destroy']);
 });
 
 // Phase C Routes
@@ -193,6 +202,7 @@ Route::middleware('auth:api')->group(function () {
 // Phase F: Customer Dashboard
 Route::middleware('auth:api')->prefix('me')->group(function () {
     Route::get('/dashboard', [MeController::class, 'dashboard']);
+    Route::get('/events-for-you', [MeController::class, 'eventsForYou']);
     Route::get('/registrations', [MeController::class, 'registrations']);
     Route::get('/registrations/{id}', [MeController::class, 'showRegistration']);
     Route::get('/tickets', [MeController::class, 'tickets']);
@@ -200,5 +210,7 @@ Route::middleware('auth:api')->prefix('me')->group(function () {
     Route::get('/tickets/{id}/qr', [MeController::class, 'ticketQr']);
     Route::get('/certificates', [MeController::class, 'certificates']);
     Route::get('/notifications', [MeController::class, 'notifications']);
+    Route::patch('/notifications/{id}/read', [MeController::class, 'markNotificationRead']);
+    Route::patch('/notifications/read-all', [MeController::class, 'markAllNotificationsRead']);
     Route::get('/reviews', [MeController::class, 'reviews']);
 });

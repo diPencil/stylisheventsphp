@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, CalendarDays, CheckCircle2, FileText, ImageIcon, MapPin, Search, Settings2, Ticket, UploadCloud } from "lucide-react"
+import { ArrowLeft, CalendarDays, CheckCircle2, FileText, ImageIcon, MapPin, Search, Settings2, Stethoscope, Ticket, UploadCloud } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ConfirmAction } from "@/components/admin/confirm-action"
 import { ImageGalleryDropzone, ImageUrlDropzone } from "@/components/admin/image-url-dropzone"
 import { apiAssetUrl, platformApi } from "@/lib/platform-api"
@@ -42,6 +43,8 @@ type CreateEventForm = {
   maxTicketsPerCheckout: string
   capacityHoldHoursOverride: string
   manualPaymentEnabled: boolean
+  targetAllSpecialties: boolean
+  specialtyIds: string[]
   summaryAr: string
   summaryEn: string
   agenda: string
@@ -87,6 +90,8 @@ const initialForm: CreateEventForm = {
   maxTicketsPerCheckout: "1",
   capacityHoldHoursOverride: "",
   manualPaymentEnabled: true,
+  targetAllSpecialties: false,
+  specialtyIds: [],
   summaryAr: "",
   summaryEn: "",
   agenda: "",
@@ -115,6 +120,7 @@ export function EventCreatePage() {
   const [form, setForm] = useState(initialForm)
   const [saveState, setSaveState] = useState<"idle" | "saved">("idle")
   const [currencySettings, setCurrencySettings] = useState<CurrencySettings>(() => readCurrencySettings())
+  const [specialties, setSpecialties] = useState<any[]>([])
 
   const currencies = useMemo(() => enabledCurrencyRates(currencySettings), [currencySettings])
   const gallery = useMemo(() => form.galleryImages.split("\n").map((item) => item.trim()).filter(Boolean), [form.galleryImages])
@@ -128,6 +134,10 @@ export function EventCreatePage() {
       window.removeEventListener("stylish-events-currency-settings-updated", syncCurrencySettings)
       window.removeEventListener("storage", syncCurrencySettings)
     }
+  }, [])
+
+  useEffect(() => {
+    platformApi.listSpecialties(true).then(setSpecialties).catch(() => setSpecialties([]))
   }, [])
 
   const setField = <K extends keyof CreateEventForm>(key: K, value: CreateEventForm[K]) => {
@@ -183,6 +193,8 @@ export function EventCreatePage() {
         googleMapsUrl: form.location || null,
         venueId: null,
         organizerId: null,
+        targetAllSpecialties: form.targetAllSpecialties,
+        specialtyIds: form.targetAllSpecialties ? [] : form.specialtyIds.map(Number),
       })
 
       if (form.ticketNameEn.trim() && form.ticketNameAr.trim() && Number(form.ticketQuota || 0) > 0) {
@@ -271,6 +283,29 @@ export function EventCreatePage() {
               <SelectField label="Type" value={form.type} onChange={(value) => setField("type", value)} options={["Conference", "Exhibition", "Forum", "Workshop", "Festival"]} />
               <Field label="Category" value={form.category} onChange={(value) => setField("category", value)} />
               <Field label="Organizer" value={form.organizer} onChange={(value) => setField("organizer", value)} className="md:col-span-2" />
+            </div>
+          </FormPanel>
+
+          <FormPanel icon={Stethoscope} title={language === "ar" ? "التخصصات المستهدفة" : "Target Specialties"} description={language === "ar" ? "تحدد هذه الخيارات توصيات الأطباء وإشعاراتهم فقط، ولا تخفي الفعالية من الموقع العام." : "These options power doctor recommendations and notifications only; public browsing still shows published events."}>
+            <div className="space-y-3">
+              <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl bg-slate-50 px-4 text-sm font-extrabold text-slate-700">
+                <Checkbox checked={form.targetAllSpecialties} onCheckedChange={(checked) => setField("targetAllSpecialties", Boolean(checked))} />
+                {language === "ar" ? "كل التخصصات" : "All Specialties"}
+              </label>
+              {!form.targetAllSpecialties ? (
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {specialties.map((specialty) => {
+                    const id = String(specialty.id)
+                    const checked = form.specialtyIds.includes(id)
+                    return (
+                      <label key={id} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-2xl border border-slate-100 bg-white px-3 text-sm font-bold text-slate-600">
+                        <Checkbox checked={checked} onCheckedChange={(value) => setField("specialtyIds", value ? [...form.specialtyIds, id] : form.specialtyIds.filter((item) => item !== id))} />
+                        {language === "ar" ? specialty.nameAr : specialty.nameEn}
+                      </label>
+                    )
+                  })}
+                </div>
+              ) : null}
             </div>
           </FormPanel>
 

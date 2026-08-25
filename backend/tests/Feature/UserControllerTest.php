@@ -73,12 +73,18 @@ class UserControllerTest extends TestCase
             'permission_key' => 'users.manage',
             'allowed' => 0,
         ]);
+        $specialtyId = DB::table('specialties')->updateOrInsert(
+            ['name_en' => 'Cardiology'],
+            ['name_ar' => 'أمراض القلب', 'is_active' => 1, 'updated_at' => now(), 'created_at' => now()]
+        ) ?: DB::table('specialties')->where('name_en', 'Cardiology')->value('id');
+        $specialtyId = DB::table('specialties')->where('name_en', 'Cardiology')->value('id');
 
         $response = $this->withHeaders(['Authorization' => "Bearer $token"])->postJson('/api/users', [
             'name' => 'Doctor User',
             'email' => 'doctor_user_' . uniqid() . '@example.com',
             'password' => 'password123',
             'roleCode' => 'doctor',
+            'specialtyId' => $specialtyId,
             'status' => 'active',
         ]);
 
@@ -106,6 +112,7 @@ class UserControllerTest extends TestCase
 
         $backToDoctor = $this->withHeaders(['Authorization' => "Bearer $token"])->putJson("/api/users/{$doctorId}", [
             'roleCode' => 'doctor',
+            'specialtyId' => $specialtyId,
         ]);
         $backToDoctor->assertStatus(200)
             ->assertJsonPath('data.role.code', 'doctor');

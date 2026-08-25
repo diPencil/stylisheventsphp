@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use App\Mail\CertificateDeliveryMail;
+use App\Services\UserNotificationService;
 
 class CertificateController extends Controller
 {
@@ -365,6 +366,27 @@ class CertificateController extends Controller
                 ];
             }
         });
+
+        $registrationId = DB::table('generated_tickets as gt')
+            ->join('registrations as r', 'r.id', '=', 'gt.registration_id')
+            ->where('gt.attendee_id', $attendee->id)
+            ->value('r.id');
+        if ($registrationId) {
+            app(UserNotificationService::class)->notifyRegistrationUser(
+                (int) $registrationId,
+                'certificate_available',
+                'Certificate Available',
+                'Your certificate is ready.',
+                [
+                    'title_ar' => 'الشهادة جاهزة',
+                    'message_ar' => 'شهادتك جاهزة.',
+                    'entity_type' => 'certificate',
+                    'entity_id' => $issued['id'] ?? null,
+                    'action_url' => '/dashboard/certificates',
+                    'dedupe_key' => 'certificate_available:certificate:' . ($issued['id'] ?? $attendee->id),
+                ]
+            );
+        }
 
         return response()->json([
             'status' => 'success',

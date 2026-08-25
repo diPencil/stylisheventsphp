@@ -35,6 +35,13 @@ class UserController extends Controller
                 'nameEn' => $role->name_en ?? null,
                 'nameAr' => $role->name_ar ?? null,
             ],
+            'specialty' => isset($user->specialty_id) ? [
+                'id' => $user->specialty_id ? (int) $user->specialty_id : null,
+                'nameEn' => $user->specialty_name_en ?? null,
+                'nameAr' => $user->specialty_name_ar ?? null,
+                'isActive' => isset($user->specialty_is_active) ? (bool) $user->specialty_is_active : null,
+                'legacyName' => $user->doctor_specialty ?? null,
+            ] : null,
         ];
     }
 
@@ -57,15 +64,18 @@ class UserController extends Controller
         $limit = min(max((int) $request->query('limit', 20), 1), 100);
         $offset = max((int) $request->query('offset', 0), 0);
         $includeMeta = filter_var($request->query('meta', 'false'), FILTER_VALIDATE_BOOLEAN);
-        $query = User::with('role');
+        $query = User::with('role')
+            ->leftJoin('doctors as d', 'd.user_id', '=', 'users.id')
+            ->leftJoin('specialties as s', 's.id', '=', 'd.specialty_id')
+            ->select('users.*', 'd.specialty as doctor_specialty', 'd.specialty_id', 's.name_en as specialty_name_en', 's.name_ar as specialty_name_ar', 's.is_active as specialty_is_active');
 
         if ($request->filled('search')) {
             $search = '%' . $request->search . '%';
             $query->where(function($q) use ($search) {
-                $q->where('name', 'LIKE', $search)
-                  ->orWhere('email', 'LIKE', $search)
-                  ->orWhere('username', 'LIKE', $search)
-                  ->orWhere('phone', 'LIKE', $search);
+                $q->where('users.name', 'LIKE', $search)
+                  ->orWhere('users.email', 'LIKE', $search)
+                  ->orWhere('users.username', 'LIKE', $search)
+                  ->orWhere('users.phone', 'LIKE', $search);
             });
         }
 
@@ -76,7 +86,12 @@ class UserController extends Controller
         }
 
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $query->where('users.status', $request->status);
+        }
+
+        if ($request->filled('specialtyId')) {
+            $query->whereHas('role', fn ($q) => $q->where('code', 'doctor'))
+                ->where('d.specialty_id', (int) $request->query('specialtyId'));
         }
 
         $total = (clone $query)->count();
@@ -84,6 +99,7 @@ class UserController extends Controller
         // Keep operational roles first, then participant roles.
         $users = $query->join('roles', 'roles.id', '=', 'users.role_id')
             ->select('users.*', 'roles.code as role_code')
+            ->addSelect('d.specialty as doctor_specialty', 'd.specialty_id', 's.name_en as specialty_name_en', 's.name_ar as specialty_name_ar', 's.is_active as specialty_is_active')
             ->orderByRaw("FIELD(roles.code, 'admin', 'organizer', 'back_office', 'employee', 'chairman', 'speaker', 'doctor', 'customer')")
             ->orderBy('users.created_at', 'DESC')
             ->limit($limit)
@@ -112,7 +128,12 @@ class UserController extends Controller
 
     public function show($id)
     {
-        $user = User::with('role')->find($id);
+        $user = User::with('role')
+            ->leftJoin('doctors as d', 'd.user_id', '=', 'users.id')
+            ->leftJoin('specialties as s', 's.id', '=', 'd.specialty_id')
+            ->select('users.*', 'd.specialty as doctor_specialty', 'd.specialty_id', 's.name_en as specialty_name_en', 's.name_ar as specialty_name_ar', 's.is_active as specialty_is_active')
+            ->where('users.id', $id)
+            ->first();
         if (!$user) return ApiResponse::fail('User not found', 404);
         return ApiResponse::ok($this->mapUser($user, $user->role));
     }
@@ -133,10 +154,19 @@ class UserController extends Controller
             'preferredLanguage' => 'nullable|in:ar,en',
             'avatarUrl' => 'nullable|string|max:500',
             'notes' => 'nullable|string|max:500',
+            'specialtyId' => 'nullable|integer|exists:specialties,id',
         ]);
 
         $role = Role::where('code', $validated['roleCode'])->first();
         if (!$role) return ApiResponse::fail('Role not found', 400);
+        if ($role->code === 'doctor' && empty($validated['specialtyId'])) {
+            return ApiResponse::fail('Specialty is required for Doctor users', 422);
+        }
+        $specialty = null;
+        if ($role->code === 'doctor') {
+            $specialty = DB::table('specialties')->where('id', $validated['specialtyId'])->where('is_active', 1)->first();
+            if (!$specialty) return ApiResponse::fail('Active specialty is required for Doctor users', 422);
+        }
 
         $user = new User();
         $user->role_id = $role->id;
@@ -155,6 +185,26 @@ class UserController extends Controller
         $user->avatar_url = $validated['avatarUrl'] ?? null;
         $user->notes = $validated['notes'] ?? null;
         $user->save();
+
+        if ($role->code === 'doctor') {
+            DB::table('doctors')->updateOrInsert(
+                ['user_id' => $user->id],
+                [
+                    'full_name' => $user->name,
+                    'mobile' => $user->phone ?: 'N/A',
+                    'email' => $user->email,
+                    'country_code' => $user->country_code ?: 'EG',
+                    'country_name' => $user->country_name ?: 'Egypt',
+                    'city' => 'N/A',
+                    'specialty' => $specialty->name_en,
+                    'specialty_id' => $specialty->id,
+                    'nationality' => $user->country_name ?: 'N/A',
+                    'preferred_language' => $user->preferred_language,
+                    'status' => $user->status,
+                    'updated_at' => now(),
+                ]
+            );
+        }
 
         $this->auditLog($request, 'users.create', 'user', $user->id);
 
@@ -188,11 +238,21 @@ class UserController extends Controller
             'preferredLanguage' => 'nullable|in:ar,en',
             'avatarUrl' => 'nullable|string|max:500',
             'notes' => 'nullable|string|max:500',
+            'specialtyId' => 'nullable|integer|exists:specialties,id',
         ]);
 
         $roleCode = $validated['roleCode'] ?? $current->role->code;
         $role = Role::where('code', $roleCode)->first();
         if (!$role) return ApiResponse::fail('Role not found', 400);
+        if ($role->code === 'doctor') {
+            $currentDoctorSpecialty = DB::table('doctors')->where('user_id', $current->id)->value('specialty_id');
+            $requestedSpecialtyId = $validated['specialtyId'] ?? $currentDoctorSpecialty;
+            if (!$requestedSpecialtyId) return ApiResponse::fail('Specialty is required for Doctor users', 422);
+            $specialty = DB::table('specialties')->where('id', $requestedSpecialtyId)->where('is_active', 1)->first();
+            if (!$specialty) return ApiResponse::fail('Active specialty is required for Doctor users', 422);
+        } else {
+            $specialty = null;
+        }
 
         $nextStatus = $validated['status'] ?? $current->status;
         $authUser = Auth::guard('api')->user();
@@ -224,6 +284,27 @@ class UserController extends Controller
         }
 
         $current->save();
+        if ($role->code === 'doctor') {
+            DB::table('doctors')->updateOrInsert(
+                ['user_id' => $current->id],
+                [
+                    'full_name' => $current->name,
+                    'mobile' => $current->phone ?: 'N/A',
+                    'email' => $current->email,
+                    'country_code' => $current->country_code ?: 'EG',
+                    'country_name' => $current->country_name ?: 'Egypt',
+                    'city' => 'N/A',
+                    'specialty' => $specialty->name_en,
+                    'specialty_id' => $specialty->id,
+                    'nationality' => $current->country_name ?: 'N/A',
+                    'preferred_language' => $current->preferred_language,
+                    'status' => $current->status,
+                    'updated_at' => now(),
+                ]
+            );
+        } else {
+            DB::table('doctors')->where('user_id', $current->id)->update(['specialty_id' => null, 'updated_at' => now()]);
+        }
         $this->auditLog($request, 'users.update', 'user', $current->id);
 
         $current->load('role');

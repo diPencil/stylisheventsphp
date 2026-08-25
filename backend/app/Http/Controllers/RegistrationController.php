@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use App\Services\UserNotificationService;
 
 class RegistrationController extends Controller
 {
@@ -396,6 +397,16 @@ class RegistrationController extends Controller
         });
 
         $bankAccount = $this->activeBankAccount($currency);
+        app(UserNotificationService::class)->notifyRegistrationUser(
+            $registrationData['id'],
+            $registrationData['status'] === 'pending_verification' ? 'payment_submitted' : 'registration_created',
+            $registrationData['status'] === 'pending_verification' ? 'Payment Submitted' : 'Registration Created',
+            $registrationData['status'] === 'pending_verification' ? 'Your payment is pending verification.' : 'Your registration was created.',
+            [
+                'title_ar' => $registrationData['status'] === 'pending_verification' ? 'تم إرسال الدفع' : 'تم إنشاء التسجيل',
+                'message_ar' => $registrationData['status'] === 'pending_verification' ? 'دفعتك بانتظار المراجعة.' : 'تم إنشاء تسجيلك.',
+            ]
+        );
 
         return response()->json([
             'success' => true,
@@ -600,6 +611,13 @@ class RegistrationController extends Controller
         }
 
         DB::table('registrations')->where('id', $id)->update($paymentUpdate);
+        app(UserNotificationService::class)->notifyRegistrationUser(
+            (int) $id,
+            'payment_submitted',
+            'Payment Submitted',
+            'Your payment proof is pending verification.',
+            ['title_ar' => 'تم إرسال الدفع', 'message_ar' => 'إثبات الدفع بانتظار المراجعة.']
+        );
 
         return response()->json(['success' => true, 'message' => 'Payment proof submitted', 'data' => ['id' => (int)$id]]);
     }
@@ -640,6 +658,13 @@ class RegistrationController extends Controller
                 'capacity_release_reason' => DB::raw("COALESCE(capacity_release_reason, 'payment_rejected')"),
             ]);
             DB::table('orders')->where('id', $registration->order_id)->update(['status' => 'pending_payment']);
+            app(UserNotificationService::class)->notifyRegistrationUser(
+                (int) $registration->id,
+                'payment_rejected',
+                'Payment Rejected',
+                'Your payment could not be verified. Please review your registration.',
+                ['title_ar' => 'تم رفض الدفع', 'message_ar' => 'تعذر التحقق من دفعتك. يرجى مراجعة التسجيل.']
+            );
             return response()->json(['success' => true, 'message' => 'Payment rejected', 'data' => ['id' => $registration->id, 'status' => 'rejected']]);
         }
 
@@ -723,6 +748,22 @@ class RegistrationController extends Controller
         if ($approved instanceof \Illuminate\Http\JsonResponse) return $approved;
 
         $msg = !empty($approved['pendingReview']) ? 'Payment approved. Registration is pending manual review.' : 'Payment approved and ticket generated';
+        app(UserNotificationService::class)->notifyRegistrationUser(
+            (int) $registration->id,
+            'payment_verified',
+            'Payment Verified',
+            $msg,
+            ['title_ar' => 'تم تأكيد الدفع', 'message_ar' => !empty($approved['pendingReview']) ? 'تم تأكيد الدفع والتسجيل بانتظار المراجعة.' : 'تم تأكيد الدفع وإصدار التذكرة.']
+        );
+        if (empty($approved['pendingReview']) && !empty($approved['ticketId'])) {
+            app(UserNotificationService::class)->notifyRegistrationUser(
+                (int) $registration->id,
+                'ticket_available',
+                'Ticket / QR Available',
+                'Your ticket and QR code are ready.',
+                ['title_ar' => 'التذكرة ورمز QR جاهزان', 'message_ar' => 'تذكرتك ورمز QR جاهزان.']
+            );
+        }
         return response()->json([
             'success' => true, 'message' => $msg,
             'data' => array_merge(['id' => $registration->id, 'status' => !empty($approved['pendingReview']) ? 'pending_review' : 'approved'], $approved)
@@ -758,6 +799,13 @@ class RegistrationController extends Controller
                 'payment_rejection_reason' => $validated['rejectionReason'] ?? null,
                 'updated_at' => now(),
             ]);
+            app(UserNotificationService::class)->notifyRegistrationUser(
+                (int) $registration->id,
+                'registration_rejected',
+                'Registration Rejected',
+                'Your registration was rejected.',
+                ['title_ar' => 'تم رفض التسجيل', 'message_ar' => 'تم رفض تسجيلك.']
+            );
             return response()->json(['success' => true, 'message' => 'Registration rejected', 'data' => ['id' => $registration->id, 'status' => 'rejected']]);
         }
 
@@ -804,6 +852,13 @@ class RegistrationController extends Controller
             return ['attendeeId' => $attendeeId, 'ticketId' => $ticketId, 'ticketNumber' => $generatedTicketNumber];
         });
 
+        app(UserNotificationService::class)->notifyRegistrationUser(
+            (int) $registration->id,
+            'ticket_available',
+            'Ticket / QR Available',
+            'Your registration was approved and your ticket is ready.',
+            ['title_ar' => 'التذكرة ورمز QR جاهزان', 'message_ar' => 'تم اعتماد تسجيلك والتذكرة جاهزة.']
+        );
         return response()->json(['success' => true, 'message' => 'Registration approved and ticket generated', 'data' => array_merge(['id' => $registration->id, 'status' => 'approved'], $approved)]);
     }
 
@@ -882,6 +937,15 @@ class RegistrationController extends Controller
             ];
         });
 
+        if ($validated['status'] === 'paid') {
+            app(UserNotificationService::class)->notifyRegistrationUser(
+                (int) $registration->id,
+                'ticket_available',
+                'Ticket / QR Available',
+                'Your order was paid and your ticket is ready.',
+                ['title_ar' => 'التذكرة ورمز QR جاهزان', 'message_ar' => 'تم دفع الطلب والتذكرة جاهزة.']
+            );
+        }
         return response()->json(['success' => true, 'message' => 'Order status updated', 'data' => ['id' => $registration->id, 'status' => $validated['status'], 'generated' => $updated]]);
     }
 }

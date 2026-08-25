@@ -73,6 +73,7 @@ type AdminUser = {
     nameEn: string
     nameAr?: string
   }
+  specialty?: { id?: number | null; nameEn?: string | null; nameAr?: string | null; legacyName?: string | null } | null
 }
 
 type PermissionItem = {
@@ -106,6 +107,7 @@ type UserForm = {
   preferredLanguage: "ar" | "en"
   avatarUrl: string
   notes: string
+  specialtyId: string
 }
 
 const permissionCatalog: Omit<PermissionItem, "allowed">[] = [
@@ -179,6 +181,7 @@ const emptyForm: UserForm = {
   preferredLanguage: "en",
   avatarUrl: "",
   notes: "",
+  specialtyId: "",
 }
 
 const permissionLabelsAr: Record<string, string> = {
@@ -278,6 +281,8 @@ export function UsersManager() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [roleFilter, setRoleFilter] = useState("all")
+  const [specialtyFilter, setSpecialtyFilter] = useState("all")
+  const [specialties, setSpecialties] = useState<any[]>([])
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<UserForm>(emptyForm)
   const [saving, setSaving] = useState(false)
@@ -293,6 +298,7 @@ export function UsersManager() {
         search: search.trim() || undefined,
         role: roleFilter === "all" ? undefined : roleFilter,
         status: statusFilter === "all" ? undefined : statusFilter,
+        specialtyId: specialtyFilter === "all" ? undefined : Number(specialtyFilter),
         limit: pageSize,
         offset: (page - 1) * pageSize,
         includeMeta: true,
@@ -314,7 +320,7 @@ export function UsersManager() {
     return () => {
       active = false
     }
-  }, [language, page, pageSize, roleFilter, search, statusFilter])
+  }, [language, page, pageSize, roleFilter, search, specialtyFilter, statusFilter])
 
   useEffect(() => {
     let active = true
@@ -343,8 +349,12 @@ export function UsersManager() {
   }, [language])
 
   useEffect(() => {
+    platformApi.listSpecialties(false).then(setSpecialties).catch(() => setSpecialties([]))
+  }, [])
+
+  useEffect(() => {
     setPage(1)
-  }, [search, roleFilter, statusFilter, pageSize])
+  }, [search, roleFilter, specialtyFilter, statusFilter, pageSize])
 
   const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize))
 
@@ -376,6 +386,7 @@ export function UsersManager() {
       preferredLanguage: user.preferredLanguage,
       avatarUrl: user.avatarUrl || "",
       notes: user.notes || "",
+      specialtyId: user.specialty?.id ? String(user.specialty.id) : "",
     })
     setFormOpen(true)
   }
@@ -395,6 +406,7 @@ export function UsersManager() {
       preferredLanguage: form.preferredLanguage,
       avatarUrl: form.avatarUrl || null,
       notes: form.notes || null,
+      specialtyId: form.roleCode === "doctor" && form.specialtyId ? Number(form.specialtyId) : null,
       ...(form.password ? { password: form.password } : {}),
     }
 
@@ -540,6 +552,19 @@ export function UsersManager() {
                     {roles.map((role) => <SelectItem key={role.code} value={role.code}>{roleName(roles, role.code, language)}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {roleFilter === "doctor" ? (
+                  <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
+                    <SelectTrigger className="h-10 rounded-2xl border-slate-200 bg-[#f8f5fb] md:w-52">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{language === "ar" ? "كل التخصصات" : "All specialties"}</SelectItem>
+                      {specialties.map((specialty) => (
+                        <SelectItem key={specialty.id} value={String(specialty.id)}>{language === "ar" ? specialty.nameAr : specialty.nameEn}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="h-10 rounded-2xl border-slate-200 bg-[#f8f5fb] md:w-44">
                     <SelectValue />
@@ -562,6 +587,7 @@ export function UsersManager() {
                       <th className="w-14 px-6 py-4">#</th>
                       <th className="px-6 py-4">{adminT(language, "users.user")}</th>
                       <th className="px-6 py-4">{adminT(language, "users.role")}</th>
+                      <th className="px-6 py-4">{language === "ar" ? "التخصص" : "Specialty"}</th>
                       <th className="px-6 py-4">{adminT(language, "users.username")}</th>
                       <th className="px-6 py-4">{adminT(language, "users.phone")}</th>
                       <th className="px-6 py-4">{adminT(language, "users.country")}</th>
@@ -590,6 +616,7 @@ export function UsersManager() {
                           </div>
                         </td>
                         <td className="px-6 py-4"><Badge className="rounded-xl bg-blue-50 px-3 py-1 text-xs font-extrabold text-[hsl(var(--primary))] hover:bg-blue-50">{roleName(roles, user.role.code, language)}</Badge></td>
+                        <td className="px-6 py-4 text-sm font-bold text-slate-600">{user.role.code === "doctor" ? (language === "ar" ? user.specialty?.nameAr || user.specialty?.legacyName : user.specialty?.nameEn || user.specialty?.legacyName) || "-" : "-"}</td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-600">{user.username || "-"}</td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-600">{user.phone || "-"}</td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-600">{user.countryName || "-"}{user.countryCode ? ` (${user.countryCode})` : ""}</td>
@@ -758,7 +785,7 @@ export function UsersManager() {
             </div>
             <div className="space-y-2">
               <Label>{adminT(language, "users.role")}</Label>
-              <Select value={form.roleCode} onValueChange={(roleCode) => setForm({ ...form, roleCode })}>
+              <Select value={form.roleCode} onValueChange={(roleCode) => setForm({ ...form, roleCode, specialtyId: roleCode === "doctor" ? form.specialtyId : "" })}>
                 <SelectTrigger className="h-12 rounded-2xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {roles.map((role) => (
@@ -769,6 +796,19 @@ export function UsersManager() {
                 </SelectContent>
               </Select>
             </div>
+            {form.roleCode === "doctor" ? (
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "التخصص" : "Specialty"}</Label>
+                <Select value={form.specialtyId} onValueChange={(specialtyId) => setForm({ ...form, specialtyId })}>
+                  <SelectTrigger className="h-12 rounded-2xl"><SelectValue placeholder={language === "ar" ? "اختر التخصص" : "Select specialty"} /></SelectTrigger>
+                  <SelectContent>
+                    {specialties.filter((specialty) => specialty.isActive || String(specialty.id) === form.specialtyId).map((specialty) => (
+                      <SelectItem key={specialty.id} value={String(specialty.id)}>{language === "ar" ? specialty.nameAr : specialty.nameEn}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="space-y-2">
               <Label>{adminT(language, "common.status")}</Label>
               <Select value={form.status} onValueChange={(status: UserForm["status"]) => setForm({ ...form, status })}>

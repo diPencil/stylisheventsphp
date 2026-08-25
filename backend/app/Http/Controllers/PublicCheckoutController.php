@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use App\Services\UserNotificationService;
 
 class PublicCheckoutController extends Controller
 {
@@ -709,6 +710,16 @@ class PublicCheckoutController extends Controller
         }
 
         $msg = $created->isFree ? 'Free registration confirmed and ticket issued' : 'Registration created. Payment is pending verification.';
+        app(UserNotificationService::class)->notifyRegistrationUser(
+            (int) $created->registrationId,
+            $created->isFree ? 'ticket_available' : 'registration_created',
+            $created->isFree ? 'Ticket / QR Available' : 'Registration Created',
+            $created->isFree ? 'Your registration is confirmed and your ticket is ready.' : 'Your registration was created. Payment is pending verification.',
+            [
+                'title_ar' => $created->isFree ? 'التذكرة ورمز QR جاهزان' : 'تم إنشاء التسجيل',
+                'message_ar' => $created->isFree ? 'تم تأكيد تسجيلك والتذكرة جاهزة.' : 'تم إنشاء تسجيلك والدفع بانتظار المراجعة.',
+            ]
+        );
         return response()->json([
             'success' => true,
             'message' => $msg,
