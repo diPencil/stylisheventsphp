@@ -13,6 +13,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CountrySelect } from "@/components/country-select"
+import {
+  AccountFormFields,
+  createAccountFormDefaults,
+  validateAccountForm,
+  accountPayload,
+} from "@/components/account/account-form-fields"
 import { AuthBrandHeadline } from "@/components/auth/auth-brand-headline"
 import { useLanguage } from "@/contexts/language-context"
 import { notifyAuthSessionChanged } from "@/lib/auth-session"
@@ -141,21 +147,8 @@ export default function SignUp() {
   const [success, setSuccess] = useState("")
   const [theme, setTheme] = useState<PlatformThemeSettings | null>(null)
   const [specialties, setSpecialties] = useState<any[]>([])
-  const [formData, setFormData] = useState({
-    accountType: "customer",
-    specialtyId: "",
-    fullName: "",
-    username: "",
-    company: "",
-    email: "",
-    phone: "+20 ",
-    countryCode: "EG",
-    countryName: "Egypt",
-    gender: "not_specified",
-    avatarUrl: "",
-    password: "",
-    agreeTerms: false,
-  })
+  const [formData, setFormData] = useState(() => createAccountFormDefaults("customer"))
+  const [agreeTerms, setAgreeTerms] = useState(false)
 
   useEffect(() => {
     const syncTheme = (event?: Event) => {
@@ -176,15 +169,21 @@ export default function SignUp() {
   }
 
   function canLeaveStep(step: number) {
-    if (step === 0) return Boolean(formData.fullName.trim() && formData.email.trim() && formData.phone.trim() && (formData.accountType !== "doctor" || formData.specialtyId))
-    if (step === 2) return Boolean(formData.password.trim() && formData.agreeTerms)
+    if (step === 0) {
+      const err = validateAccountForm(formData as any, language, { requirePassword: false, fields: ["fullName", "email", "phone", "role", "specialty", "country"] })
+      return !err
+    }
+    if (step === 2) {
+      const err = validateAccountForm(formData as any, language, { requirePassword: true, fields: ["password", "confirmPassword"] })
+      return !err && agreeTerms
+    }
     return true
   }
 
   function goNext() {
     setError("")
     if (!canLeaveStep(currentStep)) {
-      setError(formData.accountType === "doctor" && !formData.specialtyId ? text.specialtyRequired : text.requiredFallback)
+      setError((formData as any).roleCode === "doctor" && !(formData as any).specialtyId ? text.specialtyRequired : text.requiredFallback)
       return
     }
     setCurrentStep((step) => Math.min(step + 1, stepKeys.length - 1))
@@ -221,21 +220,11 @@ export default function SignUp() {
     setSuccess("")
 
     try {
-      const result = await platformApi.register({
-        name: formData.fullName,
-        username: formData.username || null,
-        company: formData.company || null,
-        email: formData.email,
-        phone: formData.phone,
-        countryCode: formData.countryCode,
-        countryName: formData.countryName,
-        gender: formData.gender,
-        preferredLanguage: language,
-        avatarUrl: formData.avatarUrl || null,
-        password: formData.password,
-        accountType: formData.accountType,
-        specialtyId: formData.accountType === "doctor" ? Number(formData.specialtyId) : null,
-      })
+      const payload = accountPayload(formData as any)
+      // ensure language and avatar/agreement
+      payload.preferredLanguage = language
+      ;(payload as any).avatarUrl = (formData as any).avatarUrl || null
+      const result = await platformApi.register(payload as Record<string, unknown>)
       window.localStorage.setItem("stylish-events-auth-token", result.token)
       window.localStorage.setItem("stylish-events-admin-user", JSON.stringify(result.user))
       notifyAuthSessionChanged()
@@ -264,7 +253,7 @@ export default function SignUp() {
   const activeDescription = text[`${activeKey}Text` as const]
 
   return (
-    <main className="relative min-h-dvh overflow-x-hidden bg-slate-50 text-slate-950" dir={isRtl ? "rtl" : "ltr"} style={pageStyle}>
+    <main className="relative min-h-screen overflow-x-hidden bg-slate-50 text-slate-950" dir={isRtl ? "rtl" : "ltr"} style={pageStyle}>
       <div
         className="absolute inset-0"
         style={{
@@ -275,7 +264,7 @@ export default function SignUp() {
       <div className="absolute inset-0 opacity-40" style={{ backgroundImage: "radial-gradient(circle, color-mix(in srgb, var(--signup-primary) 16%, transparent) 1px, transparent 1.8px)", backgroundSize: "88px 88px" }} />
       <div className="absolute bottom-[-12%] left-[-10%] h-72 w-[120%] rotate-[-5deg] rounded-[50%] bg-white/45 blur-sm" />
 
-      <section className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 py-4 sm:px-6 sm:py-6 lg:px-10 lg:py-7">
+      <section className="relative z-10 mx-auto flex w-full max-w-6xl flex-col px-4 py-4 sm:px-6 sm:py-6 lg:px-10 lg:py-7">
         <div className="flex shrink-0 items-center justify-between gap-4">
           <Link href="/" aria-label="Go to homepage" className="block transition hover:opacity-85">
             <img src={logoSrc} alt={text.logoAlt} onError={(event) => { event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png" }} className="h-10 w-auto object-contain sm:h-12" draggable={false} />
@@ -292,7 +281,7 @@ export default function SignUp() {
 
         <div className="flex flex-1 items-center justify-center py-4 lg:py-5">
           <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="w-full max-w-[720px]">
-            <div className="max-h-[calc(100dvh-104px)] overflow-y-auto rounded-[18px] border border-white bg-white p-4 shadow-[0_24px_80px_rgba(15,23,42,0.13)] sm:p-5 md:p-6 lg:max-h-none lg:overflow-visible lg:p-7">
+            <div className="rounded-[18px] border border-white bg-white p-4 shadow-[0_24px_80px_rgba(15,23,42,0.13)] sm:p-5 md:p-6 lg:p-7">
               <div className="mb-4 text-center sm:mb-5">
                 <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">{text.eyebrow}</p>
                 <div className="mx-auto flex justify-center">
@@ -319,83 +308,36 @@ export default function SignUp() {
                   <AnimatePresence mode="wait">
                     {currentStep === 0 && (
                       <StepPanel key="contact">
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <AuthInput icon={User} label={text.fullName} name="fullName" value={formData.fullName} onChange={setField} required />
-                          <AuthInput icon={Mail} label={text.email} name="email" type="email" value={formData.email} onChange={setField} required />
-                        </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <div className="space-y-2">
-                            <Label className="text-sm font-semibold text-slate-900">{text.accountType}</Label>
-                            <Select value={formData.accountType} onValueChange={(accountType) => setFormData((prev) => ({ ...prev, accountType, specialtyId: accountType === "doctor" ? prev.specialtyId : "" }))}>
-                              <SelectTrigger className="h-14 rounded-[8px] border-0 bg-white font-medium ring-1 ring-slate-200/80">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="customer">{text.customer}</SelectItem>
-                                <SelectItem value="doctor">{text.doctor}</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          {formData.accountType === "doctor" ? (
-                            <div className="space-y-2">
-                              <Label className="text-sm font-semibold text-slate-900">{text.specialty}</Label>
-                              <Select value={formData.specialtyId} onValueChange={(specialtyId) => setField("specialtyId", specialtyId)}>
-                                <SelectTrigger className="h-14 rounded-[8px] border-0 bg-white font-medium ring-1 ring-slate-200/80">
-                                  <SelectValue placeholder={text.selectSpecialty} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {specialties.map((specialty) => (
-                                    <SelectItem key={specialty.id} value={String(specialty.id)}>{language === "ar" ? specialty.nameAr : specialty.nameEn}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          ) : null}
-                        </div>
-                        <div className="grid gap-4 sm:grid-cols-[0.85fr_1.15fr]">
-                          <CountrySelect
-                            label={text.country}
-                            value={{ code: formData.countryCode, name: formData.countryName }}
-                            onChange={(country) => {
-                              setFormData((prev) => ({
-                                ...prev,
-                                countryCode: country.code,
-                                countryName: country.name,
-                                phone: applyCountryDialCode(prev.phone, country.code),
-                              }))
-                            }}
-                          />
-                          <AuthInput icon={Phone} label={text.phone} name="phone" type="tel" dir="ltr" value={formData.phone} onChange={setField} required />
-                        </div>
+                        <AccountFormFields
+                          form={formData as any}
+                          onChange={(updates) => setFormData((prev) => ({ ...prev, ...updates }))}
+                          roles={[{ code: "customer", nameEn: text.customer }, { code: "doctor", nameEn: text.doctor }]}
+                          specialties={specialties}
+                          language={language}
+                          fields={["fullName", "email", "role", "specialty", "country", "phone"]}
+                          variant="signup"
+                        />
                       </StepPanel>
                     )}
 
                     {currentStep === 1 && (
                       <StepPanel key="profile">
+                        <AccountFormFields
+                          form={formData as any}
+                          onChange={(updates) => setFormData((prev) => ({ ...prev, ...updates }))}
+                          roles={[{ code: "customer", nameEn: text.customer }, { code: "doctor", nameEn: text.doctor }]}
+                          specialties={specialties}
+                          language={language}
+                          fields={["username", "gender", "language"]}
+                          variant="signup"
+                        />
                         <div className="grid gap-4 sm:grid-cols-2">
-                          <AuthInput icon={User} label={text.username} name="username" value={formData.username} onChange={setField} />
-                          <div className="space-y-2">
-                            <Label className="text-sm font-semibold text-slate-900">{text.gender}</Label>
-                            <Select value={formData.gender} onValueChange={(gender) => setField("gender", gender)}>
-                              <SelectTrigger className="h-14 rounded-[8px] border-0 bg-white font-medium ring-1 ring-slate-200/80">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="not_specified">{text.notSpecified}</SelectItem>
-                                <SelectItem value="male">{text.male}</SelectItem>
-                                <SelectItem value="female">{text.female}</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <AuthInput icon={Building2} label={text.company} name="company" value={formData.company} onChange={setField} />
                           <div className="space-y-2">
                             <Label className="text-sm font-semibold text-slate-900">{text.avatar}</Label>
                             <div className="grid gap-2 min-[420px]:grid-cols-[1fr_64px]">
-                              <Input value={formData.avatarUrl} onChange={(e) => setField("avatarUrl", e.target.value)} placeholder={text.avatarUrl} className="h-12 rounded-[8px] border-0 bg-white font-medium ring-1 ring-slate-200/80 sm:h-14" />
+                              <Input value={(formData as any).avatarUrl || ""} onChange={(e) => setFormData((prev) => ({ ...prev, avatarUrl: e.target.value }))} placeholder={text.avatarUrl} className="h-12 rounded-[8px] border-0 bg-white font-medium ring-1 ring-slate-200/80 sm:h-14" />
                               <div className="flex h-12 w-16 items-center justify-center overflow-hidden rounded-[10px] bg-white ring-1 ring-slate-200/80 sm:h-14">
-                                {formData.avatarUrl ? <img src={apiAssetUrl(formData.avatarUrl)} alt={text.avatarPreview} className="h-full w-full object-cover" /> : <User className="h-6 w-6 text-slate-300" />}
+                                {(formData as any).avatarUrl ? <img src={apiAssetUrl((formData as any).avatarUrl)} alt={text.avatarPreview} className="h-full w-full object-cover" /> : <User className="h-6 w-6 text-slate-300" />}
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-2">
@@ -403,7 +345,7 @@ export default function SignUp() {
                                 <Upload className="h-4 w-4" /> {text.upload}
                                 <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={(event) => handleAvatarUpload(event.target.files?.[0])} />
                               </label>
-                              <Button type="button" variant="outline" className="h-9 rounded-[8px] px-3 text-sm font-bold text-red-600" onClick={() => setField("avatarUrl", "")}>
+                              <Button type="button" variant="outline" className="h-9 rounded-[8px] px-3 text-sm font-bold text-red-600" onClick={() => setFormData((prev) => ({ ...prev, avatarUrl: "" }))}>
                                 <X className="h-4 w-4" /> {text.clear}
                               </Button>
                             </div>
@@ -414,19 +356,18 @@ export default function SignUp() {
 
                     {currentStep === 2 && (
                       <StepPanel key="security">
-                        <div className="relative">
-                          <AuthInput icon={Lock} label={text.password} name="password" type={showPassword ? "text" : "password"} value={formData.password} onChange={setField} required />
-                          <button
-                            type="button"
-                            aria-label={showPassword ? text.hidePassword : text.showPassword}
-                            className={`absolute bottom-1 flex h-11 w-11 items-center justify-center rounded-[6px] text-slate-500 transition hover:bg-white hover:text-slate-900 ${isRtl ? "left-1" : "right-1"}`}
-                            onClick={() => setShowPassword((current) => !current)}
-                          >
-                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                          </button>
-                        </div>
+                        <AccountFormFields
+                          form={formData as any}
+                          onChange={(updates) => setFormData((prev) => ({ ...prev, ...updates }))}
+                          roles={[{ code: "customer", nameEn: text.customer }, { code: "doctor", nameEn: text.doctor }]}
+                          specialties={specialties}
+                          language={language}
+                          fields={["password", "confirmPassword"]}
+                          variant="signup"
+                          passwordMode="create"
+                        />
                         <label htmlFor="agreeTerms" className="flex min-h-12 cursor-pointer items-center gap-3 rounded-[10px] bg-white px-4 text-sm font-semibold text-slate-500 ring-1 ring-slate-200/80">
-                          <Checkbox id="agreeTerms" checked={formData.agreeTerms} onCheckedChange={(checked) => setField("agreeTerms", checked === true)} className="h-5 w-5 rounded-[4px] border-primary data-[state=checked]:bg-primary" />
+                          <Checkbox id="agreeTerms" checked={agreeTerms} onCheckedChange={(checked) => setAgreeTerms(checked === true)} className="h-5 w-5 rounded-[4px] border-primary data-[state=checked]:bg-primary" />
                           <span>{text.agree}</span>
                         </label>
                         <div className="flex items-center gap-2 rounded-[10px] bg-primary/5 px-4 py-3 text-sm font-semibold text-slate-500">
@@ -456,7 +397,7 @@ export default function SignUp() {
                         {text.next}
                       </Button>
                     ) : (
-                      <Button type="submit" disabled={isLoading || !formData.agreeTerms} className="h-12 flex-1 rounded-[8px] bg-gradient-to-r from-primary to-[color:var(--signup-accent)] text-base font-bold text-white">
+                      <Button type="submit" disabled={isLoading || !agreeTerms} className="h-12 flex-1 rounded-[8px] bg-gradient-to-r from-primary to-[color:var(--signup-accent)] text-base font-bold text-white">
                         {isLoading ? text.loading : text.submit}
                       </Button>
                     )}
