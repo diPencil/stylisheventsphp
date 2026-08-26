@@ -107,8 +107,34 @@ class AuthController extends Controller
             'specialtyId' => 'nullable|integer|exists:specialties,id',
         ]);
 
-        $requestedRoleCode = in_array(($validated['roleCode'] ?? ''), ['customer', 'doctor'], true) ? $validated['roleCode'] : 'customer';
-        $publicRoleCode = $validated['accountType'] ?? $requestedRoleCode;
+        // Public signup must only accept explicit public participant roles.
+        $allowedPublicRoles = ['customer', 'doctor'];
+
+        // Reject explicit tampering: if the client provided any role-affecting fields
+        // with values outside the allowed public set, reject the request.
+        if ($request->has('roleCode') && $request->input('roleCode') !== null) {
+            $rc = $request->input('roleCode');
+            if (!in_array($rc, $allowedPublicRoles, true)) {
+                return ApiResponse::fail('Invalid public role', 400);
+            }
+        }
+        if ($request->has('accountType') && $request->input('accountType') !== null) {
+            $at = $request->input('accountType');
+            if (!in_array($at, $allowedPublicRoles, true)) {
+                return ApiResponse::fail('Invalid public role', 400);
+            }
+        }
+        // Disallow role_id being supplied in public signup payload to prevent privilege escalation
+        if ($request->has('role_id')) {
+            return ApiResponse::fail('role_id is not allowed in public signup', 400);
+        }
+
+        // Determine role code (prefer explicit allowed accountType, then roleCode, else default to customer)
+        $publicRoleCode = $validated['accountType'] ?? ($validated['roleCode'] ?? 'customer');
+        if (!in_array($publicRoleCode, $allowedPublicRoles, true)) {
+            $publicRoleCode = 'customer';
+        }
+
         $role = Role::where('code', $publicRoleCode)->first();
         if (! $role) {
             return ApiResponse::fail('Public role is missing', 500);

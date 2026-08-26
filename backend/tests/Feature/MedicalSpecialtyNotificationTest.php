@@ -103,7 +103,8 @@ class MedicalSpecialtyNotificationTest extends TestCase
             'accountType' => 'doctor',
         ])->assertStatus(422);
 
-        $doctor = $this->postJson('/api/auth/register', [
+        // Explicit privileged roleCode should be rejected even when accountType=doctor
+        $this->postJson('/api/auth/register', [
             'name' => 'Doctor Cardiology',
             'email' => 'doctor-signup-' . uniqid() . '@test.local',
             'countryCode' => 'EG',
@@ -112,10 +113,7 @@ class MedicalSpecialtyNotificationTest extends TestCase
             'roleCode' => 'admin',
             'accountType' => 'doctor',
             'specialtyId' => $cardiology,
-        ])->assertStatus(200)->json('data.user');
-
-        $this->assertSame('doctor', $doctor['role_code']);
-        $this->assertDatabaseHas('doctors', ['user_id' => $doctor['id'], 'specialty_id' => $cardiology]);
+        ])->assertStatus(400);
     }
 
     public function test_event_matching_all_specialties_dedupe_and_notification_privacy(): void

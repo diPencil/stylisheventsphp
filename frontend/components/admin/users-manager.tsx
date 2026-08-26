@@ -51,6 +51,11 @@ import { cn } from "@/lib/utils"
 import { CountrySelect } from "@/components/country-select"
 import { applyCountryDialCode } from "@/lib/country-dial-codes"
 import { useLanguage } from "@/contexts/language-context"
+import {
+  AccountFormFields,
+  createAccountFormDefaults,
+  accountPayload,
+} from "@/components/account/account-form-fields"
 import { adminStatusT, adminT } from "@/lib/admin-translations"
 
 type AdminUser = {
@@ -285,6 +290,7 @@ export function UsersManager() {
   const [specialties, setSpecialties] = useState<any[]>([])
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<UserForm>(emptyForm)
+  const [accountForm, setAccountForm] = useState(() => createAccountFormDefaults("employee"))
   const [saving, setSaving] = useState(false)
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
   const [page, setPage] = useState(1)
@@ -366,7 +372,9 @@ export function UsersManager() {
   }), [roles.length, totalUsers, users])
 
   function openCreate() {
-    setForm({ ...emptyForm, phone: applyCountryDialCode("", emptyForm.countryCode) })
+    const defaults = { ...emptyForm, phone: applyCountryDialCode("", emptyForm.countryCode) }
+    setForm(defaults)
+    setAccountForm(createAccountFormDefaults("customer"))
     setFormOpen(true)
   }
 
@@ -388,26 +396,36 @@ export function UsersManager() {
       notes: user.notes || "",
       specialtyId: user.specialty?.id ? String(user.specialty.id) : "",
     })
+    setAccountForm({
+      fullName: user.name,
+      email: user.email,
+      username: user.username || "",
+      roleCode: user.role.code,
+      specialtyId: user.specialty?.id ? String(user.specialty.id) : "",
+      phone: applyCountryDialCode(user.phone || "", user.countryCode || "EG"),
+      countryCode: user.countryCode || "EG",
+      countryName: user.countryName || "Egypt",
+      gender: user.gender || "not_specified",
+      preferredLanguage: user.preferredLanguage || "en",
+      password: "",
+      confirmPassword: "",
+    })
     setFormOpen(true)
   }
 
   async function saveUser() {
     setSaving(true)
+    const core = accountPayload(accountForm as any)
     const payload = {
-      name: form.name,
-      email: form.email,
-      phone: form.phone || null,
-      countryCode: form.countryCode || null,
-      countryName: form.countryName || null,
-      gender: form.gender,
-      username: form.username || null,
-      roleCode: form.roleCode,
+      ...core,
+      name: (accountForm as any).fullName || form.name,
       status: form.status,
       preferredLanguage: form.preferredLanguage,
       avatarUrl: form.avatarUrl || null,
       notes: form.notes || null,
-      specialtyId: form.roleCode === "doctor" && form.specialtyId ? Number(form.specialtyId) : null,
-      ...(form.password ? { password: form.password } : {}),
+      specialtyId: (core.specialtyId ?? (form.roleCode === "doctor" && form.specialtyId ? Number(form.specialtyId) : null)),
+      roleCode: (accountForm as any).roleCode || form.roleCode,
+      ...(accountForm.password ? { password: accountForm.password } : {}),
     }
 
     try {
@@ -751,64 +769,34 @@ export function UsersManager() {
             <DialogDescription className="text-sm font-medium text-slate-500">{adminT(language, "users.accountFormCopy")}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 px-6 py-5 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>{adminT(language, "users.name")}</Label>
-              <Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="h-12 rounded-2xl" />
+            <div className="md:col-span-2">
+              <AccountFormFields
+                form={accountForm as any}
+                onChange={(updates) => {
+                  setAccountForm((prev) => ({ ...prev, ...updates }))
+                  setForm((prev) => ({
+                    ...prev,
+                    name: updates.fullName ?? prev.name,
+                    email: updates.email ?? prev.email,
+                    username: updates.username ?? prev.username,
+                    phone: updates.phone ?? prev.phone,
+                    countryCode: updates.countryCode ?? prev.countryCode,
+                    countryName: updates.countryName ?? prev.countryName,
+                    gender: updates.gender ?? prev.gender,
+                    preferredLanguage: updates.preferredLanguage ?? prev.preferredLanguage,
+                    roleCode: updates.roleCode ?? prev.roleCode,
+                    specialtyId: updates.specialtyId ?? prev.specialtyId,
+                    // password is kept in accountForm; admin form.password will be set from accountForm on save
+                  }))
+                }}
+                roles={roles.map((r) => ({ code: r.code, nameEn: r.nameEn }))}
+                specialties={specialties}
+                language={language}
+                variant="admin"
+                passwordMode={form.id ? "edit" : "create"}
+              />
             </div>
-            <div className="space-y-2">
-              <Label>{adminT(language, "users.email")}</Label>
-              <Input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} className="h-12 rounded-2xl" />
-            </div>
-            <div className="space-y-2">
-              <Label>{adminT(language, "users.phone")}</Label>
-              <Input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} className="h-12 rounded-2xl" />
-            </div>
-            <CountrySelect
-              label={adminT(language, "users.country")}
-              value={{ code: form.countryCode, name: form.countryName }}
-              onChange={(country) => setForm({ ...form, countryCode: country.code, countryName: country.name, phone: applyCountryDialCode(form.phone, country.code) })}
-            />
-            <div className="space-y-2">
-              <Label>{adminT(language, "users.username")}</Label>
-              <Input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} className="h-12 rounded-2xl" />
-            </div>
-            <div className="space-y-2">
-              <Label>{adminT(language, "users.gender")}</Label>
-              <Select value={form.gender} onValueChange={(gender: UserForm["gender"]) => setForm({ ...form, gender })}>
-                <SelectTrigger className="h-12 rounded-2xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="not_specified">{adminT(language, "users.notSpecified")}</SelectItem>
-                  <SelectItem value="male">{adminT(language, "users.male")}</SelectItem>
-                  <SelectItem value="female">{adminT(language, "users.female")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>{adminT(language, "users.role")}</Label>
-              <Select value={form.roleCode} onValueChange={(roleCode) => setForm({ ...form, roleCode, specialtyId: roleCode === "doctor" ? form.specialtyId : "" })}>
-                <SelectTrigger className="h-12 rounded-2xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {roles.map((role) => (
-                    <SelectItem key={role.code} value={role.code}>
-                      {roleName(roles, role.code, language)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {form.roleCode === "doctor" ? (
-              <div className="space-y-2">
-                <Label>{language === "ar" ? "التخصص" : "Specialty"}</Label>
-                <Select value={form.specialtyId} onValueChange={(specialtyId) => setForm({ ...form, specialtyId })}>
-                  <SelectTrigger className="h-12 rounded-2xl"><SelectValue placeholder={language === "ar" ? "اختر التخصص" : "Select specialty"} /></SelectTrigger>
-                  <SelectContent>
-                    {specialties.filter((specialty) => specialty.isActive || String(specialty.id) === form.specialtyId).map((specialty) => (
-                      <SelectItem key={specialty.id} value={String(specialty.id)}>{language === "ar" ? specialty.nameAr : specialty.nameEn}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
+
             <div className="space-y-2">
               <Label>{adminT(language, "common.status")}</Label>
               <Select value={form.status} onValueChange={(status: UserForm["status"]) => setForm({ ...form, status })}>
@@ -820,6 +808,7 @@ export function UsersManager() {
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
               <Label>{adminT(language, "users.language")}</Label>
               <Select value={form.preferredLanguage} onValueChange={(preferredLanguage: UserForm["preferredLanguage"]) => setForm({ ...form, preferredLanguage })}>
@@ -830,10 +819,7 @@ export function UsersManager() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>{form.id ? adminT(language, "users.newPassword") : adminT(language, "users.password")}</Label>
-              <Input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder={form.id ? adminT(language, "users.keepPasswordPlaceholder") : adminT(language, "users.passwordPlaceholder")} className="h-12 rounded-2xl" />
-            </div>
+
             <div className="space-y-2 md:col-span-2">
               <Label>{adminT(language, "users.avatar")}</Label>
               <div className="grid gap-3 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-3 sm:grid-cols-[1fr_auto]">
@@ -859,6 +845,7 @@ export function UsersManager() {
                 </div>
               </div>
             </div>
+
             <div className="space-y-2 md:col-span-2">
               <Label>{adminT(language, "users.notes")}</Label>
               <Input value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} className="h-12 rounded-2xl" />

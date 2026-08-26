@@ -21,7 +21,6 @@ class PhaseQCheckinTest extends TestCase
             'name_en' => ucfirst($code),
             'name_ar' => ucfirst($code),
             'created_at' => now(),
-            'updated_at' => now(),
         ]);
     }
 
