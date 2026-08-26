@@ -15,11 +15,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Seed canonical reference data required by tests.
+        $this->call([\Database\Seeders\RolesSeeder::class]);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // No test user factory here; only canonical reference data is seeded.
     }
 }
