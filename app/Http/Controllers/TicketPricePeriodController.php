@@ -122,12 +122,18 @@ class TicketPricePeriodController extends Controller
             'label_en' => $validated['labelEn'],
             'label_ar' => $validated['labelAr'],
             'price' => $basePrice,
-            'price_egp' => $validated['priceEgp'] ?? null,
-            'price_usd' => $validated['priceUsd'] ?? null,
             'starts_at' => $validated['startsAt'],
             'ends_at' => $validated['endsAt'],
             'is_active' => $validated['isActive'] ?? true,
         ];
+
+        // Only include currency-specific columns when a non-null value was explicitly provided
+        if (array_key_exists('priceEgp', $validated) && $validated['priceEgp'] !== null && $validated['priceEgp'] !== '') {
+            $period['price_egp'] = $validated['priceEgp'];
+        }
+        if (array_key_exists('priceUsd', $validated) && $validated['priceUsd'] !== null && $validated['priceUsd'] !== '') {
+            $period['price_usd'] = $validated['priceUsd'];
+        }
 
         $id = DB::table('ticket_price_periods')->insertGetId($period);
 
@@ -181,12 +187,18 @@ class TicketPricePeriodController extends Controller
             'label_en' => $validated['labelEn'],
             'label_ar' => $validated['labelAr'],
             'price' => $basePrice,
-            'price_egp' => $validated['priceEgp'] ?? null,
-            'price_usd' => $validated['priceUsd'] ?? null,
             'starts_at' => $validated['startsAt'],
             'ends_at' => $validated['endsAt'],
             'is_active' => $validated['isActive'] ?? true,
         ];
+
+        // Only include currency-specific columns when a non-null value was explicitly provided
+        if (array_key_exists('priceEgp', $validated) && $validated['priceEgp'] !== null && $validated['priceEgp'] !== '') {
+            $period['price_egp'] = $validated['priceEgp'];
+        }
+        if (array_key_exists('priceUsd', $validated) && $validated['priceUsd'] !== null && $validated['priceUsd'] !== '') {
+            $period['price_usd'] = $validated['priceUsd'];
+        }
 
         DB::table('ticket_price_periods')->where('id', $id)->update($period);
 
