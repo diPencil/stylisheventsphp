@@ -607,7 +607,7 @@ export function UsersManager() {
                       <th className="px-6 py-4">{adminT(language, "users.role")}</th>
                       <th className="px-6 py-4">{language === "ar" ? "التخصص" : "Specialty"}</th>
                       <th className="px-6 py-4">{adminT(language, "users.username")}</th>
-                      <th className="px-6 py-4">{adminT(language, "users.phone")}</th>
+                      <th className="px-6 py-4 whitespace-nowrap">{adminT(language, "users.phone")}</th>
                       <th className="px-6 py-4">{adminT(language, "users.country")}</th>
                       <th className="px-6 py-4">{adminT(language, "users.gender")}</th>
                       <th className="px-6 py-4">{adminT(language, "users.language")}</th>
@@ -636,7 +636,7 @@ export function UsersManager() {
                         <td className="px-6 py-4"><Badge className="rounded-xl bg-blue-50 px-3 py-1 text-xs font-extrabold text-[hsl(var(--primary))] hover:bg-blue-50">{roleName(roles, user.role.code, language)}</Badge></td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-600">{user.role.code === "doctor" ? (language === "ar" ? user.specialty?.nameAr || user.specialty?.legacyName : user.specialty?.nameEn || user.specialty?.legacyName) || "-" : "-"}</td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-600">{user.username || "-"}</td>
-                        <td className="px-6 py-4 text-sm font-bold text-slate-600">{user.phone || "-"}</td>
+                        <td className="px-6 py-4 text-sm font-bold text-slate-600 whitespace-nowrap">{user.phone || "-"}</td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-600">{user.countryName || "-"}{user.countryCode ? ` (${user.countryCode})` : ""}</td>
                         <td className="px-6 py-4 text-sm font-bold capitalize text-slate-600">{genderLabel(user.gender, language)}</td>
                         <td className="px-6 py-4 text-sm font-extrabold uppercase text-slate-500">{user.preferredLanguage}</td>
