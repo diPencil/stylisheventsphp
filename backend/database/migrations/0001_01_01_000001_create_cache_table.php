@@ -11,17 +11,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('cache', function (Blueprint $table) {
-            $table->string('key')->primary();
-            $table->mediumText('value');
-            $table->integer('expiration')->index();
-        });
+        if (!Schema::hasTable('cache')) {
+            Schema::create('cache', function (Blueprint $table) {
+                $table->string('key')->primary();
+                $table->mediumText('value');
+                $table->integer('expiration')->index();
+            });
+        }
 
-        Schema::create('cache_locks', function (Blueprint $table) {
-            $table->string('key')->primary();
-            $table->string('owner');
-            $table->integer('expiration')->index();
-        });
+        if (!Schema::hasTable('cache_locks')) {
+            Schema::create('cache_locks', function (Blueprint $table) {
+                $table->string('key')->primary();
+                $table->string('owner');
+                $table->integer('expiration')->index();
+            });
+        }
     }
 
     /**
@@ -29,7 +33,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('cache');
-        Schema::dropIfExists('cache_locks');
+        // Baseline reconciliation safety: do NOT drop runtime tables during rollback.
+        // These migrations may reconcile tables that existed before Laravel recorded them.
+        // To avoid accidental production data loss, the down() is intentionally a NO-OP.
+        return;
     }
 };

@@ -505,11 +505,11 @@ export function CertificatesManager() {
                   <TableHead className="w-14">#</TableHead>
                   <TableHead>{adminT(language, "common.customer")}</TableHead>
                   <TableHead>{adminT(language, "common.event")}</TableHead>
-                    <TableHead>{adminT(language, "certificates.certificate")}</TableHead>
-                    <TableHead>{language === "ar" ? "إرسال الشهادة" : "Certificate Sent"}</TableHead>
+                  <TableHead>{adminT(language, "certificates.certificate")}</TableHead>
+                  <TableHead data-no-wrap>{language === "ar" ? "إرسال الشهادة" : "Certificate Sent"}</TableHead>
                   <TableHead>{language === "ar" ? "حالة البريد" : "Email Status"}</TableHead>
                   <TableHead>{adminT(language, "certificates.eventCard")}</TableHead>
-                  <TableHead>{language === "ar" ? "إرسال الكارت" : "Card Sent"}</TableHead>
+                  <TableHead data-no-wrap>{language === "ar" ? "إرسال الكارت" : "Card Sent"}</TableHead>
                   <TableHead>{language === "ar" ? "الحضور" : "Check-in"}</TableHead>
                   <TableHead className="w-20 text-center">{adminT(language, "common.actions")}</TableHead>
                 </TableRow>
@@ -540,7 +540,7 @@ export function CertificatesManager() {
                         {adminStatusT(language, deliveryLabel(asset.certificateStatus))}
                       </Badge>
                     </TableCell>
-                    <TableCell><TableDateTime value={asset.certificateSentAt} /></TableCell>
+                    <TableCell data-no-wrap><TableDateTime value={asset.certificateSentAt} /></TableCell>
                     <TableCell>
                       <Badge className={cn(
                         "rounded-xl",
@@ -555,7 +555,7 @@ export function CertificatesManager() {
                     <TableCell>
                       <Badge className={cn("rounded-xl", deliveryClass(asset.cardStatus))}>{adminStatusT(language, deliveryLabel(asset.cardStatus))}</Badge>
                     </TableCell>
-                    <TableCell><TableDateTime value={asset.cardSentAt} /></TableCell>
+                    <TableCell data-no-wrap><TableDateTime value={asset.cardSentAt} /></TableCell>
                     <TableCell>
                       <Badge className={asset.checkedIn ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50" : "bg-slate-100 text-slate-500 hover:bg-slate-100"}>
                         {asset.checkedIn ? adminT(language, "status.checkedIn") : (language === "ar" ? "لم يحضر" : "Not checked")}
@@ -675,7 +675,7 @@ export function CertificatesManager() {
             {assets.filter((asset) => asset.certificateStatus === "sent").map((asset) => (
               <div key={asset.certificateNo} className="flex items-center justify-between rounded-2xl bg-slate-50 p-3">
                 <div>
-                  <p className="text-sm font-extrabold">{asset.certificateNo}</p>
+                  <p className="text-sm font-extrabold whitespace-nowrap">{asset.certificateNo}</p>
                   <p className="text-xs font-semibold text-slate-400">{asset.attendee} - {events.find((event) => event.id === asset.eventId)?.title || "Event"}</p>
                 </div>
                 <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50">{asset.certificateSentAt}</Badge>
@@ -693,7 +693,7 @@ export function CertificatesManager() {
             {assets.filter((asset) => asset.cardStatus === "sent").map((asset) => (
               <div key={asset.cardNo} className="flex items-center justify-between rounded-2xl bg-slate-50 p-3">
                 <div>
-                  <p className="text-sm font-extrabold">{asset.cardNo}</p>
+                  <p className="text-sm font-extrabold whitespace-nowrap">{asset.cardNo}</p>
                   <p className="text-xs font-semibold text-slate-400">{asset.attendee} - {asset.ticket}</p>
                 </div>
                 <Badge className="bg-blue-50 text-blue-700 hover:bg-blue-50">{asset.cardSentAt}</Badge>

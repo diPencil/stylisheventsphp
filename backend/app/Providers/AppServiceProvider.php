@@ -27,10 +27,17 @@ class AppServiceProvider extends ServiceProvider
             return new ScryptHasher();
         });
 
+        // Flexible hasher delegates based on stored hash format (scrypt:, bcrypt, argon)
+        Hash::extend('flexible', function () {
+            return new \App\Hashing\FlexibleHasher();
+        });
+
         Auth::extend('custom_jwt', function ($app, $name, array $config) {
             $guard = new CustomJwtGuard(Auth::createUserProvider($config['provider']), $app['request']);
             $app->refresh('request', $guard, 'setRequest');
             return $guard;
         });
+
+        // Note: testing instrumentation removed. FlexibleHasher registration above remains.
     }
 }
