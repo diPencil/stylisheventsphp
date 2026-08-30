@@ -8,18 +8,22 @@ import Lottie from "lottie-react"
 import lottieQ2cj from "@/components/lottie-data/Q2cjWdwW73.json"
 import { AnimatedCtaButton } from "@/components/ui/animated-cta-button"
 
-export function FaqSection() {
+export function FaqSection({ siteContent: remoteSiteContent }: { siteContent?: any } = {}) {
   const { isRtl } = useLanguage()
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   const [siteContent, setSiteContent] = useState<any>(null)
 
   useEffect(() => {
-    import("@/lib/platform-api").then(({ platformApi }) => {
-      platformApi.getSiteContentSettings().then((data) => {
-        if (data) setSiteContent(data)
+    if (remoteSiteContent) {
+      setSiteContent(remoteSiteContent)
+    } else {
+      import("@/lib/platform-api").then(({ platformApi }) => {
+        platformApi.getSiteContentSettings().then((data) => {
+          if (data) setSiteContent(data)
+        })
       })
-    })
-  }, [])
+    }
+  }, [remoteSiteContent])
 
   const defaultFaqs = [
     {
