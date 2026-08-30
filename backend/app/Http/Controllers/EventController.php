@@ -341,9 +341,11 @@ class EventController extends Controller
 
         if ($page === 'upcoming') {
             $where = ["e.status = 'published'"];
+            $bindings = [];
             $where[] = "((e.ends_at IS NOT NULL AND e.ends_at >= NOW()) OR (e.ends_at IS NULL AND e.starts_at >= NOW()))";
         } elseif ($page === 'previous') {
             $where = ["e.status = 'published'"];
+            $bindings = [];
             $where[] = "((e.ends_at IS NOT NULL AND e.ends_at < NOW()) OR (e.ends_at IS NULL AND e.starts_at < NOW()))";
         }
 

@@ -40,7 +40,8 @@ export default function PreviousEventsPage() {
           const normalized = normalizeSiteContentSettings(site || {})
           const cfg = normalized?.previousEvents || {}
           setCfg(cfg || {})
-        if (!cfg?.enabled) {
+        const enabled = cfg?.enabled ?? true
+        if (!enabled) {
           setEvents([])
           return
         }

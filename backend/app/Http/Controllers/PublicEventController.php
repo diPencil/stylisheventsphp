@@ -293,12 +293,7 @@ class PublicEventController extends Controller
             return response()->json(['success' => false, 'message' => 'Event not found'], 404);
         }
 
-        $sessions = DB::select("
-            SELECT id, title_en, title_ar, speaker_name, starts_at, ends_at, room_name
-            FROM event_sessions
-            WHERE event_id = ?
-            ORDER BY starts_at ASC
-        ", [$event->id]);
+        $sessions = []; // Table event_sessions does not exist yet
 
         $tickets = DB::select("
             SELECT
@@ -316,7 +311,7 @@ class PublicEventController extends Controller
               tpp.price,
               tpp.price_egp,
               tpp.price_usd,
-              tpp.currency,
+              'EGP' AS currency,
               tpp.starts_at AS price_starts_at,
               tpp.ends_at AS price_ends_at
             FROM ticket_types tt

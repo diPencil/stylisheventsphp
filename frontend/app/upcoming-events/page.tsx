@@ -39,7 +39,8 @@ export default function UpcomingEventsPage() {
           const normalized = normalizeSiteContentSettings(site || {})
           const cfg = normalized?.upcomingEvents || {}
           setCfg(cfg || {})
-          if (!cfg?.enabled) {
+          const enabled = cfg?.enabled ?? true
+          if (!enabled) {
             setEvents([])
             return
           }
