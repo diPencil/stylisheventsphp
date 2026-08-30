@@ -56,17 +56,26 @@ function eventTypeAr(type?: string) {
   return "ملتقى"
 }
 
-export function EventShowcaseSection() {
+export function EventShowcaseSection({ siteContent: remoteSiteContent }: { siteContent?: any } = {}) {
   const { isRtl } = useLanguage()
   const [siteContent, setSiteContent] = useState<any>(null)
   const [allEvents, setAllEvents] = useState<any[]>([])
   const [events, setEvents] = useState<any[]>(defaultEvents)
 
   useEffect(() => {
-    import("@/lib/platform-api").then(({ platformApi }) => {
-      platformApi.getSiteContentSettings().then((data) => {
-        if (data) setSiteContent(data)
+    if (remoteSiteContent) {
+      setSiteContent(remoteSiteContent)
+    } else {
+      import("@/lib/platform-api").then(({ platformApi }) => {
+        platformApi.getSiteContentSettings().then((data) => {
+          if (data) setSiteContent(data)
+        })
       })
+    }
+  }, [remoteSiteContent])
+
+  useEffect(() => {
+    import("@/lib/platform-api").then(({ platformApi }) => {
       platformApi
         .listEvents({ status: "published" })
         .then((data) => {

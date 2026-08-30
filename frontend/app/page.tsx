@@ -87,9 +87,9 @@ export default function Home() {
 
       <main className="flex-1">
         {/* Section A: Video Hero Section */}
-        <VideoHero />
+        <VideoHero siteContent={siteContent} />
 
-        <EventShowcaseSection />
+        <EventShowcaseSection siteContent={siteContent} />
 
         {/* Section 1: Features (New - Based on Reference) */}
         {featuresSection.enabled ? (
@@ -470,7 +470,7 @@ export default function Home() {
         <EventsInspireSection settings={siteContent?.homepage?.eventsInspireSection} />
 
         {/* Section D: FAQ (New - Based on Reference) */}
-        <FaqSection />
+        <FaqSection siteContent={siteContent} />
       </main>
 
       <FinalCtaSection settings={siteContent?.homepageFinalCta} />

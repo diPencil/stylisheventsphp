@@ -93,26 +93,31 @@ function mediaMimeType(url: string) {
   return "video/mp4"
 }
 
-export function VideoHero() {
+export function VideoHero({ siteContent }: { siteContent?: any } = {}) {
   const { isRtl } = useLanguage()
   const [settings, setSettings] = useState<HeroSettings>(defaultHeroSettings)
 
   useEffect(() => {
-    setSettings(readSavedHeroSettings())
+    if (siteContent) {
+      setSettings(normalizeHeroSettings(siteContent))
+    } else {
+      setSettings(readSavedHeroSettings())
+      platformApi
+        .getSiteContentSettings()
+        .then((remote) => {
+          const next = normalizeHeroSettings(remote)
+          setSettings(next)
+          window.localStorage.setItem(siteContentStorageKey, JSON.stringify({ ...(remote || {}), homepage: next }))
+        })
+        .catch(() => undefined)
+    }
 
-    platformApi
-      .getSiteContentSettings()
-      .then((remote) => {
-        const next = normalizeHeroSettings(remote)
-        setSettings(next)
-        window.localStorage.setItem(siteContentStorageKey, JSON.stringify({ ...(remote || {}), homepage: next }))
-      })
-      .catch(() => undefined)
-
-    const syncSettings = () => setSettings(readSavedHeroSettings())
+    const syncSettings = () => {
+      if (!siteContent) setSettings(readSavedHeroSettings())
+    }
     window.addEventListener("stylish-events-site-content-settings-updated", syncSettings)
     return () => window.removeEventListener("stylish-events-site-content-settings-updated", syncSettings)
-  }, [])
+  }, [siteContent])
 
   const mediaUrl = apiAssetUrl(settings.heroMediaUrl) || "/eventsvideo-hero-section.mp4"
   const title = isRtl ? settings.titleAr : settings.titleEn
