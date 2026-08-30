@@ -105,24 +105,25 @@ export function Navbar() {
   }, [])
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(siteMenuStorageKey)
-      if (!saved) return
-
-      const parsed = JSON.parse(saved) as { menu?: PublicMenuLink[] }
-      if (hasCorruptedTree(parsed)) {
-        window.localStorage.removeItem(siteMenuStorageKey)
-        setMenuLinks(publicNavLinks.filter((link) => link.href !== "/why-us"))
-        return
-      }
-      const savedMenu = parsed.menu?.filter((item) => item.visible !== false)
-      if (!savedMenu?.length) return
-
-      const hasNewPageLinks = savedMenu.some((item) => pageHrefs.includes(item.href))
-      setMenuLinks((hasNewPageLinks ? savedMenu : publicNavLinks).filter((link) => link.href !== "/why-us"))
-    } catch {
-      setMenuLinks(publicNavLinks.filter((link) => link.href !== "/why-us"))
-    }
+    import("@/lib/platform-api").then(({ platformApi }) => {
+      platformApi.getSiteContentSettings().then((data) => {
+        try {
+          if (!data || !data.menu) {
+            setMenuLinks(publicNavLinks.filter((link) => link.href !== "/why-us"))
+            return
+          }
+          const savedMenu = data.menu.filter((item: any) => item.visible !== false)
+          if (!savedMenu?.length) {
+            setMenuLinks(publicNavLinks.filter((link) => link.href !== "/why-us"))
+            return
+          }
+          const hasNewPageLinks = savedMenu.some((item: any) => pageHrefs.includes(item.href))
+          setMenuLinks((hasNewPageLinks ? savedMenu : publicNavLinks).filter((link: any) => link.href !== "/why-us"))
+        } catch {
+          setMenuLinks(publicNavLinks.filter((link) => link.href !== "/why-us"))
+        }
+      })
+    })
   }, [])
 
   const toggleLanguage = () => {
