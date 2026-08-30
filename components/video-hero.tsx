@@ -124,7 +124,7 @@ export function VideoHero({ siteContent }: { siteContent?: any } = {}) {
   const eyebrow = isRtl ? settings.eyebrowAr : settings.eyebrowEn
   const subtitle = isRtl ? settings.subtitleAr : settings.subtitleEn
   const ctaLabel = isRtl ? settings.primaryCtaAr : settings.primaryCtaEn
-  const secondaryCtaLabel = isRtl ? "تواصل معنا" : "Contact Us"
+  const secondaryCtaLabel = isRtl ? settings.secondaryCtaAr || "تواصل معنا" : settings.secondaryCtaEn || "Contact Us"
   const titleParts = useMemo(() => splitTitle(title), [title])
 
   return (

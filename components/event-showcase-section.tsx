@@ -136,7 +136,7 @@ export function EventShowcaseSection({ siteContent: remoteSiteContent }: { siteC
           </div>
           <div className="mt-8 flex justify-center md:mt-0 md:justify-end">
             <Link href="/upcoming-events/">
-              <AnimatedCtaButton>{isRtl ? "عرض كل الفعاليات" : "View All Events"}</AnimatedCtaButton>
+              <AnimatedCtaButton>{isRtl ? siteContent?.homepage?.showcaseCtaAr || "عرض كل الفعاليات" : siteContent?.homepage?.showcaseCtaEn || "View All Events"}</AnimatedCtaButton>
             </Link>
           </div>
         </div>
