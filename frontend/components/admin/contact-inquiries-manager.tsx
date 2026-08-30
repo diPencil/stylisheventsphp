@@ -64,9 +64,10 @@ function statusLabel(status: string, language: string) {
   return language === "ar" ? option?.labelAr || status : option?.labelEn || status
 }
 
-function typeLabel(type: string, language: string) {
+function typeLabel(type: string | null, language: string) {
   const option = inquiryTypeOptions.find((item) => item.value === type)
-  return language === "ar" ? option?.labelAr || type : option?.labelEn || type.replaceAll("_", " ")
+  const fallback = String(type ?? "").replaceAll("_", " ").trim() || "-"
+  return language === "ar" ? option?.labelAr || fallback : option?.labelEn || fallback
 }
 
 function statusClass(status: string) {
