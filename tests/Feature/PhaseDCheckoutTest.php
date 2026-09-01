@@ -270,7 +270,7 @@ class PhaseDCheckoutTest extends TestCase
     public function test_authenticated_paid_checkout_with_reference_enters_admin_verification_lifecycle()
     {
         DB::table('bank_accounts')->insert([
-            'account_name' => 'Stylish Events QA',
+            'account_name' => 'Stylish Holidays QA',
             'bank_name' => 'QA Bank',
             'account_number' => 'QA-123',
             'currency' => 'USD',

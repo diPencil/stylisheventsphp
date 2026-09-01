@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return response()->json([
-        'message' => 'Stylish Events Backend API',
+        'message' => 'Stylish Holidays Backend API',
         'version' => '1.0.0',
         'status' => 'running',
     ]);

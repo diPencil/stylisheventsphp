@@ -1,7 +1,7 @@
 @php
     $isArabic = ($certificate['locale'] ?? 'en') === 'ar';
     $dir = $isArabic ? 'rtl' : 'ltr';
-    $brand = $certificate['brandName'] ?? 'Stylish Events';
+    $brand = $certificate['brandName'] ?? 'Stylish Holidays';
 @endphp
 <!doctype html>
 <html lang="{{ $isArabic ? 'ar' : 'en' }}" dir="{{ $dir }}">

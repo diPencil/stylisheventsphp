@@ -25,7 +25,7 @@ class CertificateDeliveryMail extends Mailable
             : "Your Certificate – {$eventName}";
 
         return new Envelope(
-            from: new Address((string) config('mail.from.address'), (string) config('mail.from.name', 'Stylish Events')),
+            from: new Address((string) config('mail.from.address'), (string) config('mail.from.name', 'Stylish Holidays')),
             subject: $subject,
         );
     }
