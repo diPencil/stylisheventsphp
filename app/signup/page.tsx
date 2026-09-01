@@ -244,6 +244,8 @@ export default function SignUp() {
         "--signup-primary": theme?.primaryColor || "var(--admin-primary, #EA580C)",
         "--signup-secondary": theme?.secondaryColor || "var(--admin-secondary, #0f172a)",
         "--signup-accent": theme?.accentColor || "var(--admin-accent, #2563EB)",
+        background:
+          "radial-gradient(circle at 10% 14%, rgba(255,255,255,.96), transparent 25%), radial-gradient(circle at 90% 12%, color-mix(in srgb, var(--signup-primary) 15%, transparent), transparent 30%), linear-gradient(135deg, #f8fbff 0%, color-mix(in srgb, var(--signup-primary) 8%, white) 45%, color-mix(in srgb, var(--signup-accent) 20%, white) 100%)",
       }) as React.CSSProperties,
     [theme],
   )
@@ -253,16 +255,16 @@ export default function SignUp() {
   const activeDescription = text[`${activeKey}Text` as const]
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-slate-50 text-slate-950" dir={isRtl ? "rtl" : "ltr"} style={pageStyle}>
+    <main className="relative min-h-screen overflow-x-hidden text-slate-950" dir={isRtl ? "rtl" : "ltr"} style={pageStyle}>
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 min-h-full"
         style={{
           background:
             "radial-gradient(circle at 10% 14%, rgba(255,255,255,.96), transparent 25%), radial-gradient(circle at 90% 12%, color-mix(in srgb, var(--signup-primary) 15%, transparent), transparent 30%), linear-gradient(135deg, #f8fbff 0%, color-mix(in srgb, var(--signup-primary) 8%, white) 45%, color-mix(in srgb, var(--signup-accent) 20%, white) 100%)",
         }}
       />
-      <div className="absolute inset-0 opacity-40" style={{ backgroundImage: "radial-gradient(circle, color-mix(in srgb, var(--signup-primary) 16%, transparent) 1px, transparent 1.8px)", backgroundSize: "88px 88px" }} />
-      <div className="absolute bottom-[-12%] left-[-10%] h-72 w-[120%] rotate-[-5deg] rounded-[50%] bg-white/45 blur-sm" />
+      <div className="absolute inset-0 min-h-full opacity-40" style={{ backgroundImage: "radial-gradient(circle, color-mix(in srgb, var(--signup-primary) 16%, transparent) 1px, transparent 1.8px)", backgroundSize: "88px 88px" }} />
+      <div className="absolute bottom-[-12%] left-[-10%] h-72 w-[120%] rotate-[-5deg] rounded-[50%] blur-sm" style={{ background: "color-mix(in srgb, var(--signup-primary) 8%, white)" }} />
 
       <section className="relative z-10 mx-auto flex w-full max-w-6xl flex-col px-4 py-4 sm:px-6 sm:py-6 lg:px-10 lg:py-7">
         <div className="flex shrink-0 items-center justify-between gap-4">

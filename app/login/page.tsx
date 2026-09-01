@@ -171,7 +171,7 @@ export default function Login() {
       />
 
       <section className="relative z-10 mx-auto grid min-h-dvh w-full max-w-7xl items-center gap-6 px-4 py-5 sm:px-6 md:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 lg:px-12 lg:py-8">
-        <div className="absolute left-4 top-4 sm:left-6 sm:top-6 md:left-8 lg:left-12">
+        <div className={`absolute top-4 sm:top-6 ${isRtl ? "right-4 sm:right-6 md:right-8 lg:right-12" : "left-4 sm:left-6 md:left-8 lg:left-12"}`}>
           <Link href="/" aria-label="Go to homepage" className="block transition hover:opacity-85">
             <img src={logoSrc} alt="Stylish Holidays" onError={(event) => { event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png" }} className="h-10 w-auto object-contain sm:h-12" draggable={false} />
           </Link>
@@ -200,7 +200,22 @@ export default function Login() {
         >
           <div className="w-full max-w-[430px] rounded-[12px] border border-white bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.14)] sm:p-7 lg:p-8">
             <div className="mb-6 flex items-center justify-between gap-4">
-              <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">{text.panelTitle}</h2>
+              <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">
+                {isRtl ? (
+                  <span className="block text-right">
+                    <span className="block">تسجيل الدخول إلى</span>
+                    <span
+                      className="mt-1 block text-[36px] leading-[0.75] sm:text-[44px]"
+                      style={{ fontFamily: '"Vibes", "Cairo", Tahoma, sans-serif' }}
+                    >
+                      <span className="block">ستايلش</span>
+                      <span className="block">هوليدايز</span>
+                    </span>
+                  </span>
+                ) : (
+                  text.panelTitle
+                )}
+              </h2>
               <button
                 type="button"
                 onClick={() => setLanguage(language === "ar" ? "en" : "ar")}

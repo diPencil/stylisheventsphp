@@ -213,92 +213,97 @@ export function AccountFormFields({
     ? "h-12 rounded-[8px] border-0 bg-white font-medium ring-1 ring-slate-200/80 sm:h-14"
     : "h-12 rounded-2xl"
   const labelClass = variant === "signup" ? "text-sm font-semibold text-slate-900" : ""
+  const fieldNodes = shownFields.map((field) => {
+    if (field === "fullName") {
+      return <TextField key={field} icon={User} label={text.fullName} value={form.fullName} onChange={(fullName) => onChange({ fullName })} className={inputClass} labelClassName={labelClass} variant={variant} />
+    }
+    if (field === "email") {
+      return <TextField key={field} icon={Mail} label={text.email} value={form.email} onChange={(email) => onChange({ email })} className={inputClass} labelClassName={labelClass} variant={variant} type="email" />
+    }
+    if (field === "username") {
+      return <TextField key={field} icon={User} label={text.username} value={form.username} onChange={(username) => onChange({ username })} className={inputClass} labelClassName={labelClass} variant={variant} />
+    }
+    if (field === "role") {
+      return (
+        <FieldShell key={field} label={text.role} labelClassName={labelClass}>
+          <Select value={form.roleCode} onValueChange={(roleCode) => onChange({ roleCode, specialtyId: roleCode === "doctor" ? form.specialtyId : "" })}>
+            <SelectTrigger className={selectClass}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {roles.map((role) => (
+                <SelectItem key={role.code} value={role.code}>{language === "ar" ? role.nameAr || role.nameEn : role.nameEn}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FieldShell>
+      )
+    }
+    if (field === "specialty") {
+      return (
+        <FieldShell key={field} label={text.specialty} labelClassName={labelClass}>
+          <Select value={form.specialtyId} onValueChange={(specialtyId) => onChange({ specialtyId })}>
+            <SelectTrigger className={selectClass}><SelectValue placeholder={text.selectSpecialty} /></SelectTrigger>
+            <SelectContent>
+              {specialties.map((specialty) => (
+                <SelectItem key={specialty.id} value={String(specialty.id)}>{language === "ar" ? specialty.nameAr || specialty.nameEn : specialty.nameEn || specialty.nameAr}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FieldShell>
+      )
+    }
+    if (field === "phone") {
+      return <TextField key={field} icon={Phone} label={text.phone} value={form.phone} onChange={(phone) => onChange({ phone })} className={inputClass} labelClassName={labelClass} variant={variant} type="tel" dir="ltr" />
+    }
+    if (field === "country") {
+      return (
+        <CountrySelect
+          key={field}
+          label={text.country}
+          value={{ code: form.countryCode, name: form.countryName }}
+          onChange={(country) => onChange({ countryCode: country.code, countryName: country.name, phone: applyCountryDialCode(form.phone, country.code) })}
+        />
+      )
+    }
+    if (field === "gender") {
+      return (
+        <FieldShell key={field} label={text.gender} labelClassName={labelClass}>
+          <Select value={form.gender} onValueChange={(gender: AccountGender) => onChange({ gender })}>
+            <SelectTrigger className={selectClass}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="not_specified">{text.notSpecified}</SelectItem>
+              <SelectItem value="male">{text.male}</SelectItem>
+              <SelectItem value="female">{text.female}</SelectItem>
+            </SelectContent>
+          </Select>
+        </FieldShell>
+      )
+    }
+    if (field === "language") {
+      return (
+        <FieldShell key={field} label={text.language} labelClassName={labelClass}>
+          <Select value={form.preferredLanguage} onValueChange={(preferredLanguage: AccountLanguage) => onChange({ preferredLanguage })}>
+            <SelectTrigger className={selectClass}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="en">{text.english}</SelectItem>
+              <SelectItem value="ar">{text.arabic}</SelectItem>
+            </SelectContent>
+          </Select>
+        </FieldShell>
+      )
+    }
+    if (field === "password") {
+      return <TextField key={field} icon={Lock} label={passwordMode === "edit" ? text.newPassword : text.password} value={form.password} onChange={(password) => onChange({ password })} className={inputClass} labelClassName={labelClass} variant={variant} type="password" placeholder={passwordMode === "edit" ? passwordPlaceholder || text.keepPasswordPlaceholder : undefined} />
+    }
+    return <TextField key={field} icon={Lock} label={text.confirmPassword} value={form.confirmPassword} onChange={(confirmPassword) => onChange({ confirmPassword })} className={inputClass} labelClassName={labelClass} variant={variant} type="password" />
+  })
+
+  if (variant === "signup") {
+    return <div className="grid gap-4 md:grid-cols-2">{fieldNodes}</div>
+  }
 
   return (
     <>
-      {shownFields.map((field) => {
-        if (field === "fullName") {
-          return <TextField key={field} icon={User} label={text.fullName} value={form.fullName} onChange={(fullName) => onChange({ fullName })} className={inputClass} labelClassName={labelClass} variant={variant} />
-        }
-        if (field === "email") {
-          return <TextField key={field} icon={Mail} label={text.email} value={form.email} onChange={(email) => onChange({ email })} className={inputClass} labelClassName={labelClass} variant={variant} type="email" />
-        }
-        if (field === "username") {
-          return <TextField key={field} icon={User} label={text.username} value={form.username} onChange={(username) => onChange({ username })} className={inputClass} labelClassName={labelClass} variant={variant} />
-        }
-        if (field === "role") {
-          return (
-            <FieldShell key={field} label={text.role} labelClassName={labelClass}>
-              <Select value={form.roleCode} onValueChange={(roleCode) => onChange({ roleCode, specialtyId: roleCode === "doctor" ? form.specialtyId : "" })}>
-                <SelectTrigger className={selectClass}><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {roles.map((role) => (
-                    <SelectItem key={role.code} value={role.code}>{language === "ar" ? role.nameAr || role.nameEn : role.nameEn}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FieldShell>
-          )
-        }
-        if (field === "specialty") {
-          return (
-            <FieldShell key={field} label={text.specialty} labelClassName={labelClass}>
-              <Select value={form.specialtyId} onValueChange={(specialtyId) => onChange({ specialtyId })}>
-                <SelectTrigger className={selectClass}><SelectValue placeholder={text.selectSpecialty} /></SelectTrigger>
-                <SelectContent>
-                  {specialties.map((specialty) => (
-                    <SelectItem key={specialty.id} value={String(specialty.id)}>{language === "ar" ? specialty.nameAr || specialty.nameEn : specialty.nameEn || specialty.nameAr}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FieldShell>
-          )
-        }
-        if (field === "phone") {
-          return <TextField key={field} icon={Phone} label={text.phone} value={form.phone} onChange={(phone) => onChange({ phone })} className={inputClass} labelClassName={labelClass} variant={variant} type="tel" dir="ltr" />
-        }
-        if (field === "country") {
-          return (
-            <CountrySelect
-              key={field}
-              label={text.country}
-              value={{ code: form.countryCode, name: form.countryName }}
-              onChange={(country) => onChange({ countryCode: country.code, countryName: country.name, phone: applyCountryDialCode(form.phone, country.code) })}
-            />
-          )
-        }
-        if (field === "gender") {
-          return (
-            <FieldShell key={field} label={text.gender} labelClassName={labelClass}>
-              <Select value={form.gender} onValueChange={(gender: AccountGender) => onChange({ gender })}>
-                <SelectTrigger className={selectClass}><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="not_specified">{text.notSpecified}</SelectItem>
-                  <SelectItem value="male">{text.male}</SelectItem>
-                  <SelectItem value="female">{text.female}</SelectItem>
-                </SelectContent>
-              </Select>
-            </FieldShell>
-          )
-        }
-        if (field === "language") {
-          return (
-            <FieldShell key={field} label={text.language} labelClassName={labelClass}>
-              <Select value={form.preferredLanguage} onValueChange={(preferredLanguage: AccountLanguage) => onChange({ preferredLanguage })}>
-                <SelectTrigger className={selectClass}><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">{text.english}</SelectItem>
-                  <SelectItem value="ar">{text.arabic}</SelectItem>
-                </SelectContent>
-              </Select>
-            </FieldShell>
-          )
-        }
-        if (field === "password") {
-          return <TextField key={field} icon={Lock} label={passwordMode === "edit" ? text.newPassword : text.password} value={form.password} onChange={(password) => onChange({ password })} className={inputClass} labelClassName={labelClass} variant={variant} type="password" placeholder={passwordMode === "edit" ? passwordPlaceholder || text.keepPasswordPlaceholder : undefined} />
-        }
-        return <TextField key={field} icon={Lock} label={text.confirmPassword} value={form.confirmPassword} onChange={(confirmPassword) => onChange({ confirmPassword })} className={inputClass} labelClassName={labelClass} variant={variant} type="password" />
-      })}
+      {fieldNodes}
     </>
   )
 }
