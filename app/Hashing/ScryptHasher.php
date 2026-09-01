@@ -73,14 +73,14 @@ class ScryptHasher implements Hasher
         // Node passes this 32 character hex string *as a string* to crypto.scrypt.
 
         // Ensure the salt is exactly 32 bytes as required by sodium_crypto_pwhash_scryptsalsa208sha256
-        $saltBytes = str_pad($saltHex, SODIUM_CRYPTO_PWHASH_SCRYPTSALSA208SHA256_SALTBYTES, "\0");
+        $saltBytes = str_pad($saltHex, \SODIUM_CRYPTO_PWHASH_SCRYPTSALSA208SHA256_SALTBYTES, "\0");
 
         $binaryHash = sodium_crypto_pwhash_scryptsalsa208sha256(
             64,
             $password,
             $saltBytes,
-            SODIUM_CRYPTO_PWHASH_SCRYPTSALSA208SHA256_OPSLIMIT_INTERACTIVE,
-            SODIUM_CRYPTO_PWHASH_SCRYPTSALSA208SHA256_MEMLIMIT_INTERACTIVE
+            \SODIUM_CRYPTO_PWHASH_SCRYPTSALSA208SHA256_OPSLIMIT_INTERACTIVE,
+            \SODIUM_CRYPTO_PWHASH_SCRYPTSALSA208SHA256_MEMLIMIT_INTERACTIVE
         );
 
         return bin2hex($binaryHash);
