@@ -123,9 +123,9 @@ export default function ForgotPasswordPage() {
       <div className="absolute inset-0 opacity-45" style={{ backgroundImage: "radial-gradient(circle, color-mix(in srgb, var(--forgot-primary) 16%, transparent) 1px, transparent 1.8px)", backgroundSize: "88px 88px" }} />
 
       <section className="relative z-10 mx-auto grid min-h-dvh w-full max-w-7xl items-center gap-6 px-4 py-5 sm:px-6 md:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 lg:px-12 lg:py-8">
-        <div className="absolute left-4 top-4 sm:left-6 sm:top-6 md:left-8 lg:left-12">
+        <div className={`absolute top-4 sm:top-6 ${isRtl ? "right-4 sm:right-6 md:right-8 lg:right-12" : "left-4 sm:left-6 md:left-8 lg:left-12"}`}>
           <Link href="/" aria-label="Go to homepage" className="block transition hover:opacity-85">
-            <img src={logoSrc} alt="Stylish Holidays" className="h-10 w-auto object-contain sm:h-12" draggable={false} />
+            <img src={logoSrc} alt="Stylish Holidays" onError={(event) => { event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png" }} className="h-10 w-auto object-contain sm:h-12" draggable={false} />
           </Link>
         </div>
 
