@@ -2,9 +2,10 @@ type AuthBrandHeadlineProps = {
   isRtl: boolean
   color: string
   size?: "hero" | "compact"
+  stackRtl?: boolean
 }
 
-export function AuthBrandHeadline({ isRtl, color, size = "hero" }: AuthBrandHeadlineProps) {
+export function AuthBrandHeadline({ isRtl, color, size = "hero", stackRtl = false }: AuthBrandHeadlineProps) {
   const sizeClass = isRtl
     ? size === "compact"
       ? "mt-2 max-w-[560px] text-[48px] sm:text-[62px] lg:text-[72px]"
@@ -15,14 +16,23 @@ export function AuthBrandHeadline({ isRtl, color, size = "hero" }: AuthBrandHead
 
   return (
     <h1
-      className={`${sizeClass} font-bold tracking-normal ${isRtl ? "whitespace-nowrap text-center leading-[1.05]" : "leading-[0.82]"}`}
+      className={`${sizeClass} font-bold tracking-normal ${isRtl ? `${stackRtl ? "" : "whitespace-nowrap"} text-center leading-[1.05]` : "leading-[0.82]"}`}
       style={{
         color,
         fontFamily: isRtl ? '"Vibes", "Cairo", Tahoma, sans-serif' : '"Caveat", "Segoe Script", cursive',
         letterSpacing: "0",
       }}
     >
-      {isRtl ? "ستايلش هوليدايز" : "Stylish Holidays"}
+      {isRtl && stackRtl ? (
+        <>
+          <span className="block">ستايلش</span>
+          <span className="block">هوليدايز</span>
+        </>
+      ) : isRtl ? (
+        "ستايلش هوليدايز"
+      ) : (
+        "Stylish Holidays"
+      )}
     </h1>
   )
 }
