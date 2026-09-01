@@ -1,6 +1,6 @@
 # Project Overview
 
-This repository contains the accepted Stylish Events application baseline.
+This repository contains the accepted Stylish Holidays application baseline.
 
 ## Backend
 

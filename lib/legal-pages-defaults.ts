@@ -7,9 +7,9 @@ const today = "2026-07-26"
 
 const ar = {
   termsTitle: "الشروط والأحكام",
-  termsDescription: "اقرأ القواعد التي تنظم استخدام منصة Stylish Events لإدارة الفعاليات والتسجيل والتذاكر والحضور.",
+  termsDescription: "اقرأ القواعد التي تنظم استخدام منصة Stylish Holidays لإدارة الفعاليات والتسجيل والتذاكر والحضور.",
   privacyTitle: "سياسة الخصوصية",
-  privacyDescription: "تعرف على البيانات التي تجمعها منصة Stylish Events وكيف يتم استخدامها لحجز الفعاليات وإدارة الحضور والتواصل.",
+  privacyDescription: "تعرف على البيانات التي تجمعها منصة Stylish Holidays وكيف يتم استخدامها لحجز الفعاليات وإدارة الحضور والتواصل.",
   lastUpdated: "آخر تحديث",
   legalImage: "مستندات قانونية للمنصة",
   privacyImage: "حماية بيانات المستخدمين",
@@ -24,10 +24,10 @@ export const DEFAULT_TERMS_PAGE_SETTINGS: LegalPageSettings = {
   hero: {
     titleEn: "Terms & Conditions",
     titleAr: ar.termsTitle,
-    descriptionEn: "Review the rules that govern the use of Stylish Events for event publishing, registrations, ticketing, check-in, and certificates.",
+    descriptionEn: "Review the rules that govern the use of Stylish Holidays for event publishing, registrations, ticketing, check-in, and certificates.",
     descriptionAr: ar.termsDescription,
     imageUrl: TERMS_HERO_IMAGE,
-    imageAltEn: "Legal documents for the Stylish Events platform",
+    imageAltEn: "Legal documents for the Stylish Holidays platform",
     imageAltAr: ar.legalImage,
     focalPosition: "center",
   },
@@ -35,16 +35,16 @@ export const DEFAULT_TERMS_PAGE_SETTINGS: LegalPageSettings = {
   lastUpdatedLabelEn: "Last updated",
   lastUpdatedLabelAr: ar.lastUpdated,
   contact: {
-    email: "info@stylish-holidays.com",
+    email: "info@stylishmice.com",
     phone: "+2 0100 607 1661",
     addressEn: "26 Tarablous Street, Abbas El Akkad, 2nd floor, Flat 5, Nasr City, Cairo, Egypt",
     addressAr: "\u0662\u0666 \u0634\u0627\u0631\u0639 \u0637\u0631\u0627\u0628\u0644\u0633\u060c \u0639\u0628\u0627\u0633 \u0627\u0644\u0639\u0642\u0627\u062f\u060c \u0627\u0644\u062f\u0648\u0631 \u0627\u0644\u062b\u0627\u0646\u064a\u060c \u0634\u0642\u0629 \u0665\u060c \u0645\u062f\u064a\u0646\u0629 \u0646\u0635\u0631\u060c \u0627\u0644\u0642\u0627\u0647\u0631\u0629\u060c \u0645\u0635\u0631",
   },
   seo: {
-    titleEn: "Terms & Conditions | Stylish Events",
-    titleAr: "الشروط والأحكام | Stylish Events",
-    descriptionEn: "Terms for using the Stylish Events platform and its event management services.",
-    descriptionAr: "شروط استخدام منصة Stylish Events وخدمات إدارة الفعاليات.",
+    titleEn: "Terms & Conditions | Stylish Holidays",
+    titleAr: "الشروط والأحكام | Stylish Holidays",
+    descriptionEn: "Terms for using the Stylish Holidays platform and its event management services.",
+    descriptionAr: "شروط استخدام منصة Stylish Holidays وخدمات إدارة الفعاليات.",
     canonicalPath: "/terms/",
     ogImage: TERMS_HERO_IMAGE,
     robotsIndex: true,
@@ -55,15 +55,15 @@ export const DEFAULT_TERMS_PAGE_SETTINGS: LegalPageSettings = {
       "introduction",
       "Introduction",
       "مقدمة",
-      "These Terms explain how Stylish Events may be used by visitors, registered users, event attendees, organizers, and administrators. By using the platform, you agree to follow these Terms and any event-specific rules shown during registration or booking.",
-      "توضح هذه الشروط كيفية استخدام منصة Stylish Events من الزوار والمستخدمين المسجلين والحضور والمنظمين ومديري النظام. باستخدامك للمنصة فإنك توافق على الالتزام بهذه الشروط وأي قواعد خاصة بالفعالية تظهر أثناء التسجيل أو الحجز."
+      "These Terms explain how Stylish Holidays may be used by visitors, registered users, event attendees, organizers, and administrators. By using the platform, you agree to follow these Terms and any event-specific rules shown during registration or booking.",
+      "توضح هذه الشروط كيفية استخدام منصة Stylish Holidays من الزوار والمستخدمين المسجلين والحضور والمنظمين ومديري النظام. باستخدامك للمنصة فإنك توافق على الالتزام بهذه الشروط وأي قواعد خاصة بالفعالية تظهر أثناء التسجيل أو الحجز."
     ),
     section(
       "platform-services",
       "Platform Services",
       "خدمات المنصة",
-      "Stylish Events provides tools for publishing event pages, managing registrations, configuring ticket types and pricing periods, issuing QR tickets, recording check-in activity, sending certificates where enabled, collecting reviews, and viewing operational reports.",
-      "توفر Stylish Events أدوات لنشر صفحات الفعاليات وإدارة التسجيلات وضبط أنواع التذاكر وفترات التسعير وإصدار تذاكر QR وتسجيل الدخول للفعالية وإرسال الشهادات عند تفعيلها وجمع التقييمات وعرض التقارير التشغيلية."
+      "Stylish Holidays provides tools for publishing event pages, managing registrations, configuring ticket types and pricing periods, issuing QR tickets, recording check-in activity, sending certificates where enabled, collecting reviews, and viewing operational reports.",
+      "توفر Stylish Holidays أدوات لنشر صفحات الفعاليات وإدارة التسجيلات وضبط أنواع التذاكر وفترات التسعير وإصدار تذاكر QR وتسجيل الدخول للفعالية وإرسال الشهادات عند تفعيلها وجمع التقييمات وعرض التقارير التشغيلية."
     ),
     section(
       "accounts",
@@ -76,8 +76,8 @@ export const DEFAULT_TERMS_PAGE_SETTINGS: LegalPageSettings = {
       "event-information",
       "Event Information and Organizer Responsibilities",
       "معلومات الفعاليات ومسؤوليات المنظم",
-      "Event organizers and administrators are responsible for the accuracy of event titles, descriptions, dates, venues, capacity, prices, cancellation terms, and any instructions shown to attendees. Stylish Events may display this information as provided or configured by authorized users.",
-      "يتحمل منظمو الفعاليات ومديرو النظام مسؤولية دقة عناوين الفعاليات والأوصاف والتواريخ والمواقع والسعة والأسعار وشروط الإلغاء وأي تعليمات تظهر للحضور. قد تعرض Stylish Events هذه المعلومات كما تم إدخالها أو ضبطها من المستخدمين المصرح لهم."
+      "Event organizers and administrators are responsible for the accuracy of event titles, descriptions, dates, venues, capacity, prices, cancellation terms, and any instructions shown to attendees. Stylish Holidays may display this information as provided or configured by authorized users.",
+      "يتحمل منظمو الفعاليات ومديرو النظام مسؤولية دقة عناوين الفعاليات والأوصاف والتواريخ والمواقع والسعة والأسعار وشروط الإلغاء وأي تعليمات تظهر للحضور. قد تعرض Stylish Holidays هذه المعلومات كما تم إدخالها أو ضبطها من المستخدمين المصرح لهم."
     ),
     section(
       "registrations-bookings",
@@ -111,8 +111,8 @@ export const DEFAULT_TERMS_PAGE_SETTINGS: LegalPageSettings = {
       "contact",
       "Contact Information",
       "بيانات التواصل",
-      "For questions about these Terms, contact the Stylish Events team using the contact information shown on this page or through the public Contact page.",
-      "لأي استفسار حول هذه الشروط، تواصل مع فريق Stylish Events من خلال بيانات التواصل المعروضة في هذه الصفحة أو من خلال صفحة التواصل العامة."
+      "For questions about these Terms, contact the Stylish Holidays team using the contact information shown on this page or through the public Contact page.",
+      "لأي استفسار حول هذه الشروط، تواصل مع فريق Stylish Holidays من خلال بيانات التواصل المعروضة في هذه الصفحة أو من خلال صفحة التواصل العامة."
     ),
   ],
 }
@@ -122,7 +122,7 @@ export const DEFAULT_PRIVACY_PAGE_SETTINGS: LegalPageSettings = {
   hero: {
     titleEn: "Privacy Policy",
     titleAr: ar.privacyTitle,
-    descriptionEn: "Understand what information Stylish Events collects, how it is used, and how it supports event registrations, tickets, check-in, and communication.",
+    descriptionEn: "Understand what information Stylish Holidays collects, how it is used, and how it supports event registrations, tickets, check-in, and communication.",
     descriptionAr: ar.privacyDescription,
     imageUrl: PRIVACY_HERO_IMAGE,
     imageAltEn: "Privacy and user data protection",
@@ -133,16 +133,16 @@ export const DEFAULT_PRIVACY_PAGE_SETTINGS: LegalPageSettings = {
   lastUpdatedLabelEn: "Last updated",
   lastUpdatedLabelAr: ar.lastUpdated,
   contact: {
-    email: "info@stylish-holidays.com",
+    email: "info@stylishmice.com",
     phone: "+2 0100 607 1661",
     addressEn: "26 Tarablous Street, Abbas El Akkad, 2nd floor, Flat 5, Nasr City, Cairo, Egypt",
     addressAr: "\u0662\u0666 \u0634\u0627\u0631\u0639 \u0637\u0631\u0627\u0628\u0644\u0633\u060c \u0639\u0628\u0627\u0633 \u0627\u0644\u0639\u0642\u0627\u062f\u060c \u0627\u0644\u062f\u0648\u0631 \u0627\u0644\u062b\u0627\u0646\u064a\u060c \u0634\u0642\u0629 \u0665\u060c \u0645\u062f\u064a\u0646\u0629 \u0646\u0635\u0631\u060c \u0627\u0644\u0642\u0627\u0647\u0631\u0629\u060c \u0645\u0635\u0631",
   },
   seo: {
-    titleEn: "Privacy Policy | Stylish Events",
-    titleAr: "سياسة الخصوصية | Stylish Events",
-    descriptionEn: "How Stylish Events collects and uses data for event registrations, tickets, check-in, certificates, reviews, and support.",
-    descriptionAr: "كيف تجمع Stylish Events البيانات وتستخدمها للتسجيل والتذاكر وتسجيل الحضور والشهادات والتقييمات والدعم.",
+    titleEn: "Privacy Policy | Stylish Holidays",
+    titleAr: "سياسة الخصوصية | Stylish Holidays",
+    descriptionEn: "How Stylish Holidays collects and uses data for event registrations, tickets, check-in, certificates, reviews, and support.",
+    descriptionAr: "كيف تجمع Stylish Holidays البيانات وتستخدمها للتسجيل والتذاكر وتسجيل الحضور والشهادات والتقييمات والدعم.",
     canonicalPath: "/privacy/",
     ogImage: PRIVACY_HERO_IMAGE,
     robotsIndex: true,
@@ -153,8 +153,8 @@ export const DEFAULT_PRIVACY_PAGE_SETTINGS: LegalPageSettings = {
       "introduction",
       "Introduction",
       "مقدمة",
-      "This Privacy Policy explains how Stylish Events handles information connected to public pages, accounts, event registrations, bookings, QR tickets, check-in, certificates, reviews, and support requests.",
-      "توضح سياسة الخصوصية هذه كيفية تعامل Stylish Events مع المعلومات المرتبطة بالصفحات العامة والحسابات وتسجيلات الفعاليات والحجوزات وتذاكر QR وتسجيل الحضور والشهادات والتقييمات وطلبات الدعم."
+      "This Privacy Policy explains how Stylish Holidays handles information connected to public pages, accounts, event registrations, bookings, QR tickets, check-in, certificates, reviews, and support requests.",
+      "توضح سياسة الخصوصية هذه كيفية تعامل Stylish Holidays مع المعلومات المرتبطة بالصفحات العامة والحسابات وتسجيلات الفعاليات والحجوزات وتذاكر QR وتسجيل الحضور والشهادات والتقييمات وطلبات الدعم."
     ),
     section(
       "information-collected",

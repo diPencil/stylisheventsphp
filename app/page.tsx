@@ -67,9 +67,9 @@ export default function Home() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "Stylish Events",
-    "url": "https://stylish-events.com",
-    "logo": "https://stylish-events.com/logo.png",
+    "name": "Stylish Holidays",
+    "url": "https://stylishmice.com",
+    "logo": "https://stylishmice.com/logo.png",
     "description": "شريككم الموثوق في تنظيم وحجز المؤتمرات والمعارض الدولية بكل احترافية.",
     "sameAs": [
       "https://twitter.com/stylishevents",

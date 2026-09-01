@@ -115,7 +115,7 @@ export const translations = {
   },
   en: {
     common: {
-      brand: "Stylish Events",
+      brand: "Stylish Holidays",
       brandSub: "Events Services",
       bookNow: "Book Now",
       startBooking: "Start Booking",
@@ -194,7 +194,7 @@ export const translations = {
     },
     success: {
       title: "Request Received Successfully",
-      subtitle: "Your request has been created successfully. The Stylish Events team will contact you shortly.",
+      subtitle: "Your request has been created successfully. The Stylish Holidays team will contact you shortly.",
       detailsTitle: "Request Details:",
       eventName: "Event Name",
       date: "Date",

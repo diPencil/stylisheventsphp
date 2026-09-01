@@ -1,9 +1,9 @@
-# Stylish Events Setup
+# Stylish Holidays Setup
 
 ## Project Structure
 
 ```text
-Stylish-Events - v2/
+Stylish-Holidays - v2/
 ├── frontend/   # Next.js frontend
 ├── backend/    # Laravel API backend
 └── uploads/    # Local runtime uploads, not committed

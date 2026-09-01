@@ -45,7 +45,7 @@ export function SuccessModal({ isOpen, onClose, data, content }: SuccessModalPro
     const [isLoading, setIsLoading] = useState(false)
     const contentRef = useRef<HTMLDivElement>(null)
     const countryName = data.country ? countries.getName(data.country, language) : ""
-    const origin = typeof window !== 'undefined' ? window.location.origin : "https://stylish-events.com"
+    const origin = typeof window !== 'undefined' ? window.location.origin : "https://stylishmice.com"
 
     // Even more compact keys
     const compactData = {

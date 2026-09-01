@@ -16,9 +16,9 @@ export function apiAssetUrl(url?: string | null) {
 export function currentAuthToken() {
   if (typeof window === "undefined") return {}
   return (
-    window.localStorage.getItem("stylish-events-admin-token") ||
-    window.localStorage.getItem("stylish-events-auth-token") ||
-    window.localStorage.getItem("stylish-events-token")
+    window.localStorage.getItem("stylish-holidays-admin-token") ||
+    window.localStorage.getItem("stylish-holidays-auth-token") ||
+    window.localStorage.getItem("stylish-holidays-token")
   )
 }
 
@@ -29,10 +29,10 @@ function authHeaders(): Record<string, string> {
 
 function clearAuthSession() {
   if (typeof window === "undefined") return
-  window.localStorage.removeItem("stylish-events-admin-token")
-  window.localStorage.removeItem("stylish-events-auth-token")
-  window.localStorage.removeItem("stylish-events-token")
-  window.localStorage.removeItem("stylish-events-admin-user")
+  window.localStorage.removeItem("stylish-holidays-admin-token")
+  window.localStorage.removeItem("stylish-holidays-auth-token")
+  window.localStorage.removeItem("stylish-holidays-token")
+  window.localStorage.removeItem("stylish-holidays-admin-user")
 }
 
 const publicGetCache = new Map<string, { expiresAt: number; promise: Promise<any> }>()
@@ -168,7 +168,7 @@ export const platformApi = {
     request<any>("/api/auth/me/password", { method: "PATCH", body: JSON.stringify(data) }),
   bootstrapAdmin: (data: Record<string, unknown>) =>
     request<any>("/api/auth/bootstrap-admin", { method: "POST", body: JSON.stringify(data) }),
-  getThemeSettings: () => cachedPublicRequest<any>("/api/platform/settings/theme", 120_000),
+  getThemeSettings: () => request<any>("/api/platform/settings/theme"),
   updateThemeSettings: async (data: Record<string, unknown>) => {
     const result = await request<any>("/api/platform/settings/theme", { method: "PUT", body: JSON.stringify(data) })
     clearPublicGetCache("/api/platform/settings/theme")

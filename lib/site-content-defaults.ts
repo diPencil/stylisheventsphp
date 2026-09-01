@@ -306,11 +306,11 @@ export const DEFAULT_CONTACT_PAGE_SETTINGS: ContactPageSettings = {
       icon: "mail",
       labelEn: "Email Us",
       labelAr: "راسلنا",
-      value: "info@stylish-holidays.com",
+      value: "info@stylishmice.com",
       supportingTextEn: "Send your questions or event brief.",
       supportingTextAr: "أرسل أسئلتك أو ملخص فعاليتك.",
       linkType: "email",
-      linkValue: "info@stylish-holidays.com",
+      linkValue: "info@stylishmice.com",
     },
     {
       id: "contact-address",
@@ -392,8 +392,8 @@ export const DEFAULT_CONTACT_PAGE_SETTINGS: ContactPageSettings = {
     sendingLabelAr: "جاري الإرسال...",
     errorTitleEn: "Could not send inquiry",
     errorTitleAr: "تعذر إرسال الاستفسار",
-    consentLabelEn: "I agree that Stylish Events may use the information provided to respond to this inquiry.",
-    consentLabelAr: "أوافق على استخدام Stylish Events للمعلومات المقدمة للرد على هذا الاستفسار.",
+    consentLabelEn: "I agree that Stylish Holidays may use the information provided to respond to this inquiry.",
+    consentLabelAr: "أوافق على استخدام Stylish Holidays للمعلومات المقدمة للرد على هذا الاستفسار.",
     inquiryTypes: [
       { id: "type-general", value: "general", enabled: true, labelEn: "General Inquiry", labelAr: "استفسار عام", order: 1 },
       { id: "type-event-planning", value: "event_planning", enabled: true, labelEn: "Event Planning", labelAr: "تنظيم فعالية", order: 2 },
@@ -500,8 +500,8 @@ const CONTACT_INQUIRY_REQUEST_SECTION_DEFAULTS = {
   sendingLabelAr: "جاري الإرسال...",
   errorTitleEn: "Could not send inquiry",
   errorTitleAr: "تعذر إرسال الاستفسار",
-  consentLabelEn: "I agree that Stylish Events may use the information provided to respond to this inquiry.",
-  consentLabelAr: "أوافق على استخدام Stylish Events للمعلومات المقدمة للرد على هذا الاستفسار.",
+  consentLabelEn: "I agree that Stylish Holidays may use the information provided to respond to this inquiry.",
+  consentLabelAr: "أوافق على استخدام Stylish Holidays للمعلومات المقدمة للرد على هذا الاستفسار.",
   inquiryTypes: [
     { id: "type-general", value: "general", enabled: true, labelEn: "General Inquiry", labelAr: "استفسار عام", order: 1 },
     { id: "type-event-planning", value: "event_planning", enabled: true, labelEn: "Event Planning", labelAr: "تنظيم فعالية", order: 2 },
@@ -564,14 +564,14 @@ const CONTACT_INQUIRY_SUCCESS_DEFAULTS = {
 export const DEFAULT_ABOUT_PAGE_SETTINGS: AboutPageSettings = {
   hero: {
     enabled: true,
-    eyebrowEn: "ABOUT STYLISH EVENTS",
-    eyebrowAr: "عن منصة Stylish Events",
+    eyebrowEn: "ABOUT STYLISH HOLIDAYS",
+    eyebrowAr: "عن منصة Stylish Holidays",
     titleEn: "One Platform for Smarter Event Operations",
     titleAr: "منصة واحدة لإدارة الفعاليات بذكاء",
     descriptionEn:
-      "Stylish Events brings event planning, registration, ticketing, attendance, communication, and post-event services into one connected platform.",
+      "Stylish Holidays brings event planning, registration, ticketing, attendance, communication, and post-event services into one connected platform.",
     descriptionAr:
-      "تجمع منصة Stylish Events بين تخطيط الفعاليات والتسجيل والتذاكر والحضور والتواصل وخدمات ما بعد الفعالية ضمن نظام واحد متكامل.",
+      "تجمع منصة Stylish Holidays بين تخطيط الفعاليات والتسجيل والتذاكر والحضور والتواصل وخدمات ما بعد الفعالية ضمن نظام واحد متكامل.",
     supportingTextEn: "Built to help event teams manage every stage with more clarity, control, and consistency.",
     supportingTextAr: "صممت لمساعدة فرق العمل على إدارة كل مرحلة بوضوح وتحكم واستمرارية أكبر.",
     imageUrl: "https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=1600&auto=format&fit=crop",
@@ -587,9 +587,9 @@ export const DEFAULT_ABOUT_PAGE_SETTINGS: AboutPageSettings = {
     headingEn: "Built Around the Complete Event Journey",
     headingAr: "مصممة لتغطية رحلة الفعالية بالكامل",
     descriptionEn:
-      "Stylish Events connects the tools required before, during, and after an event. Teams can publish event pages, manage tickets, organize registrations, track attendance, communicate with participants, and review results without moving between disconnected systems.",
+      "Stylish Holidays connects the tools required before, during, and after an event. Teams can publish event pages, manage tickets, organize registrations, track attendance, communicate with participants, and review results without moving between disconnected systems.",
     descriptionAr:
-      "تربط Stylish Events الأدوات المطلوبة قبل الفعالية وأثناءها وبعدها، بداية من نشر صفحات الفعاليات وإدارة التذاكر والتسجيلات، وحتى متابعة الحضور والتواصل مع المشاركين ومراجعة النتائج من خلال نظام واحد.",
+      "تربط Stylish Holidays الأدوات المطلوبة قبل الفعالية وأثناءها وبعدها، بداية من نشر صفحات الفعاليات وإدارة التذاكر والتسجيلات، وحتى متابعة الحضور والتواصل مع المشاركين ومراجعة النتائج من خلال نظام واحد.",
     valuePoints: [
       { id: "about-value-unified", textEn: "Unified Event Management", textAr: "إدارة فعاليات موحدة" },
       { id: "about-value-visibility", textEn: "Real-Time Operational Visibility", textAr: "وضوح تشغيلي لحظي" },
@@ -673,8 +673,8 @@ export const DEFAULT_ABOUT_PAGE_SETTINGS: AboutPageSettings = {
     enabled: false,
     eyebrowEn: "TEAM",
     eyebrowAr: "الفريق",
-    headingEn: "The People Behind Stylish Events",
-    headingAr: "الفريق خلف Stylish Events",
+    headingEn: "The People Behind Stylish Holidays",
+    headingAr: "الفريق خلف Stylish Holidays",
     descriptionEn: "Add real team members here when you are ready to publish them on the About page.",
     descriptionAr: "أضف أعضاء الفريق الحقيقيين هنا عندما تكون جاهزا لنشرهم في صفحة About.",
     members: [],
@@ -914,10 +914,10 @@ export function normalizeFeaturesSectionSettings(savedFeaturesSection: any = {},
 }
 
 export function normalizeHomepageFinalCtaSettings(savedFinalCta: any = {}, savedHomepage: any = {}): HomepageFinalCtaSettings {
-  const legacyTitleEn = [savedHomepage?.footerTitle1En, "Stylish Events", savedHomepage?.footerTitle2En].filter(Boolean).join(" ")
-  const legacyTitleAr = [savedHomepage?.footerTitle1Ar, "Stylish Events", savedHomepage?.footerTitle2Ar].filter(Boolean).join(" ")
-  const oldTitleEn = "Unlock the Power of Stylish Events for Your Next Event"
-  const oldTitleAr = "أطلق العنان لقوة Stylish Events في فعاليتك القادمة"
+  const legacyTitleEn = [savedHomepage?.footerTitle1En, "Stylish Holidays", savedHomepage?.footerTitle2En].filter(Boolean).join(" ")
+  const legacyTitleAr = [savedHomepage?.footerTitle1Ar, "Stylish Holidays", savedHomepage?.footerTitle2Ar].filter(Boolean).join(" ")
+  const oldTitleEn = "Unlock the Power of Stylish Holidays for Your Next Event"
+  const oldTitleAr = "أطلق العنان لقوة Stylish Holidays في فعاليتك القادمة"
 
   const normalized = {
     ...DEFAULT_HOMEPAGE_FINAL_CTA,

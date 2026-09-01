@@ -25,7 +25,7 @@ type HeroSettings = {
   heroMediaUrl: string
 }
 
-const siteContentStorageKey = "stylish-events-site-content-settings"
+const siteContentStorageKey = "stylish-holidays-site-content-settings"
 
 const defaultHeroSettings: HeroSettings = {
   eyebrowEn: "Bringing your vision to life, one event at a time.",
@@ -115,8 +115,8 @@ export function VideoHero({ siteContent }: { siteContent?: any } = {}) {
     const syncSettings = () => {
       if (!siteContent) setSettings(readSavedHeroSettings())
     }
-    window.addEventListener("stylish-events-site-content-settings-updated", syncSettings)
-    return () => window.removeEventListener("stylish-events-site-content-settings-updated", syncSettings)
+    window.addEventListener("stylish-holidays-site-content-settings-updated", syncSettings)
+    return () => window.removeEventListener("stylish-holidays-site-content-settings-updated", syncSettings)
   }, [siteContent])
 
   const mediaUrl = apiAssetUrl(settings.heroMediaUrl) || "/eventsvideo-hero-section.mp4"
@@ -131,7 +131,7 @@ export function VideoHero({ siteContent }: { siteContent?: any } = {}) {
     <section className="relative z-10 min-h-[760px] overflow-hidden flex flex-col items-center justify-center pt-20 pb-10 md:min-h-[840px] md:pt-24">
       <div className="absolute inset-0 -z-20 bg-[hsl(var(--primary)/0.08)]">
         {settings.heroMediaType === "image" ? (
-          <img src={mediaUrl} alt="Stylish Events hero" className="h-full w-full object-cover" />
+          <img src={mediaUrl} alt="Stylish Holidays hero" className="h-full w-full object-cover" />
         ) : (
           <video key={mediaUrl} autoPlay muted loop playsInline preload="auto" className="h-full w-full object-cover">
             <source src={mediaUrl} type={mediaMimeType(mediaUrl)} />

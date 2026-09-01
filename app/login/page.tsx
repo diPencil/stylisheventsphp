@@ -14,8 +14,8 @@ import { Label } from "@/components/ui/label"
 import { AuthBrandHeadline } from "@/components/auth/auth-brand-headline"
 import { useLanguage } from "@/contexts/language-context"
 import { clearStoredAuthSession, dashboardHrefForAuth, notifyAuthSessionChanged, readStoredAuthToken } from "@/lib/auth-session"
-import { apiAssetUrl, platformApi } from "@/lib/platform-api"
-import { normalizePlatformTheme, readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
+import { platformApi } from "@/lib/platform-api"
+import { normalizePlatformTheme, platformThemeAssetUrl, readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
 import type { PlatformThemeSettings } from "@/types/platform"
 
 const copy = {
@@ -23,8 +23,8 @@ const copy = {
     brandLine: "EVENTS MANAGEMENT",
     description: "A secure workspace for tickets, bookings, QR check-in, certificates, and event operations.",
     future: "THE EVENT FUTURE",
-    headline: "Stylish Events",
-    panelTitle: "Log in to Stylish Events",
+    headline: "Stylish Holidays",
+    panelTitle: "Log in to Stylish Holidays",
     emailTab: "Email login",
     loginLabel: "Email or username",
     loginPlaceholder: "Enter your email or username",
@@ -40,14 +40,14 @@ const copy = {
     hidePassword: "Hide password",
     showPassword: "Show password",
     languageButton: "AR",
-    secureAccess: "Stylish Events Secure Access",
+    secureAccess: "Stylish Holidays Secure Access",
   },
   ar: {
     brandLine: "إدارة الفعاليات",
     description: "مساحة آمنة لإدارة التذاكر، الحجوزات، تسجيل الحضور بالـ QR، الشهادات، وتشغيل الفعاليات.",
     future: "مستقبل الفعاليات",
-    headline: "Stylish Events",
-    panelTitle: "تسجيل الدخول إلى Stylish Events",
+    headline: "Stylish Holidays",
+    panelTitle: "تسجيل الدخول إلى Stylish Holidays",
     emailTab: "الدخول بالبريد",
     loginLabel: "البريد الإلكتروني أو اسم المستخدم",
     loginPlaceholder: "اكتب البريد أو اسم المستخدم",
@@ -63,7 +63,7 @@ const copy = {
     hidePassword: "إخفاء كلمة المرور",
     showPassword: "إظهار كلمة المرور",
     languageButton: "EN",
-    secureAccess: "دخول آمن إلى Stylish Events",
+    secureAccess: "دخول آمن إلى Stylish Holidays",
   },
 }
 
@@ -86,9 +86,9 @@ export default function Login() {
 
     syncTheme()
     platformApi.getThemeSettings().then((settings) => setTheme((current) => resolvePlatformTheme(settings, current || undefined))).catch(() => undefined)
-    window.addEventListener("stylish-events-theme-settings-updated", syncTheme)
+    window.addEventListener("stylish-holidays-theme-settings-updated", syncTheme)
 
-    return () => window.removeEventListener("stylish-events-theme-settings-updated", syncTheme)
+    return () => window.removeEventListener("stylish-holidays-theme-settings-updated", syncTheme)
   }, [])
 
   useEffect(() => {
@@ -98,7 +98,7 @@ export default function Login() {
     platformApi
       .me(token)
       .then((user) => {
-        window.localStorage.setItem("stylish-events-admin-user", JSON.stringify(user))
+        window.localStorage.setItem("stylish-holidays-admin-user", JSON.stringify(user))
         notifyAuthSessionChanged()
         const next = new URLSearchParams(window.location.search).get("next")
         router.replace(next || dashboardHrefForAuth(user, token))
@@ -115,8 +115,8 @@ export default function Login() {
 
     try {
       const result = await platformApi.login({ login, password })
-      window.localStorage.setItem("stylish-events-admin-token", result.token)
-      window.localStorage.setItem("stylish-events-admin-user", JSON.stringify(result.user))
+      window.localStorage.setItem("stylish-holidays-admin-token", result.token)
+      window.localStorage.setItem("stylish-holidays-admin-user", JSON.stringify(result.user))
       notifyAuthSessionChanged()
       const next = new URLSearchParams(window.location.search).get("next")
       window.location.href = next || dashboardHrefForAuth(result.user, result.token)
@@ -127,7 +127,7 @@ export default function Login() {
     }
   }
 
-  const logoSrc = apiAssetUrl(isRtl ? theme?.logoArUrl : theme?.logoEnUrl) || (isRtl ? "/LogoAR.png" : "/logo.png")
+  const logoSrc = platformThemeAssetUrl(isRtl ? theme?.logoArUrl : theme?.logoEnUrl, isRtl ? "/LogoAR.png" : "/logo.png")
   const themeStyle = useMemo(
     () =>
       ({
@@ -173,7 +173,7 @@ export default function Login() {
       <section className="relative z-10 mx-auto grid min-h-dvh w-full max-w-7xl items-center gap-6 px-4 py-5 sm:px-6 md:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 lg:px-12 lg:py-8">
         <div className="absolute left-4 top-4 sm:left-6 sm:top-6 md:left-8 lg:left-12">
           <Link href="/" aria-label="Go to homepage" className="block transition hover:opacity-85">
-            <img src={logoSrc} alt="Stylish Events" onError={(event) => { event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png" }} className="h-10 w-auto object-contain sm:h-12" draggable={false} />
+            <img src={logoSrc} alt="Stylish Holidays" onError={(event) => { event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png" }} className="h-10 w-auto object-contain sm:h-12" draggable={false} />
           </Link>
         </div>
 

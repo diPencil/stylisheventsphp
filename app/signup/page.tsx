@@ -24,12 +24,12 @@ import { useLanguage } from "@/contexts/language-context"
 import { notifyAuthSessionChanged } from "@/lib/auth-session"
 import { applyCountryDialCode } from "@/lib/country-dial-codes"
 import { apiAssetUrl, platformApi } from "@/lib/platform-api"
-import { normalizePlatformTheme, readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
+import { normalizePlatformTheme, platformThemeAssetUrl, readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
 import type { PlatformThemeSettings } from "@/types/platform"
 
 const copy = {
   en: {
-    logoAlt: "Stylish Events",
+    logoAlt: "Stylish Holidays",
     eyebrow: "Customer Account",
     title: "Create your account",
     intro: "Complete your profile once, then use it for bookings, tickets, QR access, and certificates.",
@@ -81,7 +81,7 @@ const copy = {
     secure: "Secure registration",
   },
   ar: {
-    logoAlt: "Stylish Events",
+    logoAlt: "Stylish Holidays",
     eyebrow: "حساب العميل",
     title: "إنشاء حساب جديد",
     intro: "أكمل بياناتك مرة واحدة لاستخدامها في الحجوزات، التذاكر، دخول QR، والشهادات.",
@@ -159,9 +159,9 @@ export default function SignUp() {
     syncTheme()
     platformApi.getThemeSettings().then((settings) => setTheme((current) => resolvePlatformTheme(settings, current || undefined))).catch(() => undefined)
     platformApi.listSpecialties(true).then(setSpecialties).catch(() => setSpecialties([]))
-    window.addEventListener("stylish-events-theme-settings-updated", syncTheme)
+    window.addEventListener("stylish-holidays-theme-settings-updated", syncTheme)
 
-    return () => window.removeEventListener("stylish-events-theme-settings-updated", syncTheme)
+    return () => window.removeEventListener("stylish-holidays-theme-settings-updated", syncTheme)
   }, [])
 
   function setField(name: string, value: string | boolean) {
@@ -225,8 +225,8 @@ export default function SignUp() {
       payload.preferredLanguage = language
       ;(payload as any).avatarUrl = (formData as any).avatarUrl || null
       const result = await platformApi.register(payload as Record<string, unknown>)
-      window.localStorage.setItem("stylish-events-auth-token", result.token)
-      window.localStorage.setItem("stylish-events-admin-user", JSON.stringify(result.user))
+      window.localStorage.setItem("stylish-holidays-auth-token", result.token)
+      window.localStorage.setItem("stylish-holidays-admin-user", JSON.stringify(result.user))
       notifyAuthSessionChanged()
       setSuccess(text.success)
       router.replace("/dashboard")
@@ -237,7 +237,7 @@ export default function SignUp() {
     }
   }
 
-  const logoSrc = apiAssetUrl(isRtl ? theme?.logoArUrl : theme?.logoEnUrl) || (isRtl ? "/LogoAR.png" : "/logo.png")
+  const logoSrc = platformThemeAssetUrl(isRtl ? theme?.logoArUrl : theme?.logoEnUrl, isRtl ? "/LogoAR.png" : "/logo.png")
   const pageStyle = useMemo(
     () =>
       ({

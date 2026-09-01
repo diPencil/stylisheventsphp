@@ -32,10 +32,10 @@ export function FinalCtaSection({ settings }: { settings?: Partial<HomepageFinal
 
   if (!content.enabled) return null
 
-  const titleEn = content.titleEn === "Unlock the Power of Stylish Events for Your Next Event"
+  const titleEn = content.titleEn === "Unlock the Power of Stylish Holidays for Your Next Event"
     ? DEFAULT_HOMEPAGE_FINAL_CTA.titleEn
     : content.titleEn || DEFAULT_HOMEPAGE_FINAL_CTA.titleEn
-  const titleAr = content.titleAr === "أطلق العنان لقوة Stylish Events في فعاليتك القادمة"
+  const titleAr = content.titleAr === "أطلق العنان لقوة Stylish Holidays في فعاليتك القادمة"
     ? DEFAULT_HOMEPAGE_FINAL_CTA.titleAr
     : content.titleAr || DEFAULT_HOMEPAGE_FINAL_CTA.titleAr
   const eyebrowEn = content.eyebrowEn === "Partner for Your Success"
@@ -75,10 +75,10 @@ export function FinalCtaSection({ settings }: { settings?: Partial<HomepageFinal
       <div className="absolute inset-x-0 bottom-0 flex justify-center pointer-events-none select-none z-0">
         <div className="relative">
           <div className="text-[15vw] md:text-[25vw] font-black tracking-tighter uppercase italic whitespace-nowrap leading-none opacity-[0.03] text-slate-900">
-            Stylish Events
+            Stylish Holidays
           </div>
           <div className="absolute inset-0 text-[15vw] md:text-[25vw] font-black tracking-tighter uppercase italic whitespace-nowrap leading-none bg-gradient-to-b from-slate-200 to-transparent bg-clip-text text-transparent opacity-40">
-            Stylish Events
+            Stylish Holidays
           </div>
         </div>
       </div>

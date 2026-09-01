@@ -128,10 +128,10 @@ export function EventCreatePage() {
 
   useEffect(() => {
     const syncCurrencySettings = () => setCurrencySettings(readCurrencySettings())
-    window.addEventListener("stylish-events-currency-settings-updated", syncCurrencySettings)
+    window.addEventListener("stylish-holidays-currency-settings-updated", syncCurrencySettings)
     window.addEventListener("storage", syncCurrencySettings)
     return () => {
-      window.removeEventListener("stylish-events-currency-settings-updated", syncCurrencySettings)
+      window.removeEventListener("stylish-holidays-currency-settings-updated", syncCurrencySettings)
       window.removeEventListener("storage", syncCurrencySettings)
     }
   }, [])

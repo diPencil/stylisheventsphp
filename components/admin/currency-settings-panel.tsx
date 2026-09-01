@@ -33,7 +33,7 @@ type CurrencySettings = {
   rates: CurrencyRate[]
 }
 
-const storageKey = "stylish-events-currency-settings"
+const storageKey = "stylish-holidays-currency-settings"
 
 const defaultSettings: CurrencySettings = {
   baseCurrency: "USD",
@@ -139,12 +139,12 @@ export function CurrencySettingsPanel() {
     try {
       const saved = await platformApi.updateCurrencySettings(settings)
       localStorage.setItem(storageKey, JSON.stringify(saved || settings))
-      window.dispatchEvent(new Event("stylish-events-currency-settings-updated"))
+      window.dispatchEvent(new Event("stylish-holidays-currency-settings-updated"))
       setSaveState("saved")
       toast.success(language === "ar" ? "تم حفظ إعدادات العملة" : "Currency settings saved", { description: language === "ar" ? "تم حفظ أسعار التحويل." : "Exchange rates are saved." })
     } catch (error) {
       localStorage.setItem(storageKey, JSON.stringify(settings))
-      window.dispatchEvent(new Event("stylish-events-currency-settings-updated"))
+      window.dispatchEvent(new Event("stylish-holidays-currency-settings-updated"))
       setSaveState("saved")
       toast.error("Saved locally only", { description: error instanceof Error ? error.message : "Backend settings API is not reachable." })
     }

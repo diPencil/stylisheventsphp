@@ -2,11 +2,11 @@ import assert from "node:assert/strict"
 import { backendAssetUrl } from "../lib/asset-url.js"
 import { applyAccountRegistrationPrefill } from "../lib/registration-prefill.js"
 
-const productionApi = "https://api.nexrobnb.com"
+const productionApi = "https://api.stylishmice.com"
 
 assert.equal(
   backendAssetUrl("/uploads/assets/logo.png", productionApi),
-  "https://api.nexrobnb.com/uploads/assets/logo.png",
+  "https://api.stylishmice.com/uploads/assets/logo.png",
 )
 assert.equal(
   backendAssetUrl("https://example.com/logo.png", productionApi),
@@ -16,7 +16,7 @@ assert.equal(backendAssetUrl("/images/static-logo.svg", productionApi), "/images
 assert.equal(backendAssetUrl(null, productionApi), "")
 assert.equal(backendAssetUrl("", productionApi), "")
 assert.equal(backendAssetUrl("data:image/png;base64,abc", productionApi), "data:image/png;base64,abc")
-assert.equal(backendAssetUrl("blob:https://nexrobnb.com/abc", productionApi), "blob:https://nexrobnb.com/abc")
+assert.equal(backendAssetUrl("blob:https://stylishmice.com/abc", productionApi), "blob:https://stylishmice.com/abc")
 
 const blankRegistration = {
   fullName: "",

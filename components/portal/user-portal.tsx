@@ -34,7 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useLanguage } from "@/contexts/language-context"
 import { clearStoredAuthSession, readStoredAuthToken } from "@/lib/auth-session"
 import { apiAssetUrl, platformApi } from "@/lib/platform-api"
-import { defaultPlatformTheme, normalizePlatformTheme, readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
+import { defaultPlatformTheme, normalizePlatformTheme, platformThemeAssetUrl, readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
 import { cn } from "@/lib/utils"
 import type { PlatformThemeSettings } from "@/types/platform"
 
@@ -337,8 +337,8 @@ export function UserPortal({ view, recordId }: { view: PortalView; recordId?: st
     }
     syncTheme()
     platformApi.getThemeSettings().then((settings) => setTheme((current) => resolvePlatformTheme(settings, current))).catch(() => undefined)
-    window.addEventListener("stylish-events-theme-settings-updated", syncTheme)
-    return () => window.removeEventListener("stylish-events-theme-settings-updated", syncTheme)
+    window.addEventListener("stylish-holidays-theme-settings-updated", syncTheme)
+    return () => window.removeEventListener("stylish-holidays-theme-settings-updated", syncTheme)
   }, [])
 
   useEffect(() => {
@@ -351,7 +351,7 @@ export function UserPortal({ view, recordId }: { view: PortalView; recordId?: st
     platformApi.me(currentToken)
       .then((currentUser) => {
         const role = currentUser?.role_code || currentUser?.role?.code
-        window.localStorage.setItem("stylish-events-admin-user", JSON.stringify(currentUser))
+        window.localStorage.setItem("stylish-holidays-admin-user", JSON.stringify(currentUser))
         if (["admin", "organizer", "employee", "back_office"].includes(role)) {
           setAuthState("forbidden")
           router.replace("/admin")
@@ -373,8 +373,8 @@ export function UserPortal({ view, recordId }: { view: PortalView; recordId?: st
   const current = navItems.find((item) => item.view === parentView) || navItems[0]
   const currentTitle = viewTitles[view] || current.label
   const customerName = displayName(user)
-  const logoSrc = apiAssetUrl(isRtl ? theme.logoArUrl : theme.logoEnUrl) || (isRtl ? "/LogoAR.png" : "/logo.png")
-  const projectName = "Stylish Events"
+  const logoSrc = platformThemeAssetUrl(isRtl ? theme.logoArUrl : theme.logoEnUrl, isRtl ? "/LogoAR.png" : "/logo.png")
+  const projectName = "Stylish Holidays"
 
   const sidebar = (
     <aside className="flex h-full flex-col bg-white/70 p-5 backdrop-blur-xl">
@@ -515,7 +515,7 @@ function Overview({ user }: { user: any }) {
       <section className={cardClass("p-5 sm:p-6")}>
         <p className="text-sm font-extrabold text-[hsl(var(--primary))]">{isRtl ? "مرحبا بعودتك،" : "Welcome back,"}</p>
         <h2 className="mt-1 text-2xl font-black text-[#17172f] sm:text-3xl">{displayName(user)}</h2>
-        <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#667792]">{isRtl ? "تابع تسجيلاتك وتذاكرك وشهاداتك من مساحة واحدة مرتبطة بمنصة Stylish Events." : "Track your registrations, tickets, and certificates from one space connected to Stylish Events."}</p>
+        <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#667792]">{isRtl ? "تابع تسجيلاتك وتذاكرك وشهاداتك من مساحة واحدة مرتبطة بمنصة Stylish Holidays." : "Track your registrations, tickets, and certificates from one space connected to Stylish Holidays."}</p>
       </section>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Summary icon={CalendarDays} label={isRtl ? "تسجيلات قادمة" : "Upcoming Registrations"} value={summary.upcomingRegistrations || 0} href="/dashboard/registrations" />
@@ -947,7 +947,7 @@ function ProfileWithPhoto({ user, onUserUpdate }: { user: any; onUserUpdate: (us
         setMessage("")
         try {
           const updated = await platformApi.updateMe({ ...form, specialtyId: isDoctor && form.specialtyId ? Number(form.specialtyId) : undefined })
-          window.localStorage.setItem("stylish-events-admin-user", JSON.stringify(updated))
+          window.localStorage.setItem("stylish-holidays-admin-user", JSON.stringify(updated))
           onUserUpdate((current: any) => ({ ...current, ...updated, customer_full_name: updated.customer_full_name || updated.name || current?.customer_full_name }))
           setMessage(isRtl ? "تم حفظ الملف الشخصي." : "Profile saved.")
         } catch (error) {
@@ -965,7 +965,7 @@ function Profile({ user, onUserUpdate }: { user: any; onUserUpdate: (user: any) 
   const [form, setForm] = useState({ name: displayName(user, ""), phone: user?.phone || "", preferredLanguage: user?.preferred_language || "en" })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState("")
-  return <section className={cardClass("p-5")}><h2 className="text-2xl font-black">{isRtl ? "الملف الشخصي" : "Profile"}</h2><div className="mt-5 grid gap-4 md:grid-cols-2"><Field label={isRtl ? "الاسم الكامل" : "Full name"} value={form.name} onChange={(name) => setForm({ ...form, name })} /><div className="grid gap-2 text-sm font-extrabold text-slate-700">{isRtl ? "البريد الإلكتروني" : "Email"}<Input value={user?.email || ""} readOnly dir="ltr" className="h-11 rounded-2xl border-slate-200 bg-[#f8f5fb] text-slate-500" /><p className="text-xs font-bold text-slate-400">{isRtl ? "تغيير البريد يحتاج تواصل مع الدعم حاليا." : "Email changes currently require support verification."}</p></div><Field label={isRtl ? "الهاتف" : "Phone"} value={form.phone} onChange={(phone) => setForm({ ...form, phone })} /></div>{message ? <p className="mt-4 text-sm font-bold text-slate-600">{message}</p> : null}<Button className="mt-5 h-11 rounded-2xl bg-[hsl(var(--primary))] font-black text-white" disabled={saving} onClick={async () => { setSaving(true); setMessage(""); try { const updated = await platformApi.updateMe(form); window.localStorage.setItem("stylish-events-admin-user", JSON.stringify(updated)); onUserUpdate((current: any) => ({ ...current, ...updated, customer_full_name: updated.customer_full_name || updated.name || current?.customer_full_name })); setMessage(isRtl ? "تم حفظ الملف الشخصي." : "Profile saved.") } catch (error) { setMessage(error instanceof Error ? error.message : "Save failed") } finally { setSaving(false) } }}>{saving ? (isRtl ? "جاري الحفظ..." : "Saving...") : (isRtl ? "حفظ" : "Save")}</Button></section>
+  return <section className={cardClass("p-5")}><h2 className="text-2xl font-black">{isRtl ? "الملف الشخصي" : "Profile"}</h2><div className="mt-5 grid gap-4 md:grid-cols-2"><Field label={isRtl ? "الاسم الكامل" : "Full name"} value={form.name} onChange={(name) => setForm({ ...form, name })} /><div className="grid gap-2 text-sm font-extrabold text-slate-700">{isRtl ? "البريد الإلكتروني" : "Email"}<Input value={user?.email || ""} readOnly dir="ltr" className="h-11 rounded-2xl border-slate-200 bg-[#f8f5fb] text-slate-500" /><p className="text-xs font-bold text-slate-400">{isRtl ? "تغيير البريد يحتاج تواصل مع الدعم حاليا." : "Email changes currently require support verification."}</p></div><Field label={isRtl ? "الهاتف" : "Phone"} value={form.phone} onChange={(phone) => setForm({ ...form, phone })} /></div>{message ? <p className="mt-4 text-sm font-bold text-slate-600">{message}</p> : null}<Button className="mt-5 h-11 rounded-2xl bg-[hsl(var(--primary))] font-black text-white" disabled={saving} onClick={async () => { setSaving(true); setMessage(""); try { const updated = await platformApi.updateMe(form); window.localStorage.setItem("stylish-holidays-admin-user", JSON.stringify(updated)); onUserUpdate((current: any) => ({ ...current, ...updated, customer_full_name: updated.customer_full_name || updated.name || current?.customer_full_name })); setMessage(isRtl ? "تم حفظ الملف الشخصي." : "Profile saved.") } catch (error) { setMessage(error instanceof Error ? error.message : "Save failed") } finally { setSaving(false) } }}>{saving ? (isRtl ? "جاري الحفظ..." : "Saving...") : (isRtl ? "حفظ" : "Save")}</Button></section>
 }
 
 function Security() {
@@ -987,7 +987,7 @@ function Reviews() {
 
 function Support() {
   const { isRtl } = useLanguage()
-  return <section className={cardClass("p-5")}><h2 className="text-2xl font-black">{isRtl ? "الدعم" : "Support"}</h2><p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">{isRtl ? "لأي استفسار عن التسجيلات أو التذاكر أو الشهادات، استخدم صفحة التواصل الرسمية وسيتم إنشاء رقم متابعة." : "For registration, ticket, or certificate support, use the official Contact page and you will receive a support reference."}</p><div className="mt-5 grid gap-3 sm:grid-cols-2"><DetailItem label={isRtl ? "البريد" : "Email"} value="info@stylish-holidays.com" ltr /><DetailItem label={isRtl ? "الدعم" : "Support"} value={isRtl ? "متابعة عبر صفحة التواصل" : "Handled through the Contact workflow"} /></div><Button asChild className="mt-5 h-11 rounded-2xl bg-[hsl(var(--primary))] font-black text-white"><Link href="/contact">{isRtl ? "إرسال استفسار" : "Submit inquiry"} <ExternalLink className="h-4 w-4" /></Link></Button></section>
+  return <section className={cardClass("p-5")}><h2 className="text-2xl font-black">{isRtl ? "الدعم" : "Support"}</h2><p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">{isRtl ? "لأي استفسار عن التسجيلات أو التذاكر أو الشهادات، استخدم صفحة التواصل الرسمية وسيتم إنشاء رقم متابعة." : "For registration, ticket, or certificate support, use the official Contact page and you will receive a support reference."}</p><div className="mt-5 grid gap-3 sm:grid-cols-2"><DetailItem label={isRtl ? "البريد" : "Email"} value="info@stylishmice.com" ltr /><DetailItem label={isRtl ? "الدعم" : "Support"} value={isRtl ? "متابعة عبر صفحة التواصل" : "Handled through the Contact workflow"} /></div><Button asChild className="mt-5 h-11 rounded-2xl bg-[hsl(var(--primary))] font-black text-white"><Link href="/contact">{isRtl ? "إرسال استفسار" : "Submit inquiry"} <ExternalLink className="h-4 w-4" /></Link></Button></section>
 }
 
 function Summary({ icon: Icon, label, value, href }: { icon: any; label: string; value: number; href: string }) {

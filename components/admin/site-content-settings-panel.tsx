@@ -163,7 +163,7 @@ type SiteContentSettings = {
   legalPages: LegalPagesSettings
 }
 
-const storageKey = "stylish-events-site-content-settings"
+const storageKey = "stylish-holidays-site-content-settings"
 
 type WebsiteContentPageTab = "homepage" | "about" | "contact" | "upcoming" | "previous" | "legal" | "footer" | "menu" | "seo"
 type HomepageSectionTab = "hero" | "features" | "benefits" | "available-events" | "events-inspire" | "request-setup" | "faq" | "final-cta"
@@ -214,8 +214,8 @@ function hasCorruptedTree(value: unknown): boolean {
 
 const defaultSettings: SiteContentSettings = {
   homepage: {
-    eyebrowEn: "Stylish Events Platform",
-    eyebrowAr: "منصة Stylish Events",
+    eyebrowEn: "Stylish Holidays Platform",
+    eyebrowAr: "منصة Stylish Holidays",
     titleEn: "Professional event booking, tickets, and attendance operations",
     titleAr: "نظام احترافي لإدارة حجوزات وتذاكر وحضور الفعاليات",
     subtitleEn: "Create event pages, sell tickets by pricing periods, scan QR codes, and deliver certificates from one connected system.",
@@ -264,8 +264,8 @@ const defaultSettings: SiteContentSettings = {
     footerSupportTitleAr: "الدعم",
     footerCompanyTitleEn: "",
     footerCompanyTitleAr: "",
-    footerCopyrightEn: "© 2026 Stylish Events. All rights reserved.",
-    footerCopyrightAr: "© 2026 Stylish Events. جميع الحقوق محفوظة.",
+    footerCopyrightEn: "© 2026 Stylish Holidays. All rights reserved.",
+    footerCopyrightAr: "© 2026 Stylish Holidays. جميع الحقوق محفوظة.",
     eventsInspireSection: DEFAULT_EVENTS_INSPIRE_SECTION,
   },
   featuresSection: DEFAULT_FEATURES_SECTION,
@@ -356,10 +356,10 @@ const defaultSettings: SiteContentSettings = {
   footerLegalLinks: DEFAULT_FOOTER_LEGAL_LINKS,
   menu: publicNavLinks.filter((item) => item.href !== "/why-us").map((item, index) => ({ id: `page-${index + 1}`, ...item, visible: true })),
   seo: {
-    metaTitle: "Stylish Events | Event Booking & Management Platform",
-    metaDescription: "Stylish Events provides event booking, ticketing, QR check-in, certificates, and event operations for conferences and exhibitions.",
-    canonicalUrl: "https://stylish-events.com",
-    keywords: "event booking, ticketing, conference management, QR check-in, certificates, Stylish Events",
+    metaTitle: "Stylish Holidays | Event Booking & Management Platform",
+    metaDescription: "Stylish Holidays provides event booking, ticketing, QR check-in, certificates, and event operations for conferences and exhibitions.",
+    canonicalUrl: "https://stylishmice.com",
+    keywords: "event booking, ticketing, conference management, QR check-in, certificates, Stylish Holidays",
     ogImage: "/og-image.jpg",
     robotsIndex: true,
     robotsFollow: true,
@@ -889,7 +889,7 @@ export function SiteContentSettingsPanel() {
       setSettings(normalized)
       setSavedSettingsSnapshot(JSON.stringify(normalized))
       localStorage.setItem(storageKey, JSON.stringify(normalized))
-      window.dispatchEvent(new Event("stylish-events-site-content-settings-updated"))
+      window.dispatchEvent(new Event("stylish-holidays-site-content-settings-updated"))
       setSaveState("saved")
       toast.success(isAr ? "تم حفظ إعدادات الموقع" : "Website settings saved", { description: isAr ? "تم حفظ المحتوى والقائمة والسيو." : "Content, menu, and SEO are saved." })
     } catch (error) {

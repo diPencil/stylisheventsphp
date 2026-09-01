@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 
 # Sitemaps
-Sitemap: https://stylish-events.com/sitemap.xml
+Sitemap: https://stylishmice.com/sitemap.xml

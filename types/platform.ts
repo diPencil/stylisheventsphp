@@ -7,9 +7,9 @@ export type PlatformThemeSettings = {
   fontFamilyAr: string
   buttonStyle: "solid" | "soft" | "outline"
   density: "comfortable" | "compact"
-  logoEnUrl: string
-  logoArUrl: string
-  faviconUrl: string
+  logoEnUrl: string | null
+  logoArUrl: string | null
+  faviconUrl: string | null
   footerLocationEn: string
   footerLocationAr: string
   footerMobile: string

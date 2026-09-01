@@ -40,7 +40,7 @@ export function PortalShell({ role, children }: PortalShellProps) {
             </div>
             <div>
               <p className="font-extrabold">{roleCopy[role][language]}</p>
-              <p className="text-xs text-muted-foreground">Stylish Events</p>
+              <p className="text-xs text-muted-foreground">Stylish Holidays</p>
             </div>
           </Link>
           <nav className="hidden items-center gap-1 md:flex">

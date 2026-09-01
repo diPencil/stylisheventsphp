@@ -3,7 +3,7 @@ import { CreateAccountGuidePageContent } from "@/components/public/supporting-pa
 
 export const metadata: Metadata = {
   title: "How to Create an Account",
-  description: "Step-by-step guide for creating a Stylish Events customer account and accessing the customer dashboard.",
+  description: "Step-by-step guide for creating a Stylish Holidays customer account and accessing the customer dashboard.",
   alternates: { canonical: "/how-to-create-account" },
 }
 

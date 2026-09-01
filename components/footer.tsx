@@ -4,8 +4,7 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { Facebook, Instagram, Linkedin, Mail, MapPin, Music2, Phone, Youtube } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
-import { apiAssetUrl } from "@/lib/platform-api"
-import { defaultPlatformTheme } from "@/lib/platform-theme"
+import { defaultPlatformTheme, platformThemeAssetUrl } from "@/lib/platform-theme"
 import { DEFAULT_FOOTER_LEGAL_LINKS, DEFAULT_FOOTER_LINKS, normalizeFooterLegalLinks, normalizeFooterLinks } from "@/lib/site-content-defaults"
 
 const defaultSocialLinks = [
@@ -87,7 +86,7 @@ export function Footer() {
   const footerWhatsapp = whatsappCard?.linkValue || whatsappCard?.value || themeSettings?.footerWhatsapp || defaultPlatformTheme.footerWhatsapp
   const footerLocationHref = addressCard?.linkValue
   const contactEmail = useMemo(() => {
-    return emailCard?.linkValue || emailCard?.value || "info@stylish-holidays.com"
+    return emailCard?.linkValue || emailCard?.value || "info@stylishmice.com"
   }, [emailCard])
 
   const footerLinks = useMemo(() => normalizeFooterLinks(siteContent?.footerLinks || DEFAULT_FOOTER_LINKS), [siteContent])
@@ -162,7 +161,7 @@ export function Footer() {
             <Link href="/" className="mb-6 flex w-fit items-center">
               <div className="relative h-11 w-40 overflow-hidden md:h-12 md:w-44">
                 <img
-                  src={isRtl ? (themeSettings?.logoArUrl ? apiAssetUrl(themeSettings.logoArUrl) : "/LogoAR.png") : (themeSettings?.logoEnUrl ? apiAssetUrl(themeSettings.logoEnUrl) : "/logo.png")}
+                  src={platformThemeAssetUrl(isRtl ? themeSettings?.logoArUrl : themeSettings?.logoEnUrl, isRtl ? "/LogoAR.png" : "/logo.png")}
                   alt={t("common.brand")}
                   onError={(event) => {
                     event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png"

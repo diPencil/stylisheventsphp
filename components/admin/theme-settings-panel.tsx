@@ -15,8 +15,8 @@ import { ConfirmAction } from "@/components/admin/confirm-action"
 import { ImageUrlDropzone } from "@/components/admin/image-url-dropzone"
 import { useLanguage } from "@/contexts/language-context"
 import { adminT } from "@/lib/admin-translations"
-import { apiAssetUrl, platformApi } from "@/lib/platform-api"
-import { applyPlatformTheme, cleanPlatformThemeAssets, defaultPlatformTheme, platformFontStack, platformThemeStorageKey } from "@/lib/platform-theme"
+import { platformApi } from "@/lib/platform-api"
+import { applyPlatformTheme, cleanPlatformThemeAssets, defaultPlatformTheme, platformFontStack, platformThemeAssetUrl, platformThemeStorageKey } from "@/lib/platform-theme"
 import type { PlatformThemeSettings } from "@/types/platform"
 
 const defaultTheme = defaultPlatformTheme
@@ -74,18 +74,16 @@ export function ThemeSettingsPanel() {
   const saveTheme = async () => {
     try {
       const saved = await platformApi.updateThemeSettings(theme)
-      const next = { ...defaultTheme, ...(saved || theme) }
+      const next = cleanThemeAssets({ ...defaultTheme, ...(saved || theme) })
       localStorage.setItem(platformThemeStorageKey, JSON.stringify(next))
-      window.dispatchEvent(new CustomEvent("stylish-events-theme-settings-updated", { detail: next }))
+      window.dispatchEvent(new CustomEvent("stylish-holidays-theme-settings-updated", { detail: next }))
       setSaveState("saved")
       toast.success(isAr ? "تم حفظ إعدادات الثيم" : "Theme settings saved", {
         description: isAr ? "تم حفظ إعدادات الثيم." : "Theme settings are saved.",
       })
     } catch (error) {
-      localStorage.setItem(platformThemeStorageKey, JSON.stringify(theme))
-      window.dispatchEvent(new CustomEvent("stylish-events-theme-settings-updated", { detail: theme }))
-      setSaveState("saved")
-      toast.error(isAr ? "تم الحفظ محليا فقط" : "Saved locally only", {
+      setSaveState("idle")
+      toast.error(isAr ? "فشل حفظ الثيم" : "Theme save failed", {
         description: error instanceof Error ? error.message : (isAr ? "واجهة إعدادات الباك إند غير متاحة حاليا." : "Backend settings API is not reachable."),
       })
     }
@@ -123,7 +121,7 @@ export function ThemeSettingsPanel() {
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <ImageUrlDropzone
                 label={adminT(language, "settings.englishLogo")}
-                value={theme.logoEnUrl}
+                value={theme.logoEnUrl || ""}
                 onChange={(value) => updateTheme("logoEnUrl", value)}
                 placeholder="/logo.png"
                 className="md:col-span-2"
@@ -131,13 +129,13 @@ export function ThemeSettingsPanel() {
               />
               <ImageUrlDropzone
                 label={adminT(language, "settings.arabicLogo")}
-                value={theme.logoArUrl}
+                value={theme.logoArUrl || ""}
                 onChange={(value) => updateTheme("logoArUrl", value)}
                 placeholder="/LogoAR.png"
               />
               <ImageUrlDropzone
                 label={adminT(language, "settings.favicon")}
-                value={theme.faviconUrl}
+                value={theme.faviconUrl || ""}
                 onChange={(value) => updateTheme("faviconUrl", value)}
                 placeholder="/favicon.png"
               />
@@ -338,15 +336,15 @@ export function ThemeSettingsPanel() {
           <div className="space-y-4 rounded-[24px] bg-slate-50 p-4" style={{ fontFamily: platformFontStack(theme.fontFamily) }}>
             <div className="flex items-center justify-between gap-3 rounded-[20px] bg-white p-3 shadow-sm">
               <img
-                src={apiAssetUrl(language === "ar" ? theme.logoArUrl : theme.logoEnUrl) || (language === "ar" ? "/LogoAR.png" : "/logo.png")}
-                alt={isAr ? "معاينة لوجو Stylish Events" : "Stylish Events logo preview"}
+                src={platformThemeAssetUrl(language === "ar" ? theme.logoArUrl : theme.logoEnUrl, language === "ar" ? "/LogoAR.png" : "/logo.png")}
+                alt={isAr ? "معاينة لوجو Stylish Holidays" : "Stylish Holidays logo preview"}
                 onError={(event) => {
                   event.currentTarget.src = language === "ar" ? "/LogoAR.png" : "/logo.png"
                 }}
                 className="h-10 max-w-[190px] object-contain"
               />
               <img
-                src={apiAssetUrl(theme.faviconUrl) || "/favicon.png"}
+                src={platformThemeAssetUrl(theme.faviconUrl, "/favicon.png")}
                 alt={isAr ? "معاينة أيقونة الموقع" : "Favicon preview"}
                 onError={(event) => {
                   event.currentTarget.src = "/favicon.png"
@@ -355,7 +353,7 @@ export function ThemeSettingsPanel() {
               />
             </div>
             <div className="min-h-[140px] rounded-[24px] p-5 text-white shadow-[0_18px_35px_rgba(15,23,42,0.14)]" style={{ background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})` }}>
-              <p className="text-sm font-extrabold opacity-80">Stylish Events</p>
+              <p className="text-sm font-extrabold opacity-80">Stylish Holidays</p>
               <p className="mt-3 max-w-[260px] text-2xl font-extrabold leading-tight">{language === "ar" ? "القمة الرقمية" : "Digital Summit"}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
