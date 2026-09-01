@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Hash;
+use App\Hashing\ScryptHasher;
 use Tests\TestCase;
 
 class ScryptHasherTest extends TestCase
@@ -31,7 +32,7 @@ class ScryptHasherTest extends TestCase
     public function test_make_generates_valid_scrypt_hash()
     {
         $password = 'secret-password';
-        $hashed = Hash::make($password);
+        $hashed = (new ScryptHasher())->make($password);
 
         $this->assertStringStartsWith('scrypt:', $hashed);
 
@@ -40,7 +41,15 @@ class ScryptHasherTest extends TestCase
         $this->assertEquals(32, strlen($parts[1]), 'Salt should be 32 hex characters');
         $this->assertEquals(128, strlen($parts[2]), 'Derived key should be 128 hex characters (64 bytes)');
 
-        $this->assertTrue(Hash::check($password, $hashed));
-        $this->assertFalse(Hash::check('wrong-password', $hashed));
+        $this->assertTrue((new ScryptHasher())->check($password, $hashed));
+        $this->assertFalse((new ScryptHasher())->check('wrong-password', $hashed));
+    }
+
+    public function test_flexible_hasher_uses_bcrypt_for_new_hashes()
+    {
+        $hashed = Hash::make('secret-password');
+
+        $this->assertStringStartsWith('$2y$', $hashed);
+        $this->assertTrue(Hash::check('secret-password', $hashed));
     }
 }
