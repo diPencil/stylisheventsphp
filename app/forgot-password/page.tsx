@@ -104,7 +104,7 @@ export default function ForgotPasswordPage() {
   )
 
   return (
-    <main className="relative min-h-dvh overflow-x-hidden bg-slate-50 text-slate-950 lg:overflow-hidden" dir={isRtl ? "rtl" : "ltr"} style={themeStyle}>
+    <main className="relative min-h-dvh overflow-hidden bg-slate-50 text-slate-950" dir={isRtl ? "rtl" : "ltr"} style={themeStyle}>
       <div
         className="absolute inset-0"
         style={{
