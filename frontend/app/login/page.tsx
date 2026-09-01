@@ -182,7 +182,7 @@ export default function Login() {
             <p className="text-sm font-semibold uppercase tracking-[0.32em]" style={{ color: "color-mix(in srgb, var(--login-primary) 42%, white)" }}>
               {text.future}
             </p>
-            <AuthBrandHeadline isRtl={isRtl} color="var(--login-secondary)" />
+            <AuthBrandHeadline isRtl={isRtl} color="var(--login-secondary)" stackRtl />
             <p className="mt-3 text-xs font-semibold uppercase tracking-[0.42em]" style={{ color: "color-mix(in srgb, var(--login-primary) 26%, white)" }}>
               {text.brandLine}
             </p>
