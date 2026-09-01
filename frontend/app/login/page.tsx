@@ -139,7 +139,7 @@ export default function Login() {
   )
 
   return (
-    <main className="relative min-h-dvh overflow-x-hidden bg-slate-50 text-slate-950 lg:overflow-hidden" dir={isRtl ? "rtl" : "ltr"} style={themeStyle}>
+    <main className="relative min-h-dvh overflow-hidden bg-slate-50 text-slate-950" dir={isRtl ? "rtl" : "ltr"} style={themeStyle}>
       <div
         className="absolute inset-0"
         style={{
@@ -205,11 +205,10 @@ export default function Login() {
                   <span className="block text-right">
                     <span className="block">تسجيل الدخول إلى</span>
                     <span
-                      className="mt-1 block text-[36px] leading-[0.75] sm:text-[44px]"
+                      className="mt-1 block whitespace-nowrap text-[30px] leading-[1.1] sm:text-[36px]"
                       style={{ fontFamily: '"Vibes", "Cairo", Tahoma, sans-serif' }}
                     >
-                      <span className="block">ستايلش</span>
-                      <span className="block">هوليدايز</span>
+                      ستايلش هوليدايز
                     </span>
                   </span>
                 ) : (

@@ -255,7 +255,7 @@ export default function SignUp() {
   const activeDescription = text[`${activeKey}Text` as const]
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden text-slate-950" dir={isRtl ? "rtl" : "ltr"} style={pageStyle}>
+    <main className="relative min-h-screen overflow-hidden text-slate-950" dir={isRtl ? "rtl" : "ltr"} style={pageStyle}>
       <div
         className="absolute inset-0 min-h-full"
         style={{
