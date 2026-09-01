@@ -5,29 +5,29 @@ $BackendPath = Join-Path $ProjectRoot "backend"
 $FrontendPath = Join-Path $ProjectRoot "frontend"
 
 function Stop-StylishJobs {
-  Get-Job -Name "StylishEventsBackend", "StylishEventsFrontend" -ErrorAction SilentlyContinue |
+  Get-Job -Name "StylishHolidaysBackend", "StylishHolidaysFrontend" -ErrorAction SilentlyContinue |
     Stop-Job -ErrorAction SilentlyContinue
-  Get-Job -Name "StylishEventsBackend", "StylishEventsFrontend" -ErrorAction SilentlyContinue |
+  Get-Job -Name "StylishHolidaysBackend", "StylishHolidaysFrontend" -ErrorAction SilentlyContinue |
     Remove-Job -Force -ErrorAction SilentlyContinue
 }
 
 Stop-StylishJobs
 
 Write-Host ""
-Write-Host "Starting Stylish Events locally..." -ForegroundColor Cyan
+Write-Host "Starting Stylish Holidays locally..." -ForegroundColor Cyan
 Write-Host "Backend:  http://localhost:5000" -ForegroundColor Gray
 Write-Host "Frontend: http://localhost:3002" -ForegroundColor Gray
 Write-Host "Mode:     frontend dev server, backend API server" -ForegroundColor Gray
 Write-Host ""
 
-$backendJob = Start-Job -Name "StylishEventsBackend" -ScriptBlock {
+$backendJob = Start-Job -Name "StylishHolidaysBackend" -ScriptBlock {
   Set-Location $using:BackendPath
   php artisan serve --host=127.0.0.1 --port=5000
 }
 
 Start-Sleep -Seconds 3
 
-$frontendJob = Start-Job -Name "StylishEventsFrontend" -ScriptBlock {
+$frontendJob = Start-Job -Name "StylishHolidaysFrontend" -ScriptBlock {
   Set-Location $using:FrontendPath
   npm.cmd run dev
 }

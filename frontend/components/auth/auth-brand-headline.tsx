@@ -19,7 +19,7 @@ export function AuthBrandHeadline({ isRtl, color, size = "hero" }: AuthBrandHead
         letterSpacing: "0",
       }}
     >
-      {isRtl ? "ستايلش ايفينتس" : "Stylish Events"}
+      {isRtl ? "ستايلش هوليدايز" : "Stylish Holidays"}
     </h1>
   )
 }

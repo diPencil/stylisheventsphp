@@ -166,7 +166,7 @@ export function TicketsManager() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
-    link.download = "stylish-events-ticket-buyers.csv"
+    link.download = "stylish-holidays-ticket-buyers.csv"
     document.body.appendChild(link)
     link.click()
     link.remove()

@@ -1,7 +1,7 @@
 import type { PlatformThemeSettings } from "@/types/platform"
-import { cacheableBackendAssetUrl } from "@/lib/asset-url"
+import { backendAssetUrl, cacheableBackendAssetUrl } from "@/lib/asset-url"
 
-export const platformThemeStorageKey = "stylish-events-theme-settings"
+export const platformThemeStorageKey = "stylish-holidays-theme-settings"
 
 export const defaultPlatformTheme: PlatformThemeSettings = {
   primaryColor: "#EA580C",
@@ -77,9 +77,9 @@ export function platformFontStack(fontFamily: string) {
 export function cleanPlatformThemeAssets(theme: PlatformThemeSettings): PlatformThemeSettings {
   return {
     ...theme,
-    logoEnUrl: /^blob:/i.test(theme.logoEnUrl) ? defaultPlatformTheme.logoEnUrl : theme.logoEnUrl,
-    logoArUrl: /^blob:/i.test(theme.logoArUrl) ? defaultPlatformTheme.logoArUrl : theme.logoArUrl,
-    faviconUrl: /^blob:/i.test(theme.faviconUrl) ? defaultPlatformTheme.faviconUrl : theme.faviconUrl,
+    logoEnUrl: /^blob:/i.test(theme.logoEnUrl || "") ? defaultPlatformTheme.logoEnUrl : theme.logoEnUrl,
+    logoArUrl: /^blob:/i.test(theme.logoArUrl || "") ? defaultPlatformTheme.logoArUrl : theme.logoArUrl,
+    faviconUrl: /^blob:/i.test(theme.faviconUrl || "") ? defaultPlatformTheme.faviconUrl : theme.faviconUrl,
   }
 }
 
@@ -87,41 +87,12 @@ export function normalizePlatformTheme(theme?: Partial<PlatformThemeSettings> | 
   return cleanPlatformThemeAssets({ ...defaultPlatformTheme, ...(theme || {}) })
 }
 
-function hasThemePayload(theme?: Partial<PlatformThemeSettings> | null) {
-  return Boolean(theme && Object.keys(theme).length)
-}
-
-function hasCustomAsset(value?: string | null, defaultValue?: string) {
-  const normalized = value?.trim()
-  return Boolean(normalized && normalized !== defaultValue && !/^blob:/i.test(normalized))
-}
-
 export function resolvePlatformTheme(
   remote?: Partial<PlatformThemeSettings> | null,
   current: PlatformThemeSettings = defaultPlatformTheme,
 ) {
-  if (!hasThemePayload(remote)) return current
-
-  const next = normalizePlatformTheme(remote)
-  const currentHasCustomLogo =
-    hasCustomAsset(current.logoEnUrl, defaultPlatformTheme.logoEnUrl) ||
-    hasCustomAsset(current.logoArUrl, defaultPlatformTheme.logoArUrl) ||
-    hasCustomAsset(current.faviconUrl, defaultPlatformTheme.faviconUrl)
-  const remoteHasCustomLogo =
-    hasCustomAsset(next.logoEnUrl, defaultPlatformTheme.logoEnUrl) ||
-    hasCustomAsset(next.logoArUrl, defaultPlatformTheme.logoArUrl) ||
-    hasCustomAsset(next.faviconUrl, defaultPlatformTheme.faviconUrl)
-
-  if (currentHasCustomLogo && !remoteHasCustomLogo) {
-    return {
-      ...next,
-      logoEnUrl: current.logoEnUrl,
-      logoArUrl: current.logoArUrl,
-      faviconUrl: current.faviconUrl,
-    }
-  }
-
-  return next
+  if (!remote || !Object.keys(remote).length) return current
+  return normalizePlatformTheme(remote)
 }
 
 export function readSavedPlatformTheme() {
@@ -169,8 +140,17 @@ export function applyPlatformTheme(theme: PlatformThemeSettings) {
   updateFavicon(normalized.faviconUrl)
 }
 
-function cacheableAssetUrl(value: string) {
-  return cacheableBackendAssetUrl(value) || defaultPlatformTheme.faviconUrl
+function cacheableAssetUrl(value: string | null | undefined) {
+  return cacheableBackendAssetUrl(value || "") || defaultPlatformTheme.faviconUrl || "/favicon.png"
+}
+
+export function platformThemeAssetUrl(value: string | null | undefined, fallback: string) {
+  const normalized = value || ""
+  if (/^\/?uploads\//i.test(normalized)) {
+    return cacheableBackendAssetUrl(normalized) || fallback
+  }
+
+  return backendAssetUrl(normalized) || fallback
 }
 
 function ensureIconLink(rel: string) {
@@ -184,7 +164,7 @@ function ensureIconLink(rel: string) {
   return link
 }
 
-export function updateFavicon(value: string) {
+export function updateFavicon(value: string | null | undefined) {
   if (typeof document === "undefined") return
 
   const href = cacheableAssetUrl(value)

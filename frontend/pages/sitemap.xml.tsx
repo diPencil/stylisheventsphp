@@ -1,8 +1,8 @@
 import type { GetServerSideProps } from "next"
 import { normalizeSiteContentSettings } from "@/lib/site-content-defaults"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.nexrobnb.com"
-const SITE_BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://nexrobnb.com"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.stylishmice.com"
+const SITE_BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://stylishmice.com"
 
 type SitemapRoute = {
   path: string

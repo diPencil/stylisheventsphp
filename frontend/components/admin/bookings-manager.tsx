@@ -139,7 +139,7 @@ export function BookingsManager() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
-    link.download = "stylish-events-orders.csv"
+    link.download = "stylish-holidays-orders.csv"
     document.body.appendChild(link)
     link.click()
     link.remove()

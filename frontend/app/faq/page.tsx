@@ -3,7 +3,7 @@ import { FaqPageContent } from "@/components/public/supporting-pages"
 
 export const metadata: Metadata = {
   title: "Frequently Asked Questions",
-  description: "Answers about Stylish Events customer accounts, login, event registration, tickets, QR check-in, certificates, reviews, and support.",
+  description: "Answers about Stylish Holidays customer accounts, login, event registration, tickets, QR check-in, certificates, reviews, and support.",
   alternates: { canonical: "/faq" },
 }
 

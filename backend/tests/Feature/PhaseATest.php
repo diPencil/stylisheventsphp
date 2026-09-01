@@ -18,7 +18,7 @@ class PhaseATest extends TestCase
 
         $response->assertStatus(200);
         $response->assertExactJson([
-            'message' => 'Stylish Events Backend API',
+            'message' => 'Stylish Holidays Backend API',
             'version' => '1.0.0',
             'status' => 'running',
         ]);

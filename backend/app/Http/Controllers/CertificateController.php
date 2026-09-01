@@ -605,7 +605,7 @@ class CertificateController extends Controller
                     'orderNumber' => $row->order_number,
                     'certificateUrl' => $this->frontendUrl('/dashboard/certificates'),
                     'locale' => $locale,
-                    'brandName' => config('mail.from.name') ?: config('app.name', 'Stylish Events'),
+                    'brandName' => config('mail.from.name') ?: config('app.name', 'Stylish Holidays'),
                 ];
 
                 try {

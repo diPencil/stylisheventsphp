@@ -182,7 +182,7 @@ function GalleryTile({
       {shouldRenderImage ? (
         <img
           src={src}
-          alt={alt || "Stylish Events gallery image"}
+          alt={alt || "Stylish Holidays gallery image"}
           loading="lazy"
           onError={onError}
           className={cn("h-full w-full object-cover", focalPositionClass[image.focalPosition] || "object-center")}

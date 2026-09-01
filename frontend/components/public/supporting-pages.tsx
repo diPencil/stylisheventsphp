@@ -166,8 +166,8 @@ export function ReceptionAndFarewellPageContent() {
                 eyebrow={{ en: "Hospitality operations", ar: "تشغيل الضيافة" }}
                 title={{ en: "A smoother guest journey on event day", ar: "رحلة حضور أكثر سلاسة يوم الفعالية" }}
                 description={{
-                  en: "Stylish Events supports event teams with reception, guidance, and departure coordination so attendees feel welcomed, informed, and looked after throughout the venue experience.",
-                  ar: "تدعم Stylish Events فرق الفعاليات في الاستقبال والإرشاد وتنسيق المغادرة حتى يشعر الحضور بالترحيب والوضوح والمتابعة طوال تجربة الموقع.",
+                  en: "Stylish Holidays supports event teams with reception, guidance, and departure coordination so attendees feel welcomed, informed, and looked after throughout the venue experience.",
+                  ar: "تدعم Stylish Holidays فرق الفعاليات في الاستقبال والإرشاد وتنسيق المغادرة حتى يشعر الحضور بالترحيب والوضوح والمتابعة طوال تجربة الموقع.",
                 }}
               />
               <div className="grid gap-3">
@@ -220,7 +220,7 @@ export function FaqPageContent() {
     { questionEn: "Can I attend with the QR ticket?", questionAr: "هل يمكنني الحضور باستخدام QR؟", answerEn: "Yes, when your ticket is active, event staff can scan the QR at check-in. A QR that has already been checked in cannot be reused.", answerAr: "نعم، عندما تكون تذكرتك نشطة يستطيع فريق الفعالية فحص QR عند الدخول. لا يمكن استخدام QR تم تسجيل حضوره مرة أخرى." },
     { questionEn: "When can I receive certificates?", questionAr: "متى أحصل على الشهادة؟", answerEn: "Certificates are available only for events that support certificates and after the required attendance or approval conditions are met.", answerAr: "تتاح الشهادات فقط للفعاليات التي تدعم الشهادات وبعد تحقق شروط الحضور أو الاعتماد المطلوبة." },
     { questionEn: "Who can submit a review?", questionAr: "من يمكنه إرسال تقييم؟", answerEn: "Review eligibility depends on the event lifecycle and your registration or attendance status. If eligible, the event page or dashboard shows the available review action.", answerAr: "تعتمد أهلية التقييم على دورة الفعالية وحالة تسجيلك أو حضورك. إذا كنت مؤهلا سيظهر إجراء التقييم في صفحة الفعالية أو لوحة العميل." },
-    { questionEn: "How do I contact the Stylish Events team?", questionAr: "كيف أتواصل مع فريق Stylish Events؟", answerEn: "Use the Contact page for event planning, technical support, registration questions, partnerships, or existing booking help.", answerAr: "استخدم صفحة تواصل معنا لطلبات تنظيم الفعاليات أو الدعم الفني أو أسئلة التسجيل أو الشراكات أو متابعة حجز قائم." },
+    { questionEn: "How do I contact the Stylish Holidays team?", questionAr: "كيف أتواصل مع فريق Stylish Holidays؟", answerEn: "Use the Contact page for event planning, technical support, registration questions, partnerships, or existing booking help.", answerAr: "استخدم صفحة تواصل معنا لطلبات تنظيم الفعاليات أو الدعم الفني أو أسئلة التسجيل أو الشراكات أو متابعة حجز قائم." },
     { questionEn: "Can I update my account information?", questionAr: "هل يمكنني تحديث بيانات حسابي؟", answerEn: "Yes, customers can use the profile area in the dashboard for supported account details such as profile and avatar information.", answerAr: "نعم، يمكن للعملاء استخدام قسم الملف الشخصي في لوحة العميل لتحديث البيانات المدعومة مثل بيانات الملف والصورة الشخصية." },
   ]
 
@@ -237,7 +237,7 @@ export function FaqPageContent() {
           <SectionIntro
             eyebrow={{ en: "Support", ar: "الدعم" }}
             title={{ en: "Answers based on the actual platform workflow", ar: "إجابات مبنية على سير عمل المنصة الفعلي" }}
-            description={{ en: "These questions cover the public event journey and customer dashboard experience currently available in Stylish Events.", ar: "تغطي هذه الأسئلة رحلة الفعاليات العامة وتجربة لوحة العميل المتاحة حاليا في Stylish Events." }}
+            description={{ en: "These questions cover the public event journey and customer dashboard experience currently available in Stylish Holidays.", ar: "تغطي هذه الأسئلة رحلة الفعاليات العامة وتجربة لوحة العميل المتاحة حاليا في Stylish Holidays." }}
           />
           <div className="space-y-4">
             {faqs.map((faq) => (

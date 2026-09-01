@@ -391,8 +391,8 @@ class PhaseGTest extends TestCase
     public function test_certificate_email_uses_configured_brand_and_frontend_url()
     {
         Mail::fake();
-        config()->set('app.frontend_url', 'https://nexrobnb.com');
-        config()->set('mail.from.name', 'Stylish Events');
+        config()->set('app.frontend_url', 'https://stylishmice.com');
+        config()->set('mail.from.name', 'Stylish Holidays');
 
         $recipient = $this->createCertificateRecipient([
             'name' => 'Production Link Owner',
@@ -410,9 +410,9 @@ class PhaseGTest extends TestCase
         Mail::assertSent(CertificateDeliveryMail::class, function (CertificateDeliveryMail $mail) {
             $envelope = $mail->envelope();
 
-            return $mail->certificate['brandName'] === 'Stylish Events'
-                && $mail->certificate['certificateUrl'] === 'https://nexrobnb.com/dashboard/certificates'
-                && $envelope->from->name === 'Stylish Events'
+            return $mail->certificate['brandName'] === 'Stylish Holidays'
+                && $mail->certificate['certificateUrl'] === 'https://stylishmice.com/dashboard/certificates'
+                && $envelope->from->name === 'Stylish Holidays'
                 && $envelope->subject === 'Your Certificate ' . "\u{2013}" . ' Production URL Event'
                 && !str_contains($mail->certificate['certificateUrl'], 'loca.lt')
                 && !str_contains($mail->certificate['certificateUrl'], 'localhost')

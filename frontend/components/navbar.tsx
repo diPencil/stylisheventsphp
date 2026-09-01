@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button"
 import { AnimatedCtaButton } from "@/components/ui/animated-cta-button"
 import { useLanguage } from "@/contexts/language-context"
 import { useAuthSession } from "@/lib/auth-session"
-import { apiAssetUrl, platformApi } from "@/lib/platform-api"
-import { defaultPlatformTheme, normalizePlatformTheme, readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
+import { platformApi } from "@/lib/platform-api"
+import { defaultPlatformTheme, normalizePlatformTheme, platformThemeAssetUrl, readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
 import { publicNavLinks } from "@/lib/public-pages-content"
 
 type PublicMenuLink = {
@@ -20,7 +20,7 @@ type PublicMenuLink = {
   visible?: boolean
 }
 
-const siteMenuStorageKey = "stylish-events-site-content-settings"
+const siteMenuStorageKey = "stylish-holidays-site-content-settings"
 const pageHrefs = ["/upcoming-events", "/previous-events", "/about", "/contact"]
 const arabicNavLabels: Record<string, string> = {
   "/": "\u0627\u0644\u0631\u0626\u064a\u0633\u064a\u0629",
@@ -40,8 +40,8 @@ function hasCorruptedTree(value: unknown): boolean {
   return false
 }
 
-function cleanLogoUrl(value: string, fallback: string) {
-  return /^blob:/i.test(value) ? fallback : value
+function cleanLogoUrl(value: string | null | undefined, fallback: string) {
+  return /^blob:/i.test(value || "") ? fallback : value
 }
 
 function brandAssetsFromTheme(theme: any) {
@@ -100,8 +100,8 @@ export function Navbar() {
       const detail = event instanceof CustomEvent ? event.detail : null
       if (detail) applyBrandAssets(detail)
     }
-    window.addEventListener("stylish-events-theme-settings-updated", syncTheme)
-    return () => window.removeEventListener("stylish-events-theme-settings-updated", syncTheme)
+    window.addEventListener("stylish-holidays-theme-settings-updated", syncTheme)
+    return () => window.removeEventListener("stylish-holidays-theme-settings-updated", syncTheme)
   }, [])
 
   useEffect(() => {
@@ -158,8 +158,8 @@ export function Navbar() {
         <Link href="/" className="flex items-center gap-2.5">
           <div className="relative overflow-hidden transition-all duration-300 h-9 w-32 md:h-12 md:w-44">
             <img
-              src={apiAssetUrl(isRtl ? brandAssets.logoArUrl : brandAssets.logoEnUrl) || (isRtl ? "/LogoAR.png" : "/logo.png")}
-              alt="Stylish Events Services"
+              src={platformThemeAssetUrl(isRtl ? brandAssets.logoArUrl : brandAssets.logoEnUrl, isRtl ? "/LogoAR.png" : "/logo.png")}
+              alt="Stylish Holidays Services"
               onError={(event) => {
                 event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png"
               }}
@@ -237,8 +237,8 @@ export function Navbar() {
               <div className="flex items-center justify-between border-b border-slate-100 p-5">
                 <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="relative h-11 w-40 overflow-hidden">
                   <img
-                    src={apiAssetUrl(isRtl ? brandAssets.logoArUrl : brandAssets.logoEnUrl) || (isRtl ? "/LogoAR.png" : "/logo.png")}
-                    alt="Stylish Events"
+                    src={platformThemeAssetUrl(isRtl ? brandAssets.logoArUrl : brandAssets.logoEnUrl, isRtl ? "/LogoAR.png" : "/logo.png")}
+                    alt="Stylish Holidays"
                     onError={(event) => {
                       event.currentTarget.src = isRtl ? "/LogoAR.png" : "/logo.png"
                     }}

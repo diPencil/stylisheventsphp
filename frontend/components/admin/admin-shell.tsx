@@ -45,7 +45,7 @@ import { adminT } from "@/lib/admin-translations"
 import { canAccessAdminRoute, isAllowed, isStaffRole, userPermissionKeys, type PermissionKey, type PermissionRule } from "@/lib/admin-permissions"
 import { notifyAuthSessionChanged } from "@/lib/auth-session"
 import { apiAssetUrl, platformApi } from "@/lib/platform-api"
-import { readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
+import { platformThemeAssetUrl, readSavedPlatformTheme, resolvePlatformTheme } from "@/lib/platform-theme"
 import { cn } from "@/lib/utils"
 import type { PlatformThemeSettings } from "@/types/platform"
 
@@ -67,8 +67,8 @@ const defaultTheme: PlatformThemeSettings = {
   footerWhatsapp: "+2 0100 607 1661",
 }
 
-const profileStorageKey = "stylish-events-admin-profile"
-const adminTokenKeys = ["stylish-events-admin-token", "stylish-events-auth-token", "stylish-events-token", "stylish-events-admin-user"]
+const profileStorageKey = "stylish-holidays-admin-profile"
+const adminTokenKeys = ["stylish-holidays-admin-token", "stylish-holidays-auth-token", "stylish-holidays-token", "stylish-holidays-admin-user"]
 
 type AdminProfile = {
   name: string
@@ -112,7 +112,7 @@ export function useAdminPermissions() {
 
 const defaultProfile: AdminProfile = {
   name: "Super Admin",
-  email: "admin@stylish-events.com",
+  email: "admin@stylishmice.com",
   phone: "+20 100 000 0000",
   username: "superadmin",
   password: "",
@@ -143,9 +143,9 @@ function readSavedProfile() {
 function readAdminToken() {
   if (typeof window === "undefined") return ""
   return (
-    window.localStorage.getItem("stylish-events-admin-token") ||
-    window.localStorage.getItem("stylish-events-auth-token") ||
-    window.localStorage.getItem("stylish-events-token") ||
+    window.localStorage.getItem("stylish-holidays-admin-token") ||
+    window.localStorage.getItem("stylish-holidays-auth-token") ||
+    window.localStorage.getItem("stylish-holidays-token") ||
     ""
   )
 }
@@ -216,9 +216,9 @@ function readSavedTheme() {
 function cleanThemeAssets(theme: PlatformThemeSettings): PlatformThemeSettings {
   return {
     ...theme,
-    logoEnUrl: /^blob:/i.test(theme.logoEnUrl) ? defaultTheme.logoEnUrl : theme.logoEnUrl,
-    logoArUrl: /^blob:/i.test(theme.logoArUrl) ? defaultTheme.logoArUrl : theme.logoArUrl,
-    faviconUrl: /^blob:/i.test(theme.faviconUrl) ? defaultTheme.faviconUrl : theme.faviconUrl,
+    logoEnUrl: /^blob:/i.test(theme.logoEnUrl || "") ? defaultTheme.logoEnUrl : theme.logoEnUrl,
+    logoArUrl: /^blob:/i.test(theme.logoArUrl || "") ? defaultTheme.logoArUrl : theme.logoArUrl,
+    faviconUrl: /^blob:/i.test(theme.faviconUrl || "") ? defaultTheme.faviconUrl : theme.faviconUrl,
   }
 }
 
@@ -252,7 +252,7 @@ function useAdminTheme() {
         const nextTheme = resolvePlatformTheme(remote, readSavedTheme())
         setTheme(nextTheme)
         applyAdminTheme(nextTheme)
-        window.localStorage.setItem("stylish-events-theme-settings", JSON.stringify(nextTheme))
+        window.localStorage.setItem("stylish-holidays-theme-settings", JSON.stringify(nextTheme))
       })
       .catch(() => undefined)
 
@@ -262,8 +262,8 @@ function useAdminTheme() {
       applyAdminTheme(nextTheme)
     }
 
-    window.addEventListener("stylish-events-theme-settings-updated", syncTheme)
-    return () => window.removeEventListener("stylish-events-theme-settings-updated", syncTheme)
+    window.addEventListener("stylish-holidays-theme-settings-updated", syncTheme)
+    return () => window.removeEventListener("stylish-holidays-theme-settings-updated", syncTheme)
   }, [])
 
   return theme
@@ -293,15 +293,16 @@ const baseSearchItems = [
   { title: "Theme settings", subtitle: "Colors, logos, radius, and font", href: "/admin/settings", type: "Settings" },
 ]
 
-function StylishEventsMark({ collapsed, theme }: { collapsed?: boolean; theme: PlatformThemeSettings }) {
+function StylishHolidaysMark({ collapsed, theme }: { collapsed?: boolean; theme: PlatformThemeSettings }) {
   const { language, isRtl } = useLanguage()
-  const logoSrc = apiAssetUrl(collapsed ? theme.faviconUrl : language === "ar" ? theme.logoArUrl : theme.logoEnUrl) || (collapsed ? "/favicon.png" : language === "ar" ? "/LogoAR.png" : "/logo.png")
+  const fallback = collapsed ? "/favicon.png" : language === "ar" ? "/LogoAR.png" : "/logo.png"
+  const logoSrc = platformThemeAssetUrl(collapsed ? theme.faviconUrl : language === "ar" ? theme.logoArUrl : theme.logoEnUrl, fallback)
 
   return (
     <div className={cn("flex h-16 items-center", collapsed && "justify-center")}>
       <img
         src={logoSrc}
-        alt="Stylish Events"
+        alt="Stylish Holidays"
         onError={(event) => {
           event.currentTarget.src = collapsed ? "/favicon.png" : isRtl ? "/LogoAR.png" : "/logo.png"
         }}
@@ -366,7 +367,7 @@ function SidebarBody({
   return (
     <div className="flex h-full flex-col">
       <div className={cn("px-2 pb-5 pt-2", collapsed && "px-0")}>
-        <StylishEventsMark collapsed={collapsed} theme={theme} />
+        <StylishHolidaysMark collapsed={collapsed} theme={theme} />
         {onToggle && (
           <button
             type="button"
@@ -435,7 +436,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     .slice(0, 6)
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("stylish-events-admin-sidebar-collapsed")
+    const saved = window.localStorage.getItem("stylish-holidays-admin-sidebar-collapsed")
     setSidebarCollapsed(saved === "true")
   }, [])
 
@@ -531,8 +532,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       setProfile(nextProfile)
     }
 
-    window.addEventListener("stylish-events-admin-profile-updated", syncProfile)
-    return () => window.removeEventListener("stylish-events-admin-profile-updated", syncProfile)
+    window.addEventListener("stylish-holidays-admin-profile-updated", syncProfile)
+    return () => window.removeEventListener("stylish-holidays-admin-profile-updated", syncProfile)
   }, [pathname, router])
 
   useEffect(() => {
@@ -546,14 +547,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     setAuthState("unauthenticated")
     setPermissions([])
     setAccessDenied(false)
-    window.dispatchEvent(new CustomEvent("stylish-events-admin-profile-updated", { detail: defaultProfile }))
+    window.dispatchEvent(new CustomEvent("stylish-holidays-admin-profile-updated", { detail: defaultProfile }))
     router.replace("/login")
   }
 
   const toggleSidebar = () => {
     setSidebarCollapsed((current) => {
       const next = !current
-      window.localStorage.setItem("stylish-events-admin-sidebar-collapsed", String(next))
+      window.localStorage.setItem("stylish-holidays-admin-sidebar-collapsed", String(next))
       return next
     })
   }

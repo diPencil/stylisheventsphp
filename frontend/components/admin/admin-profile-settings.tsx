@@ -13,7 +13,7 @@ import { apiAssetUrl, platformApi } from "@/lib/platform-api"
 import { useLanguage } from "@/contexts/language-context"
 import { adminT } from "@/lib/admin-translations"
 
-const profileStorageKey = "stylish-events-admin-profile"
+const profileStorageKey = "stylish-holidays-admin-profile"
 
 function readStoredProfile() {
   if (typeof window === "undefined") return null
@@ -29,7 +29,7 @@ function normalizeProfile(user: any) {
   return {
     id: user?.id,
     name: user?.name || "Super Admin",
-    email: user?.email || "admin@stylish-events.com",
+    email: user?.email || "admin@stylishmice.com",
     phone: user?.phone || "+20 100 000 0000",
     username: user?.username || "superadmin",
     currentPassword: "",
@@ -44,7 +44,7 @@ export function AdminProfileSettings({ section = "profile" }: { section?: "profi
   const [profile, setProfile] = useState({
     id: undefined as number | undefined,
     name: "Super Admin",
-    email: "admin@stylish-events.com",
+    email: "admin@stylishmice.com",
     phone: "+20 100 000 0000",
     username: "superadmin",
     currentPassword: "",
@@ -59,9 +59,9 @@ export function AdminProfileSettings({ section = "profile" }: { section?: "profi
     if (stored) setProfile((current) => ({ ...current, ...normalizeProfile(stored) }))
 
     const token =
-      window.localStorage.getItem("stylish-events-admin-token") ||
-      window.localStorage.getItem("stylish-events-auth-token") ||
-      window.localStorage.getItem("stylish-events-token")
+      window.localStorage.getItem("stylish-holidays-admin-token") ||
+      window.localStorage.getItem("stylish-holidays-auth-token") ||
+      window.localStorage.getItem("stylish-holidays-token")
     if (!token) return
 
     platformApi.me(token)
@@ -69,7 +69,7 @@ export function AdminProfileSettings({ section = "profile" }: { section?: "profi
         const normalized = normalizeProfile(user)
         setProfile((current) => ({ ...current, ...normalized }))
         window.localStorage.setItem(profileStorageKey, JSON.stringify(normalized))
-        window.dispatchEvent(new CustomEvent("stylish-events-admin-profile-updated", { detail: normalized }))
+        window.dispatchEvent(new CustomEvent("stylish-holidays-admin-profile-updated", { detail: normalized }))
       })
       .catch(() => undefined)
   }, [])
@@ -126,7 +126,7 @@ export function AdminProfileSettings({ section = "profile" }: { section?: "profi
       const normalized = normalizeProfile(saved)
       setProfile((current) => ({ ...current, ...normalized }))
       window.localStorage.setItem(profileStorageKey, JSON.stringify(normalized))
-      window.dispatchEvent(new CustomEvent("stylish-events-admin-profile-updated", { detail: normalized }))
+      window.dispatchEvent(new CustomEvent("stylish-holidays-admin-profile-updated", { detail: normalized }))
       toast.success(language === "ar" ? "تم حفظ الحساب" : "Profile saved", { description: language === "ar" ? "تم تحديث صورة وبيانات الحساب في الداشبورد." : "Dashboard avatar and account details were updated." })
     } catch (error) {
       toast.error(language === "ar" ? "فشل حفظ الحساب" : "Profile save failed", { description: error instanceof Error ? error.message : language === "ar" ? "تعذر تحديث الحساب." : "Could not update profile." })

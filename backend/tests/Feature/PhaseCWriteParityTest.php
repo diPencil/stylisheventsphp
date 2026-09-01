@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use App\Hashing\ScryptHasher;
 
@@ -298,6 +299,152 @@ class PhaseCWriteParityTest extends TestCase
                          ]);
         // Admin with theme_identity.manage should succeed (or 403 if that permission is not granted to role)
         $this->assertContains($response->status(), [200, 403]);
+    }
+
+    public function test_theme_payload_over_255_characters_roundtrips_exactly()
+    {
+        Cache::forget('project_settings:theme');
+
+        $payload = [
+            'primaryColor' => '#123456',
+            'secondaryColor' => '#654321',
+            'accentColor' => '#abcdef',
+            'radius' => '18',
+            'fontFamily' => 'Rubik',
+            'fontFamilyAr' => 'Cairo',
+            'buttonStyle' => 'solid',
+            'density' => 'comfortable',
+            'logoEnUrl' => '/uploads/assets/' . str_repeat('theme-logo-en-', 12) . '.png',
+            'logoArUrl' => '/uploads/assets/' . str_repeat('theme-logo-ar-', 12) . '.png',
+            'faviconUrl' => '/uploads/assets/' . str_repeat('theme-favicon-', 12) . '.png',
+            'footerLocationEn' => str_repeat('Long English footer location ', 12),
+            'footerLocationAr' => str_repeat('Long Arabic footer location ', 12),
+            'footerMobile' => '+2 0100 607 1661',
+            'footerWhatsapp' => '+2 0100 607 1661',
+        ];
+
+        $this->assertGreaterThan(255, strlen(json_encode($payload)));
+
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->adminToken])
+             ->putJson('/api/platform/settings/theme', $payload)
+             ->assertStatus(200)
+             ->assertJsonPath('data.logoEnUrl', $payload['logoEnUrl']);
+
+        $this->getJson('/api/platform/settings/theme')
+             ->assertStatus(200)
+             ->assertJsonPath('data', $payload);
+
+        $stored = DB::table('project_settings')->where('setting_key', 'theme')->value('setting_value');
+        $this->assertSame($payload, json_decode($stored, true));
+    }
+
+    public function test_theme_update_invalidates_cached_theme()
+    {
+        Cache::put('project_settings:theme', ['primaryColor' => '#000000'], 300);
+
+        $payload = [
+            'primaryColor' => '#fedcba',
+            'logoEnUrl' => null,
+            'logoArUrl' => null,
+            'faviconUrl' => null,
+        ];
+
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->adminToken])
+             ->putJson('/api/platform/settings/theme', $payload)
+             ->assertStatus(200);
+
+        $this->getJson('/api/platform/settings/theme')
+             ->assertStatus(200)
+             ->assertJsonPath('data.primaryColor', '#fedcba')
+             ->assertJsonPath('data.logoEnUrl', null)
+             ->assertJsonPath('data.logoArUrl', null)
+             ->assertJsonPath('data.faviconUrl', null);
+    }
+
+    public function test_site_content_update_handles_stdclass_cache_and_invalidates_cache()
+    {
+        Cache::put('project_settings:site_content', (object) [
+            'homepage' => (object) [
+                'footerLogoDescEn' => 'Cached stale footer',
+            ],
+        ], 300);
+
+        $payload = [
+            'homepage' => [
+                'footerLogoDescAr' => 'Updated footer content',
+            ],
+            'seo' => [
+                'titleEn' => 'Updated SEO title',
+            ],
+        ];
+
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->adminToken])
+             ->putJson('/api/platform/settings/site-content', $payload)
+             ->assertStatus(200)
+             ->assertJsonPath('data.homepage.footerLogoDescEn', 'Cached stale footer')
+             ->assertJsonPath('data.homepage.footerLogoDescAr', 'Updated footer content');
+
+        $this->getJson('/api/platform/settings/site-content')
+             ->assertStatus(200)
+             ->assertJsonPath('data.homepage.footerLogoDescAr', 'Updated footer content')
+             ->assertJsonPath('data.seo.titleEn', 'Updated SEO title');
+    }
+
+    public function test_empty_site_content_can_be_read_and_updated()
+    {
+        Cache::forget('project_settings:site_content');
+
+        DB::table('project_settings')->updateOrInsert(
+            ['setting_key' => 'site_content'],
+            [
+                'setting_value' => json_encode((object) []),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+
+        $this->getJson('/api/platform/settings/site-content')
+             ->assertStatus(200)
+             ->assertJson(['success' => true]);
+
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->adminToken])
+             ->putJson('/api/platform/settings/site-content', [
+                 'homepage' => [
+                     'footerLogoDescEn' => 'Updated from empty content',
+                 ],
+             ])
+             ->assertStatus(200)
+             ->assertJsonPath('data.homepage.footerLogoDescEn', 'Updated from empty content');
+    }
+
+    public function test_clearing_theme_logo_values_persists_nulls_for_static_fallbacks()
+    {
+        Cache::forget('project_settings:theme');
+
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->adminToken])
+             ->putJson('/api/platform/settings/theme', [
+                 'logoEnUrl' => '/uploads/assets/custom-logo-en.png',
+                 'logoArUrl' => '/uploads/assets/custom-logo-ar.png',
+                 'faviconUrl' => '/uploads/assets/custom-favicon.png',
+             ])
+             ->assertStatus(200);
+
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->adminToken])
+             ->putJson('/api/platform/settings/theme', [
+                 'logoEnUrl' => null,
+                 'logoArUrl' => null,
+                 'faviconUrl' => null,
+             ])
+             ->assertStatus(200)
+             ->assertJsonPath('data.logoEnUrl', null)
+             ->assertJsonPath('data.logoArUrl', null)
+             ->assertJsonPath('data.faviconUrl', null);
+
+        $this->getJson('/api/platform/settings/theme')
+             ->assertStatus(200)
+             ->assertJsonPath('data.logoEnUrl', null)
+             ->assertJsonPath('data.logoArUrl', null)
+             ->assertJsonPath('data.faviconUrl', null);
     }
 
     public function test_currency_write()

@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: '/dashboard/',
     },
-    sitemap: 'https://stylish-events.com/sitemap.xml',
+    sitemap: 'https://stylishmice.com/sitemap.xml',
   }
 }

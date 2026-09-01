@@ -81,7 +81,7 @@ export function ReportsManager() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
-    link.download = `stylish-events-${mode}-report.csv`
+    link.download = `stylish-holidays-${mode}-report.csv`
     document.body.appendChild(link)
     link.click()
     link.remove()

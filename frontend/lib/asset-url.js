@@ -1,4 +1,4 @@
-export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.nexrobnb.com").replace(/\/$/, "")
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.stylishmice.com").replace(/\/$/, "")
 
 export function backendAssetUrl(value, apiBaseUrl = API_BASE_URL) {
   if (!value) return ""

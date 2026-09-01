@@ -28,8 +28,8 @@ export function PlatformThemeProvider({ children }: { children: React.ReactNode 
       applyPlatformTheme(theme)
     }
 
-    window.addEventListener("stylish-events-theme-settings-updated", syncTheme)
-    return () => window.removeEventListener("stylish-events-theme-settings-updated", syncTheme)
+    window.addEventListener("stylish-holidays-theme-settings-updated", syncTheme)
+    return () => window.removeEventListener("stylish-holidays-theme-settings-updated", syncTheme)
   }, [])
 
   return children

@@ -279,7 +279,7 @@ export function SplitPanel({
       <div className="container mx-auto max-w-7xl">
         <div className="grid overflow-hidden rounded-[36px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)] lg:grid-cols-[0.9fr_1.1fr]">
           <div className="bg-[hsl(var(--secondary))] p-8 text-white md:p-12">
-            <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">Stylish Events</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">Stylish Holidays</p>
             <h2 className="mt-4 text-2xl font-black leading-tight md:text-4xl lg:text-5xl">{isRtl ? titleAr : titleEn}</h2>
             <p className="mt-5 text-base font-medium leading-8 text-white/70">{isRtl ? textAr : textEn}</p>
           </div>

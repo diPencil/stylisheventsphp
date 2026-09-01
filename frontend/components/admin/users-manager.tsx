@@ -429,7 +429,7 @@ export function UsersManager() {
     }
 
     try {
-      const saved = form.id ? await platformApi.updateUser(form.id, payload as Record<string, unknown>) : await platformApi.createUser({ ...payload, password: form.password || "StylishEvents@2026" })
+      const saved = form.id ? await platformApi.updateUser(form.id, payload as Record<string, unknown>) : await platformApi.createUser({ ...payload, password: form.password || "StylishHolidays@2026" })
       setUsers((current) => {
         const normalized = saved || {
           id: form.id || Date.now(),
@@ -473,7 +473,7 @@ export function UsersManager() {
 
   async function resetPassword(user: AdminUser) {
     try {
-      await platformApi.resetUserPassword(user.id, "StylishEvents@2026")
+      await platformApi.resetUserPassword(user.id, "StylishHolidays@2026")
       toast.success(adminT(language, "users.passwordReset"), {
         description: language === "ar" ? `يمكن لـ ${user.name} استخدام كلمة المرور المؤقتة الآن.` : `${user.name} can use the temporary password now.`,
       })

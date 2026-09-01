@@ -3,16 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { platformApi } from "@/lib/platform-api"
 
-export const authSessionChangedEvent = "stylish-events-auth-session-changed"
+export const authSessionChangedEvent = "stylish-holidays-auth-session-changed"
 
 export const authTokenKeys = [
-  "stylish-events-admin-token",
-  "stylish-events-auth-token",
-  "stylish-events-token",
+  "stylish-holidays-admin-token",
+  "stylish-holidays-auth-token",
+  "stylish-holidays-token",
 ]
 
-const authUserKey = "stylish-events-admin-user"
-const authProfileKey = "stylish-events-admin-profile"
+const authUserKey = "stylish-holidays-admin-user"
+const authProfileKey = "stylish-holidays-admin-profile"
 const adminRoles = new Set(["admin", "organizer", "employee", "back_office"])
 
 export type AuthSessionStatus = "loading" | "authenticated" | "guest"

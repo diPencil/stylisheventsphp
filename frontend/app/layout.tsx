@@ -9,18 +9,18 @@ import { ScrollToTop } from "@/components/ui/scroll-to-top"
 import { backendAssetUrl } from "@/lib/asset-url"
 
 const baseMetadata: Metadata = {
-  metadataBase: new URL("https://stylish-events.com"),
+  metadataBase: new URL("https://stylishmice.com"),
   title: {
-    default: "Stylish Events | تنظيم المؤتمرات والمعارض والفعاليات",
-    template: "%s | Stylish Events",
+    default: "Stylish Holidays | تنظيم المؤتمرات والمعارض والفعاليات",
+    template: "%s | Stylish Holidays",
   },
   description:
-    "Stylish Events تقدم حلول تنظيم وإدارة الفعاليات والمؤتمرات والمعارض، مع التسجيل الإلكتروني، التذاكر، الحضور، الشهادات، والتقارير.",
+    "Stylish Holidays تقدم حلول تنظيم وإدارة الفعاليات والمؤتمرات والمعارض، مع التسجيل الإلكتروني، التذاكر، الحضور، الشهادات، والتقارير.",
   keywords: [
     "تنظيم مؤتمرات",
     "تنظيم معارض",
     "فعاليات كبرى",
-    "Stylish Events",
+    "Stylish Holidays",
     "Event Management",
     "Conference Organizing Egypt",
     "International Exhibitions",
@@ -28,11 +28,11 @@ const baseMetadata: Metadata = {
     "Event Operations",
   ],
   alternates: {
-    canonical: "https://stylish-events.com",
+    canonical: "https://stylishmice.com",
   },
-  authors: [{ name: "Stylish Events Team" }],
-  creator: "Stylish Events",
-  publisher: "Stylish Events",
+  authors: [{ name: "Stylish Holidays Team" }],
+  creator: "Stylish Holidays",
+  publisher: "Stylish Holidays",
   formatDetection: {
     email: false,
     address: false,
@@ -41,22 +41,22 @@ const baseMetadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "ar_SA",
-    url: "https://stylish-events.com",
-    siteName: "Stylish Events",
-    title: "Stylish Events | شريكك في نجاح الفعاليات",
+    url: "https://stylishmice.com",
+    siteName: "Stylish Holidays",
+    title: "Stylish Holidays | شريكك في نجاح الفعاليات",
     description: "حلول احترافية لتنظيم وإدارة المؤتمرات والمعارض والفعاليات بمعايير تشغيل واضحة وتجربة حضور متكاملة.",
     images: [
       {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "Stylish Events Dashboard",
+        alt: "Stylish Holidays Dashboard",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Stylish Events",
+    title: "Stylish Holidays",
     description: "تنظيم وإدارة المؤتمرات والمعارض والفعاليات باحترافية.",
     images: ["/og-image.jpg"],
   },
@@ -80,7 +80,7 @@ async function fetchPublicThemeSettings() {
   const timeout = setTimeout(() => controller.abort(), 1500)
 
   try {
-    const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.nexrobnb.com"
+    const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.stylishmice.com"
     const res = await fetch(`${API_BASE}/api/platform/settings/theme`, { cache: "no-store", signal: controller.signal })
     const payload = await res.json().catch(() => ({}))
     return payload?.data || null
@@ -127,7 +127,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   var lang = savedLang === 'ar' || savedLang === 'en' ? savedLang : (isArabicDevice ? 'ar' : 'en');
                   document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
                   document.documentElement.lang = lang;
-                  var savedTheme = localStorage.getItem('stylish-events-theme-settings');
+                  var savedTheme = localStorage.getItem('stylish-holidays-theme-settings');
                   var theme = savedTheme ? JSON.parse(savedTheme) : {};
                   var hexToHsl = function(hex) {
                       hex = (hex || '#000000').replace('#', '');

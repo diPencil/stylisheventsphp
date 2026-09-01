@@ -18,7 +18,7 @@ export type CurrencySettings = {
   rates: CurrencyRate[]
 }
 
-export const currencySettingsStorageKey = "stylish-events-currency-settings"
+export const currencySettingsStorageKey = "stylish-holidays-currency-settings"
 
 export const defaultCurrencySettings: CurrencySettings = {
   baseCurrency: "USD",

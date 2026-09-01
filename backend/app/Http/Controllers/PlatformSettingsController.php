@@ -64,6 +64,74 @@ class PlatformSettingsController extends Controller
         });
     }
 
+    private function settingArray($value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        if (is_object($value)) {
+            $decoded = json_decode(json_encode($value, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+            return is_array($decoded) ? $decoded : [];
+        }
+        return [];
+    }
+
+    private function isAssocArray(array $value): bool
+    {
+        if ($value === []) {
+            return false;
+        }
+
+        return array_keys($value) !== range(0, count($value) - 1);
+    }
+
+    private function mergeSettingPayload(array $current, array $incoming): array
+    {
+        $merged = $current;
+
+        foreach ($incoming as $key => $value) {
+            if (
+                is_array($value)
+                && $this->isAssocArray($value)
+                && isset($merged[$key])
+                && is_array($merged[$key])
+                && $this->isAssocArray($merged[$key])
+            ) {
+                $merged[$key] = $this->mergeSettingPayload($merged[$key], $value);
+                continue;
+            }
+
+            $merged[$key] = $value;
+        }
+
+        return $merged;
+    }
+
+    private function writeProjectSetting(string $key, array $value): void
+    {
+        $now = now();
+        $payload = json_encode($value, JSON_THROW_ON_ERROR);
+        $existing = DB::table('project_settings')->where('setting_key', $key)->exists();
+
+        if ($existing) {
+            DB::table('project_settings')
+                ->where('setting_key', $key)
+                ->update([
+                    'setting_value' => $payload,
+                    'updated_at' => $now,
+                ]);
+        } else {
+            DB::table('project_settings')->insert([
+                'setting_key' => $key,
+                'setting_value' => $payload,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        $this->forgetProjectSetting($key);
+    }
+
     private function forgetProjectSetting($key)
     {
         Cache::forget("project_settings:{$key}");
@@ -103,12 +171,7 @@ class PlatformSettingsController extends Controller
             'footerWhatsapp' => $request->input('footerWhatsapp', '+2 0100 607 1661'),
         ];
 
-        DB::statement("
-            INSERT INTO project_settings (setting_key, setting_value)
-            VALUES (?, ?)
-            ON DUPLICATE KEY UPDATE setting_value = ?
-        ", ['theme', json_encode($theme), json_encode($theme)]);
-        $this->forgetProjectSetting('theme');
+        $this->writeProjectSetting('theme', $theme);
 
         return response()->json([
             'success' => true,
@@ -137,33 +200,11 @@ class PlatformSettingsController extends Controller
         // In Laravel, the payload from the client is already decoded, we encode it.
         // If they want exact Zod validation parity for this mega-schema, we can attempt it, but for now we just dump the JSON like currency does if it's too complex.
         // Wait, Node does a deep merge for `site_content`.
-        $current = $this->readProjectSetting('site_content', []);
-        $incoming = $request->all();
+        $current = $this->settingArray($this->readProjectSetting('site_content', []));
+        $incoming = $this->settingArray($request->all());
+        $updated = $this->mergeSettingPayload($current, $incoming);
 
-        $updated = array_merge([], $current);
-        // Shallow merge legal
-        if (isset($incoming['legal'])) {
-            $updated['legal'] = array_merge($current['legal'] ?? [], $incoming['legal']);
-        }
-        if (isset($incoming['upcomingEvents'])) {
-            $updated['upcomingEvents'] = array_merge($current['upcomingEvents'] ?? [], $incoming['upcomingEvents']);
-        }
-        if (isset($incoming['previousEvents'])) {
-            $updated['previousEvents'] = array_merge($current['previousEvents'] ?? [], $incoming['previousEvents']);
-        }
-        $allowedToplevel = ['menu', 'faqs', 'whyUsCards', 'socialLinks', 'seo'];
-        foreach ($allowedToplevel as $key) {
-            if (isset($incoming[$key])) {
-                $updated[$key] = $incoming[$key];
-            }
-        }
-
-        DB::statement("
-            INSERT INTO project_settings (setting_key, setting_value)
-            VALUES (?, ?)
-            ON DUPLICATE KEY UPDATE setting_value = ?
-        ", ['site_content', json_encode($updated), json_encode($updated)]);
-        $this->forgetProjectSetting('site_content');
+        $this->writeProjectSetting('site_content', $updated);
 
         return response()->json([
             'success' => true,
@@ -199,12 +240,7 @@ class PlatformSettingsController extends Controller
 
         $payload = $request->all() ?: (object)[];
 
-        DB::statement("
-            INSERT INTO project_settings (setting_key, setting_value)
-            VALUES (?, ?)
-            ON DUPLICATE KEY UPDATE setting_value = ?
-        ", ['currency', json_encode($payload), json_encode($payload)]);
-        $this->forgetProjectSetting('currency');
+        $this->writeProjectSetting('currency', $this->settingArray($payload));
 
         return response()->json([
             'success' => true,
@@ -225,12 +261,7 @@ class PlatformSettingsController extends Controller
             'updatedAt' => now()->toIso8601String(),
         ];
 
-        DB::statement("
-            INSERT INTO project_settings (setting_key, setting_value)
-            VALUES (?, ?)
-            ON DUPLICATE KEY UPDATE setting_value = ?
-        ", ['card_template', json_encode($template), json_encode($template)]);
-        $this->forgetProjectSetting('card_template');
+        $this->writeProjectSetting('card_template', $template);
 
         return response()->json([
             'success' => true,

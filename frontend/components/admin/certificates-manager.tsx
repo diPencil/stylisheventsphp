@@ -143,8 +143,8 @@ function normalizeDeliveryEvent(row: any): CertificateEvent {
     cardName: "Event card template",
     background: row.cover_image_url || "",
     issueRule: "Issue after check-in",
-    footer: "Verified by Stylish Events.",
-    signatory: row.organizer_name || "Stylish Events",
+    footer: "Verified by Stylish Holidays.",
+    signatory: row.organizer_name || "Stylish Holidays",
   }
 }
 
@@ -259,7 +259,7 @@ export function CertificatesManager() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
-    link.download = "stylish-events-certificates.csv"
+    link.download = "stylish-holidays-certificates.csv"
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -991,7 +991,7 @@ export function CertificateBuilder() {
               }
             >
               <div className="absolute left-[6%] top-[7%]">
-                <img src="/logo.png" alt="Stylish Events" className="h-9 w-auto" />
+                <img src="/logo.png" alt="Stylish Holidays" className="h-9 w-auto" />
               </div>
               <div className="absolute right-[6%] top-[8%] rounded-full bg-white/80 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-[hsl(var(--primary))]">
                 Verified Attendance
@@ -1032,7 +1032,7 @@ export function CertificateBuilder() {
                   : undefined
               }
             >
-              <div className="flex items-center justify-between"><img src="/favicon.png" alt="Stylish Events" className="h-10 w-10 rounded-full bg-white p-1" /><Badge className="rounded-xl bg-white/20 text-white hover:bg-white/20">ready</Badge></div>
+              <div className="flex items-center justify-between"><img src="/favicon.png" alt="Stylish Holidays" className="h-10 w-10 rounded-full bg-white p-1" /><Badge className="rounded-xl bg-white/20 text-white hover:bg-white/20">ready</Badge></div>
               <p className="mt-8 text-[10px] font-bold uppercase tracking-widest text-white/70">{language === "ar" ? "كارت دخول الفعالية" : "Event Access Card"}</p>
               <h2 className="mt-2 text-2xl font-extrabold leading-tight">{selectedAsset?.attendee || "Customer name"}</h2>
               <p className="mt-2 text-xs font-semibold leading-5 text-white/75">{selectedEvent.title}</p>
