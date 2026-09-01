@@ -20,8 +20,7 @@ class FlexibleHasher implements HasherContract
 
     public function make(#[\SensitiveParameter] $value, array $options = [])
     {
-        // Preserve existing project behavior for new hashes: use scrypt by default
-        return $this->scrypt->make($value, $options);
+        return $this->bcrypt->make($value, $options);
     }
 
     public function check(#[\SensitiveParameter] $value, $hashedValue, array $options = [])
