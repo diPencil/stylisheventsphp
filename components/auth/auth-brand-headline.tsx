@@ -16,7 +16,7 @@ export function AuthBrandHeadline({ isRtl, color, size = "hero", stackRtl = fals
 
   return (
     <h1
-      className={`${sizeClass} font-bold tracking-normal ${isRtl ? `${stackRtl ? "" : "whitespace-nowrap"} text-center leading-[1.05]` : "leading-[0.82]"}`}
+      className={`${sizeClass} font-bold tracking-normal ${isRtl ? `${stackRtl ? "text-right" : "whitespace-nowrap text-center"} leading-[1.05]` : "leading-[0.82]"}`}
       style={{
         color,
         fontFamily: isRtl ? '"Vibes", "Cairo", Tahoma, sans-serif' : '"Caveat", "Segoe Script", cursive',
