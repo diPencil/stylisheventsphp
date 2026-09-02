@@ -317,8 +317,8 @@ class PhaseCWriteParityTest extends TestCase
             'logoEnUrl' => '/uploads/assets/' . str_repeat('theme-logo-en-', 12) . '.png',
             'logoArUrl' => '/uploads/assets/' . str_repeat('theme-logo-ar-', 12) . '.png',
             'faviconUrl' => '/uploads/assets/' . str_repeat('theme-favicon-', 12) . '.png',
-            'footerLocationEn' => str_repeat('Long English footer location ', 12),
-            'footerLocationAr' => str_repeat('Long Arabic footer location ', 12),
+            'footerLocationEn' => 'Long English footer location Long English footer location Long English footer location Long English footer location Long English footer location Long English footer location Long English footer location Long English footer location Long English footer location Long English footer location Long English footer location Long English footer location',
+            'footerLocationAr' => 'Long Arabic footer location Long Arabic footer location Long Arabic footer location Long Arabic footer location Long Arabic footer location Long Arabic footer location Long Arabic footer location Long Arabic footer location Long Arabic footer location Long Arabic footer location Long Arabic footer location Long Arabic footer location',
             'footerMobile' => '+2 0100 607 1661',
             'footerWhatsapp' => '+2 0100 607 1661',
         ];
