@@ -147,7 +147,7 @@ class PublicCheckoutController extends Controller
             'publicRegistrationEnabled' => (int)($event->public_registration_enabled ?? 1) === 1,
             'approvalMode' => in_array($event->registration_approval_mode, ['automatic', 'manual_review']) ? $event->registration_approval_mode : 'automatic',
             'access' => in_array($event->registration_access, ['guest_allowed', 'login_required']) ? $event->registration_access : 'guest_allowed',
-            'maxTicketsPerCheckout' => max(1, min($maxPerCheckout, 1)),
+            'maxTicketsPerCheckout' => max(1, $maxPerCheckout),
             'capacityHoldHoursOverride' => $holdOverride > 0 ? min($holdOverride, 720) : null,
             'manualPaymentEnabled' => (int)($event->manual_payment_enabled ?? 1) === 1,
         ];
