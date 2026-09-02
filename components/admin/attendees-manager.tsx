@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { BadgeCheck, Download, Eye, MoreHorizontal, Search, Ticket, UserCheck, Users, XCircle } from "lucide-react"
+import { BadgeCheck, Download, Eye, FileText, MoreHorizontal, Search, Ticket, UserCheck, Users, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -265,6 +265,19 @@ export function AttendeesManager() {
                             <ConfirmAction title="Issue certificate?" description="Certificate will be issued only when attendee is checked in." confirmLabel="Issue certificate" tone="success" onConfirm={() => sendCertificate(attendee)}>
                               <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-purple-600"><BadgeCheck className="h-4 w-4" /> {language === "ar" ? "إرسال الشهادة" : "Send certificate"}</DropdownMenuItem>
                             </ConfirmAction>
+                            {attendee.certificate === "sent" ? (
+                              <DropdownMenuItem asChild className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-blue-600 focus:bg-blue-50 focus:text-blue-700">
+                                <Link href={`/admin/certificates/${attendee.id}`} target="_blank">
+                                  <FileText className="h-4 w-4" />
+                                  {language === "ar" ? "معاينة الشهادة" : "View Certificate"}
+                                </Link>
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem disabled className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-slate-400">
+                                <FileText className="h-4 w-4" />
+                                {language === "ar" ? "الشهادة غير متاحة" : "Certificate not ready"}
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <ConfirmAction title="Cancel attendee?" description="This attendee QR token will be revoked." confirmLabel="Cancel attendee" tone="danger" onConfirm={() => cancel(attendee)}>
                               <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600"><XCircle className="h-4 w-4" /> {language === "ar" ? "إلغاء الحاضر" : "Cancel attendee"}</DropdownMenuItem>

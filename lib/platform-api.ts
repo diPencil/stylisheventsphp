@@ -10,7 +10,7 @@ function apiRequestBaseUrl() {
 }
 
 export function apiAssetUrl(url?: string | null) {
-  return backendAssetUrl(url)
+  return backendAssetUrl(url, apiRequestBaseUrl())
 }
 
 export function currentAuthToken() {

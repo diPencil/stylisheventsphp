@@ -31,6 +31,10 @@ const nextConfig = (phase) => ({
         source: "/api/:path*",
         destination: `${apiBaseUrl.replace(/\/$/, "")}/api/:path*`,
       },
+      {
+        source: "/uploads/:path*",
+        destination: `${apiBaseUrl.replace(/\/$/, "")}/uploads/:path*`,
+      },
     ]
   },
 })

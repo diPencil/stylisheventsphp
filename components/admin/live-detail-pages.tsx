@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   CreditCard,
   Download,
+  FileText,
   IdCard,
   ImageIcon,
   Mail,
@@ -329,7 +330,7 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
         publicRegistrationEnabled: Boolean(form.publicRegistrationEnabled),
         registrationApprovalMode: form.registrationApprovalMode || "automatic",
         registrationAccess: form.registrationAccess || "guest_allowed",
-        maxTicketsPerCheckout: 1,
+        maxTicketsPerCheckout: Number(form.maxTicketsPerCheckout) || 1,
         capacityHoldHoursOverride: Number(form.capacityHoldHoursOverride || 0) || null,
         manualPaymentEnabled: Boolean(form.manualPaymentEnabled),
         timezone: "Africa/Cairo",
@@ -475,7 +476,14 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
               <Field label="Slug" inputValue={form.slug} onChange={(next) => setForm({ ...form, slug: next })} />
               <Select value={form.status} onValueChange={(next) => setForm({ ...form, status: next })}>
                 <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-slate-50 font-bold"><SelectValue /></SelectTrigger>
-                <SelectContent>{["draft", "published", "disabled", "sold_out", "completed", "cancelled"].map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  <SelectItem value="draft">Draft (Hidden)</SelectItem>
+                  <SelectItem value="published">Published (Upcoming/Previous)</SelectItem>
+                  <SelectItem value="disabled">Disabled</SelectItem>
+                  <SelectItem value="sold_out">Sold out</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
               </Select>
               <Field label="Type" inputValue={form.type} onChange={(next) => setForm({ ...form, type: next })} />
               <Field label="Max attendees" inputValue={form.maxAttendees} type="number" onChange={(next) => setForm({ ...form, maxAttendees: next })} />
@@ -519,7 +527,7 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
                   <SelectItem value="disabled">{language === "ar" ? "إيقاف التحويل البنكي" : "Manual bank payment disabled"}</SelectItem>
                 </SelectContent>
               </Select>
-              <Field label={language === "ar" ? "أقصى عدد تذاكر في الطلب" : "Maximum tickets per checkout"} inputValue="1" type="number" onChange={() => setForm({ ...form, maxTicketsPerCheckout: "1" })} disabled />
+              <Field label={language === "ar" ? "أقصى عدد تذاكر في الطلب" : "Maximum tickets per checkout"} inputValue={form.maxTicketsPerCheckout} type="number" onChange={(next) => setForm({ ...form, maxTicketsPerCheckout: next })} />
               <Field label={language === "ar" ? "مدة حجز المقعد بالساعات" : "Seat reservation hours override"} inputValue={form.capacityHoldHoursOverride} type="number" onChange={(next) => setForm({ ...form, capacityHoldHoursOverride: next })} />
             </div>
           </EditorSection>
@@ -774,6 +782,26 @@ export function LiveAttendeeDetailPage({ id }: { id: string }) {
             {canCheckIn && <Button onClick={checkIn} className="h-10 w-full rounded-xl bg-[hsl(var(--primary))] font-bold text-white"><UserCheck className="h-4 w-4" /> {adminT(language, "attendees.checkin")}</Button>}
             {canManageCertificates && <Button onClick={issueCertificate} variant="outline" className="h-10 w-full rounded-xl font-bold"><BadgeCheck className="h-4 w-4" /> {adminT(language, "certificates.sendCertificate")}</Button>}
             <Button variant="outline" className="h-10 w-full rounded-xl font-bold"><Mail className="h-4 w-4" /> {language === "ar" ? "إرسال بريد للحضور" : "Email attendee"}</Button>
+            {canManageCertificates && (
+              <>
+                 <Button
+                   variant="outline"
+                   className="h-10 w-full rounded-xl font-bold"
+                   disabled={row.certificate_status === 'pending' || !row.certificate_status}
+                   onClick={() => window.location.href = `/admin/certificates/${row.id}`}
+                 >
+                   <FileText className="h-4 w-4" /> {language === "ar" ? "عرض الشهادة" : "View Certificate"}
+                 </Button>
+                 <Button
+                   variant="outline"
+                   className="h-10 w-full rounded-xl font-bold"
+                   disabled={!row.card_number}
+                   onClick={() => window.location.href = `/admin/certificates/cards/${row.id}`}
+                 >
+                   <IdCard className="h-4 w-4" /> {language === "ar" ? "عرض الكارت" : "View Card"}
+                 </Button>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -787,17 +815,27 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
   const canManageCertificates = can("certificates.manage")
   const [state, setState] = useState<DetailState<any>>(emptyState)
   const [cardTemplateImage, setCardTemplateImage] = useState("")
+  const [certificateTemplateImage, setCertificateTemplateImage] = useState("")
 
   useEffect(() => {
     let active = true
     Promise.all([
       platformApi.listCertificateDelivery(),
       platformApi.getCardTemplateSettings(),
+      platformApi.listCertificateTemplates().catch(() => []),
     ])
-      .then(([rows, cardTemplate]) => {
+      .then(([rows, cardTemplate, templates]) => {
         const record = rows.find((item: any) => String(item.attendee_id) === String(id) || String(item.certificate_id) === String(id) || String(item.card_id) === String(id))
         if (active) {
           setCardTemplateImage(cardTemplate?.imageUrl || "")
+
+          let bg = ""
+          if (record) {
+             const tmpl = (templates || []).find((t: any) => Number(t.event_id) === Number(record.event_id))
+             bg = tmpl?.template_url || record.cover_image_url || ""
+          }
+          setCertificateTemplateImage(bg)
+
           setState({ loading: false, error: record ? "" : "Record not found", data: record || null })
         }
       })
@@ -852,7 +890,18 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
       {kind === "certificate" ? (
         <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
           <CardContent className="p-4 md:p-6">
-            <div className="relative mx-auto aspect-[1.414/1] w-full max-w-5xl overflow-hidden rounded-[28px] border border-slate-100 bg-gradient-to-br from-[#eef6ff] via-white to-[#f8effb] shadow-inner">
+            <div
+              className="relative mx-auto aspect-[1.414/1] w-full max-w-5xl overflow-hidden rounded-[28px] border border-slate-100 bg-gradient-to-br from-[#eef6ff] via-white to-[#f8effb] shadow-inner"
+              style={
+                certificateTemplateImage
+                  ? {
+                      backgroundImage: `url(${apiAssetUrl(certificateTemplateImage)})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }
+                  : undefined
+              }
+            >
               <div className="absolute left-[6%] top-[7%]"><img src="/logo.png" alt="Stylish Holidays" className="h-9 w-auto" /></div>
               <div className="absolute right-[6%] top-[8%] rounded-full bg-white/80 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-[hsl(var(--primary))]">{language === "ar" ? "حضور موثق" : "Verified Attendance"}</div>
               <div className="absolute inset-x-[9%] top-[25%] text-center">

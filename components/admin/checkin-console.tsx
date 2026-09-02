@@ -13,6 +13,7 @@ import { ConfirmAction } from "@/components/admin/confirm-action"
 import { useLanguage } from "@/contexts/language-context"
 import { adminT } from "@/lib/admin-translations"
 import { platformApi } from "@/lib/platform-api"
+import jsQR from "jsqr"
 
 type ScanStatus = "idle" | "scanning" | "accepted" | "duplicate" | "invalid" | "revoked" | "wrong_event" | "camera_error" | "network"
 
@@ -77,6 +78,7 @@ export function CheckinConsole() {
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraMessage, setCameraMessage] = useState("")
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const frameRef = useRef<number | null>(null)
   const detectorRef = useRef<BarcodeDetectorInstance | null>(null)
@@ -154,12 +156,28 @@ export function CheckinConsole() {
   }, [])
 
   const loop = useCallback(async () => {
-    if (!cameraActive || !videoRef.current || !detectorRef.current) return
+    if (!cameraActive || !videoRef.current) return
 
     if (!scanLockRef.current && videoRef.current.readyState >= 2) {
       try {
-        const codes = await detectorRef.current.detect(videoRef.current)
-        const token = codes[0]?.rawValue?.trim()
+        let token: string | undefined = undefined
+
+        if (detectorRef.current) {
+          const codes = await detectorRef.current.detect(videoRef.current)
+          token = codes[0]?.rawValue?.trim()
+        } else if (canvasRef.current) {
+          const canvas = canvasRef.current
+          const context = canvas.getContext("2d", { willReadFrequently: true })
+          if (context) {
+            canvas.width = videoRef.current.videoWidth
+            canvas.height = videoRef.current.videoHeight
+            context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
+            const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" })
+            if (code) token = code.data.trim()
+          }
+        }
+
         const nowMs = Date.now()
         if (token && (token !== lastTokenRef.current || nowMs - lastScanAtRef.current > 3000)) {
           scanLockRef.current = true
@@ -188,19 +206,18 @@ export function CheckinConsole() {
     }
 
     const DetectorCtor = (window as any).BarcodeDetector
-    if (!DetectorCtor) {
-      const message = isArabic ? "مسح QR غير مدعوم في هذا المتصفح. استخدم الإدخال اليدوي." : "QR scanning is not supported in this browser. Use manual token fallback."
-      setCameraMessage(message)
-      pushLog({ status: "camera_error", message, scannedAt: new Date().toISOString() })
-      return
+    if (DetectorCtor) {
+      detectorRef.current = new DetectorCtor({ formats: ["qr_code"] })
+    } else {
+      detectorRef.current = null // Fallback to jsQR will be used
     }
 
     try {
-      detectorRef.current = new DetectorCtor({ formats: ["qr_code"] })
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false })
       streamRef.current = stream
       if (videoRef.current) {
         videoRef.current.srcObject = stream
+        videoRef.current.setAttribute("playsinline", "true")
         await videoRef.current.play()
       }
       setCameraActive(true)
@@ -269,6 +286,7 @@ export function CheckinConsole() {
               <div className="overflow-hidden rounded-[26px] border border-slate-100 bg-slate-950">
                 <div className="relative aspect-[4/3]">
                   <video ref={videoRef} className="h-full w-full object-cover" muted playsInline />
+                  <canvas ref={canvasRef} className="hidden" />
                   {!cameraActive ? (
                     <div className="absolute inset-0 flex items-center justify-center bg-slate-50 text-center">
                       <div>

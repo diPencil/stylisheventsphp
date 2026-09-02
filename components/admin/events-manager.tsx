@@ -460,7 +460,6 @@ export function EventsManager() {
         <TabsList className="grid w-full grid-cols-5 rounded-2xl bg-white/70 p-1 lg:w-[760px]">
           <TabsTrigger value="events" className="rounded-xl">{adminT(language, "events.eventsTab")}</TabsTrigger>
           <TabsTrigger value="tickets" className="rounded-xl">{adminT(language, "events.ticketsTab")}</TabsTrigger>
-          <TabsTrigger value="pricing" className="rounded-xl">{adminT(language, "events.pricingTab")}</TabsTrigger>
           <TabsTrigger value="drafts" className="rounded-xl">{adminT(language, "events.draftsTab")}</TabsTrigger>
           <TabsTrigger value="deleted" className="rounded-xl">{adminT(language, "events.deletedTab")}</TabsTrigger>
         </TabsList>
@@ -553,6 +552,7 @@ export function EventsManager() {
             </CardContent>
           </Card>
 
+          <div className="space-y-5">
           <Card className="rounded-[26px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
             <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
@@ -612,65 +612,43 @@ export function EventsManager() {
               })}
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="pricing" className="space-y-5">
-          <Card className="rounded-[26px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
-            <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
+          {activeTicketId && (
+            <Card className="rounded-[26px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
+              <CardHeader className="flex flex-col gap-3">
                 <CardTitle className="flex items-center gap-2 text-base font-extrabold">
                   <BadgeDollarSign className="h-5 w-5 text-[hsl(var(--primary))]" />
-                  Pricing Periods
+                  Manage Pricing Periods
                 </CardTitle>
-                <p className="mt-1 text-sm font-medium text-slate-400">{adminT(language, "events.manageDatePrices")}</p>
-              </div>
-              <div className="grid gap-2 md:grid-cols-2">
-                <Select value={String(activeEventId)} onValueChange={(value) => {
-                  const nextEventId = Number(value)
-                  setActiveEventId(nextEventId)
-                  const firstTicket = tickets.find((ticket) => ticket.event_id === nextEventId)
-                  if (firstTicket) setActiveTicketId(firstTicket.id)
-                }}>
-                  <SelectTrigger className="h-10 rounded-2xl bg-[#f8f5fb] font-bold md:w-72"><SelectValue /></SelectTrigger>
-                  <SelectContent>{events.map((event) => <SelectItem key={event.id} value={String(event.id)}>{eventTitle(event)}</SelectItem>)}</SelectContent>
-                </Select>
-                <Select value={String(activeTicketId)} onValueChange={(value) => setActiveTicketId(Number(value))}>
-                  <SelectTrigger className="h-10 rounded-2xl bg-[#f8f5fb] font-bold md:w-56"><SelectValue placeholder="Ticket" /></SelectTrigger>
-                  <SelectContent>{selectedTickets.map((ticket) => <SelectItem key={ticket.id} value={String(ticket.id)}>{ticket.name_en}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid gap-3 rounded-[22px] bg-slate-50 p-4 xl:grid-cols-[1.1fr_1fr_1fr_120px_110px_auto]">
-                <PeriodInput label="Period label" value={periodForm.label} onChange={(value) => setPeriodForm({ ...periodForm, label: value })} placeholder="Special Window" surface="white" />
-                <PeriodInput label="Starts" type="datetime-local" value={periodForm.startsAt} onChange={(value) => setPeriodForm({ ...periodForm, startsAt: value })} surface="white" />
-                <PeriodInput label="Ends" type="datetime-local" value={periodForm.endsAt} onChange={(value) => setPeriodForm({ ...periodForm, endsAt: value })} surface="white" />
-                <PeriodInput label="Price" type="number" value={periodForm.price} onChange={(value) => setPeriodForm({ ...periodForm, price: value })} surface="white" />
-                <CurrencySelect value={periodForm.currency} currencies={enabledCurrencies} onChange={(value) => setPeriodForm({ ...periodForm, currency: value })} surface="white" />
-                <ConfirmAction title="Add pricing period?" description="This date window will be added to the selected ticket." confirmLabel="Add period" onConfirm={addPricingPeriod}>
-                  <Button className="mt-auto h-11 rounded-2xl font-extrabold"><Plus className="h-4 w-4" />{adminT(language, "common.addNew")}</Button>
-                </ConfirmAction>
-              </div>
+                <p className="mt-1 text-sm font-medium text-slate-400">Add or remove date windows for this ticket's pricing.</p>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid gap-3 rounded-[22px] bg-slate-50 p-4 xl:grid-cols-[1.1fr_1fr_1fr_120px_110px_auto]">
+                  <PeriodInput label="Period label" value={periodForm.label} onChange={(value) => setPeriodForm({ ...periodForm, label: value })} placeholder="Special Window" surface="white" />
+                  <PeriodInput label="Starts" type="datetime-local" value={periodForm.startsAt} onChange={(value) => setPeriodForm({ ...periodForm, startsAt: value })} surface="white" />
+                  <PeriodInput label="Ends" type="datetime-local" value={periodForm.endsAt} onChange={(value) => setPeriodForm({ ...periodForm, endsAt: value })} surface="white" />
+                  <PeriodInput label="Price" type="number" value={periodForm.price} onChange={(value) => setPeriodForm({ ...periodForm, price: value })} surface="white" />
+                  <CurrencySelect value={periodForm.currency} currencies={enabledCurrencies} onChange={(value) => setPeriodForm({ ...periodForm, currency: value })} surface="white" />
+                  <ConfirmAction title="Add pricing period?" description="This date window will be added to the selected ticket." confirmLabel="Add period" onConfirm={addPricingPeriod}>
+                    <Button className="mt-auto h-11 rounded-2xl font-extrabold"><Plus className="h-4 w-4" />{adminT(language, "common.addNew")}</Button>
+                  </ConfirmAction>
+                </div>
 
-              <div className="overflow-hidden rounded-[22px] border border-slate-100">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50 hover:bg-slate-50">
-                      <TableHead>{adminT(language, "common.ticket")}</TableHead>
-                      <TableHead>{adminT(language, "events.period")}</TableHead>
-                      <TableHead>{adminT(language, "events.start")}</TableHead>
-                      <TableHead>{adminT(language, "events.end")}</TableHead>
-                      <TableHead>{adminT(language, "events.price")}</TableHead>
-                      <TableHead>{adminT(language, "common.status")}</TableHead>
-                      <TableHead className="w-20 text-center">{adminT(language, "common.actions")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedPeriods.map((period) => {
-                      const ticket = tickets.find((item) => item.id === period.ticket_id)
-                      return (
+                <div className="overflow-hidden rounded-[22px] border border-slate-100">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50 hover:bg-slate-50">
+                        <TableHead>{adminT(language, "events.period")}</TableHead>
+                        <TableHead>{adminT(language, "events.start")}</TableHead>
+                        <TableHead>{adminT(language, "events.end")}</TableHead>
+                        <TableHead>{adminT(language, "events.price")}</TableHead>
+                        <TableHead>{adminT(language, "common.status")}</TableHead>
+                        <TableHead className="w-20 text-center">{adminT(language, "common.actions")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedPeriods.map((period) => (
                         <TableRow key={period.id} className="hover:bg-[hsl(var(--primary)/0.04)]">
-                          <TableCell className="font-extrabold text-[#17172f]">{ticket?.name_en || "Ticket"}</TableCell>
                           <TableCell className="font-bold text-slate-600">{period.label}</TableCell>
                           <TableCell><TableDateTime value={period.starts_at} /></TableCell>
                           <TableCell><TableDateTime value={period.ends_at} /></TableCell>
@@ -684,14 +662,17 @@ export function EventsManager() {
                             </ConfirmAction>
                           </TableCell>
                         </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          </div>
         </TabsContent>
+
+
 
         <TabsContent value="drafts">
           <Card className="rounded-[26px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">

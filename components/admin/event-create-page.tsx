@@ -57,15 +57,6 @@ type CreateEventForm = {
   seoTitle: string
   seoDescription: string
   seoKeywords: string
-  ticketNameAr: string
-  ticketNameEn: string
-  ticketCode: string
-  ticketQuota: string
-  maxPerOrder: string
-  ticketCurrency: string
-  openingPrice: string
-  openingStartsAt: string
-  openingEndsAt: string
 }
 
 const initialForm: CreateEventForm = {
@@ -104,15 +95,6 @@ const initialForm: CreateEventForm = {
   seoTitle: "",
   seoDescription: "",
   seoKeywords: "",
-  ticketNameAr: "",
-  ticketNameEn: "",
-  ticketCode: "",
-  ticketQuota: "",
-  maxPerOrder: "4",
-  ticketCurrency: "USD",
-  openingPrice: "",
-  openingStartsAt: "",
-  openingEndsAt: "",
 }
 
 export function EventCreatePage() {
@@ -124,7 +106,6 @@ export function EventCreatePage() {
 
   const currencies = useMemo(() => enabledCurrencyRates(currencySettings), [currencySettings])
   const gallery = useMemo(() => form.galleryImages.split("\n").map((item) => item.trim()).filter(Boolean), [form.galleryImages])
-  const openingPricePreview = formatCurrencyAmount(Number(form.openingPrice) || 0, form.ticketCurrency, currencySettings)
 
   useEffect(() => {
     const syncCurrencySettings = () => setCurrencySettings(readCurrencySettings())
@@ -144,17 +125,6 @@ export function EventCreatePage() {
     setForm((current) => ({ ...current, [key]: value }))
     setSaveState("idle")
   }
-
-  const pricePair = useMemo(() => {
-    const amount = Number(form.openingPrice || 0)
-    const selectedRate = currencySettings.rates.find((rate) => rate.code === form.ticketCurrency)?.rate || 1
-    const egpRate = currencySettings.rates.find((rate) => rate.code === "EGP")?.rate || 1
-    const usdAmount = form.ticketCurrency === "USD" ? amount : amount / selectedRate
-    return {
-      priceUsd: Number(usdAmount.toFixed(2)),
-      priceEgp: Number((usdAmount * egpRate).toFixed(2)),
-    }
-  }, [currencySettings.rates, form.openingPrice, form.ticketCurrency])
 
   const saveDraft = async () => {
     if (!form.titleEn.trim() || !form.location.trim()) {
@@ -180,7 +150,7 @@ export function EventCreatePage() {
         publicRegistrationEnabled: form.publicRegistrationEnabled,
         registrationApprovalMode: form.registrationApprovalMode,
         registrationAccess: form.registrationAccess,
-        maxTicketsPerCheckout: 1,
+        maxTicketsPerCheckout: Number(form.maxTicketsPerCheckout) || 1,
         capacityHoldHoursOverride: Number(form.capacityHoldHoursOverride || 0) || null,
         manualPaymentEnabled: form.manualPaymentEnabled,
         timezone: "Africa/Cairo",
@@ -196,36 +166,8 @@ export function EventCreatePage() {
         targetAllSpecialties: form.targetAllSpecialties,
         specialtyIds: form.targetAllSpecialties ? [] : form.specialtyIds.map(Number),
       })
-
-      if (form.ticketNameEn.trim() && form.ticketNameAr.trim() && Number(form.ticketQuota || 0) > 0) {
-        const ticket = await platformApi.createTicket({
-          eventId: event.id,
-          nameEn: form.ticketNameEn.trim(),
-          nameAr: form.ticketNameAr.trim(),
-          descriptionEn: form.ticketCode || null,
-          descriptionAr: form.ticketCode || null,
-          quota: Number(form.ticketQuota),
-          perOrderLimit: Number(form.maxPerOrder || 1),
-          isActive: true,
-        })
-
-        if (form.openingStartsAt && form.openingEndsAt && Number(form.openingPrice || 0) >= 0) {
-          await platformApi.createPricePeriod({
-            ticketTypeId: ticket.id,
-            labelEn: "Opening price",
-            labelAr: "سعر الافتتاح",
-            price: Number(form.openingPrice || 0),
-            priceEgp: pricePair.priceEgp,
-            priceUsd: pricePair.priceUsd,
-            startsAt: form.openingStartsAt,
-            endsAt: form.openingEndsAt,
-            isActive: true,
-          })
-        }
-      }
-
       setSaveState("saved")
-      toast.success(language === "ar" ? "تم إنشاء الفعالية" : "Event created", { description: language === "ar" ? "تم حفظ الفعالية والتذكرة وسعر الافتتاح." : "Event, ticket, and opening price were saved." })
+      toast.success(language === "ar" ? "تم إنشاء الفعالية" : "Event created", { description: language === "ar" ? "تم حفظ الفعالية كمسودة." : "Event was saved." })
     } catch (error) {
       toast.error(language === "ar" ? "فشل إنشاء الفعالية" : "Create event failed", { description: error instanceof Error ? error.message : (language === "ar" ? "راجع اتصال الباك إند." : "Please check the backend connection.") })
     }
@@ -248,7 +190,7 @@ export function EventCreatePage() {
               {language === "ar" ? "رجوع للفعاليات" : "Back to events"}
             </Link>
           </Button>
-          <ConfirmAction title={language === "ar" ? "حفظ مسودة الفعالية؟" : "Save event draft?"} description={language === "ar" ? "سيتم حفظ إعدادات الفعالية والصور والسيو والتذكرة وفترة السعر كمسودة." : "The event setup, media, SEO, ticket, and opening price period will be saved as a draft."} confirmLabel={language === "ar" ? "حفظ المسودة" : "Save draft"} onConfirm={saveDraft}>
+          <ConfirmAction title={language === "ar" ? "حفظ مسودة الفعالية؟" : "Save event draft?"} description={language === "ar" ? "سيتم حفظ إعدادات الفعالية والصور والسيو كمسودة." : "The event setup, media, and SEO will be saved as a draft."} confirmLabel={language === "ar" ? "حفظ المسودة" : "Save draft"} onConfirm={saveDraft}>
             <Button className="h-10 rounded-2xl px-5 font-extrabold">
               <CheckCircle2 className="h-4 w-4" />
               {saveState === "saved" ? (language === "ar" ? "تم حفظ المسودة" : "Draft Saved") : adminT(language, "common.save")}
@@ -273,8 +215,7 @@ export function EventCreatePage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="draft">Draft (Hidden)</SelectItem>
-                    <SelectItem value="published">Upcoming Events</SelectItem>
-                    <SelectItem value="completed">Previous Events</SelectItem>
+                    <SelectItem value="published">Published (Upcoming/Previous)</SelectItem>
                     <SelectItem value="disabled">Disabled</SelectItem>
                   </SelectContent>
                 </Select>
@@ -356,7 +297,7 @@ export function EventCreatePage() {
                   <SelectItem value="disabled">{language === "ar" ? "إيقاف التحويل البنكي" : "Manual bank payment disabled"}</SelectItem>
                 </SelectContent>
               </Select>
-              <Field label={language === "ar" ? "أقصى عدد تذاكر في الطلب" : "Maximum tickets per checkout"} value="1" onChange={() => setField("maxTicketsPerCheckout", "1")} type="number" disabled />
+              <Field label={language === "ar" ? "أقصى عدد تذاكر في الطلب" : "Maximum tickets per checkout"} value={form.maxTicketsPerCheckout} onChange={(value) => setField("maxTicketsPerCheckout", value)} type="number" />
               <Field label={language === "ar" ? "مدة حجز المقعد بالساعات" : "Seat reservation hours override"} value={form.capacityHoldHoursOverride} onChange={(value) => setField("capacityHoldHoursOverride", value)} type="number" />
             </div>
           </FormPanel>
@@ -401,20 +342,6 @@ export function EventCreatePage() {
               <TextAreaField label="SEO description" value={form.seoDescription} onChange={(value) => setField("seoDescription", value)} />
             </div>
           </FormPanel>
-
-          <FormPanel icon={Ticket} title="First Ticket & Opening Price" description="Create the first ticket type with a dated opening pricing period.">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Arabic ticket name" value={form.ticketNameAr} onChange={(value) => setField("ticketNameAr", value)} />
-              <Field label="English ticket name" value={form.ticketNameEn} onChange={(value) => setField("ticketNameEn", value)} />
-              <Field label="Ticket code" value={form.ticketCode} onChange={(value) => setField("ticketCode", value)} />
-              <CurrencySelect value={form.ticketCurrency} currencies={currencies} onChange={(value) => setField("ticketCurrency", value)} />
-              <Field label="Quota" value={form.ticketQuota} onChange={(value) => setField("ticketQuota", value)} type="number" />
-              <Field label="Max per order" value={form.maxPerOrder} onChange={(value) => setField("maxPerOrder", value)} type="number" />
-              <Field label="Opening price" value={form.openingPrice} onChange={(value) => setField("openingPrice", value)} type="number" />
-              <Field label="Price starts" value={form.openingStartsAt} onChange={(value) => setField("openingStartsAt", value)} type="datetime-local" />
-              <Field label="Price ends" value={form.openingEndsAt} onChange={(value) => setField("openingEndsAt", value)} type="datetime-local" />
-            </div>
-          </FormPanel>
         </div>
 
         <aside className="space-y-5">
@@ -434,10 +361,8 @@ export function EventCreatePage() {
                   <p className="mt-2 text-sm font-medium text-white/70">{form.venue}</p>
                 </div>
               </div>
-              <SummaryItem label="Display Page" value={form.status === "published" ? "Upcoming Events" : form.status === "completed" ? "Previous Events" : form.status === "draft" ? "Draft (Hidden)" : "Disabled"} />
+              <SummaryItem label="Display Page" value={form.status === "published" ? "Published (Visible)" : form.status === "draft" ? "Draft (Hidden)" : "Disabled"} />
               <SummaryItem label="Seats" value={Number(form.capacity || 0).toLocaleString()} />
-              <SummaryItem label="Ticket" value={form.ticketNameEn || "Ticket"} />
-              <SummaryItem label="Opening price" value={openingPricePreview} />
               <ConfirmAction title="Save event draft?" description="This will save the current event setup as a draft workflow." confirmLabel="Save draft" onConfirm={saveDraft}>
                 <Button className="h-11 w-full rounded-2xl font-extrabold">
                   <CheckCircle2 className="h-4 w-4" />
