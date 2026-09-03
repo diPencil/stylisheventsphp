@@ -687,7 +687,7 @@ export function LiveRegistrationDetailPage({ id, variant }: { id: string; varian
             ) : null}
             {row.payment_status !== "rejected" && row.registration_status !== "rejected" ? (
               <ConfirmAction title={language === "ar" ? "رفض التسجيل؟" : "Reject registration?"} description={language === "ar" ? "سيتم تحرير السعة وعدم إصدار التذكرة." : "This releases capacity and will not issue a ticket."} confirmLabel={language === "ar" ? "رفض" : "Reject"} tone="danger" onConfirm={() => row.payment_status !== "approved" ? reviewPayment("rejected") : reviewRegistration("rejected")}>
-                <Button variant="outline" className="h-10 w-full rounded-xl font-bold text-red-600"><XCircle className="h-4 w-4" /> {language === "ar" ? "رفض" : "Reject"}</Button>
+                <Button variant="outline" disabled={status === "paid"} className="h-10 w-full rounded-xl font-bold text-red-600"><XCircle className="h-4 w-4" /> {language === "ar" ? "رفض" : "Reject"}</Button>
               </ConfirmAction>
             ) : null}
             {status !== "paid" && (
