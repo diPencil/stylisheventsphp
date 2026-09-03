@@ -948,6 +948,10 @@ export function CertificateBuilder() {
               <Input value={selectedEvent.issueRule} onChange={(event) => updateEvent({ issueRule: event.target.value })} className="h-11 rounded-xl" />
             </div>
             <div className="space-y-2">
+              <Label className="text-sm font-bold">{adminT(language, "certificates.signedBy")}</Label>
+              <Input value={selectedEvent.signatory} onChange={(event) => updateEvent({ signatory: event.target.value })} className="h-11 rounded-xl" />
+            </div>
+            <div className="space-y-2">
               <Label className="text-sm font-bold">{adminT(language, "certificates.footerText")}</Label>
               <Textarea value={selectedEvent.footer} onChange={(event) => updateEvent({ footer: event.target.value })} className="min-h-24 rounded-xl" />
             </div>
@@ -1006,7 +1010,9 @@ export function CertificateBuilder() {
               <div className="absolute bottom-[17%] left-[9%] right-[9%] grid grid-cols-3 gap-3 text-center">
                 <div>
                   <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">{adminT(language, "common.date")}</p>
-                  <p className="text-xs font-extrabold text-[#17172f] md:text-sm">{selectedEvent.date}</p>
+                  <p className="text-xs font-extrabold text-[#17172f] md:text-sm">
+                    {selectedEvent.date ? new Intl.DateTimeFormat(language === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" }).format(new Date(selectedEvent.date)) : "Event date"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">{adminT(language, "certificates.certificateNo")}</p>
