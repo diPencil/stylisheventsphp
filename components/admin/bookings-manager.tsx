@@ -220,7 +220,7 @@ export function BookingsManager() {
                     </TableCell>
                     <TableCell className="max-w-[240px]"><p className="line-clamp-2 text-sm font-bold text-slate-600">{booking.event}</p></TableCell>
                     <TableCell><Badge className="gap-2 rounded-lg bg-[hsl(var(--primary)/0.08)] text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.08)]"><Ticket className="h-3.5 w-3.5" /> {booking.tickets}</Badge></TableCell>
-                    <TableCell className="font-extrabold">{money(booking.amount, booking.currency)}</TableCell>
+                    <TableCell className="font-extrabold whitespace-nowrap">{money(booking.amount, booking.currency)}</TableCell>
                     <TableCell className="text-sm font-semibold text-slate-500">{booking.method}</TableCell>
                     <TableCell><Badge className={statusClass(booking.status)}>{adminStatusT(language, booking.status)}</Badge></TableCell>
                     <TableCell><TableDateTime value={booking.createdAt} /></TableCell>
