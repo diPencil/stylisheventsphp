@@ -368,7 +368,7 @@ class UserController extends Controller
             return ApiResponse::fail('Cannot impersonate inactive or blocked users', 400);
         }
 
-        $token = Auth::guard('api')->login($current);
+        $token = Auth::guard('api')->createToken($current);
         if (!$token) return ApiResponse::fail('Failed to generate impersonation token', 500);
 
         $this->auditLog($request, 'users.impersonate', 'user', $current->id);
