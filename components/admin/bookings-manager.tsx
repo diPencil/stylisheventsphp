@@ -238,15 +238,19 @@ export function BookingsManager() {
                                 {adminT(language, "common.viewOrder")}
                               </Link>
                             </DropdownMenuItem>
-                            <ConfirmAction title="Mark as paid?" description="This order will be marked as paid." confirmLabel="Mark paid" onConfirm={() => updateStatus(booking, "paid")}>
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600"><CheckCircle2 className="h-4 w-4" /> {adminT(language, "common.markPaid")}</DropdownMenuItem>
-                            </ConfirmAction>
+                            {booking.status !== "paid" ? (
+                              <ConfirmAction title="Mark as paid?" description="This order will be marked as paid." confirmLabel="Mark paid" onConfirm={() => updateStatus(booking, "paid")}>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600"><CheckCircle2 className="h-4 w-4" /> {adminT(language, "common.markPaid")}</DropdownMenuItem>
+                              </ConfirmAction>
+                            ) : (
+                              <DropdownMenuItem disabled className="rounded-xl px-3 py-2 font-semibold text-emerald-600 opacity-50"><CheckCircle2 className="h-4 w-4" /> {adminStatusT(language, "paid")}</DropdownMenuItem>
+                            )}
                             <ConfirmAction title="Refund booking?" description="This order will be marked refunded." confirmLabel="Refund" onConfirm={() => updateStatus(booking, "refunded")}>
                               <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-slate-600"><RefreshCcw className="h-4 w-4" /> {adminT(language, "common.refund")}</DropdownMenuItem>
                             </ConfirmAction>
                             <DropdownMenuSeparator />
                             <ConfirmAction title="Cancel booking?" description="This booking will be cancelled and attendee QR will be revoked." confirmLabel="Cancel booking" tone="danger" onConfirm={() => updateStatus(booking, "cancelled")}>
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600"><XCircle className="h-4 w-4" /> {adminT(language, "common.cancelBooking")}</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={booking.status === "paid"} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600"><XCircle className="h-4 w-4" /> {adminT(language, "common.cancelBooking")}</DropdownMenuItem>
                             </ConfirmAction>
                           </DropdownMenuContent>
                         </DropdownMenu>
