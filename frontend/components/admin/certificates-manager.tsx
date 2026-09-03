@@ -733,11 +733,23 @@ export function CertificateBuilder() {
 
         const normalizedEvents = (eventRows || []).map((row: any) => {
           const template = (templateRows || []).find((item: any) => Number(item.event_id) === Number(row.id))
+          let fieldPositions: any = {}
+          try {
+            if (template?.field_positions_json) {
+              fieldPositions = typeof template.field_positions_json === "string" 
+                ? JSON.parse(template.field_positions_json) 
+                : template.field_positions_json
+            }
+          } catch (e) {}
+
+          const base = normalizeDeliveryEvent(row)
           return {
-            ...normalizeDeliveryEvent(row),
+            ...base,
             templateName: template?.name || "Certificate template",
             background: template?.template_url || row.cover_image_url || "",
             issueRule: "Issue after check-in",
+            signatory: fieldPositions.signatoryText || base.signatory,
+            footer: fieldPositions.footerText || base.footer,
           }
         })
         const normalizedAssets = (deliveryRows || []).map(normalizeDelivery)
@@ -785,6 +797,8 @@ export function CertificateBuilder() {
           eventDate: { x: "18%", y: "78%" },
           certificateNumber: { x: "50%", y: "78%" },
           signatory: { x: "82%", y: "78%" },
+          signatoryText: selectedEvent.signatory,
+          footerText: selectedEvent.footer,
         },
         isDefault: true,
         isActive: true,
