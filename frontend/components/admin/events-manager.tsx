@@ -468,7 +468,7 @@ export function EventsManager() {
           <EventsTable language={language} events={events} eventTitle={eventTitle} setActiveEventId={setActiveEventId} updateStatus={updateStatus} deleteEvent={deleteEvent} />
         </TabsContent>
 
-        <TabsContent value="tickets" className="grid gap-5 xl:grid-cols-[520px_1fr]">
+        <TabsContent value="tickets" className="space-y-5">
           <Card className="rounded-[26px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base font-extrabold">
@@ -552,7 +552,6 @@ export function EventsManager() {
             </CardContent>
           </Card>
 
-          <div className="space-y-5">
           <Card className="rounded-[26px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
             <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
@@ -623,14 +622,14 @@ export function EventsManager() {
                 <p className="mt-1 text-sm font-medium text-slate-400">Add or remove date windows for this ticket's pricing.</p>
               </CardHeader>
               <CardContent className="space-y-5">
-                <div className="grid gap-3 rounded-[22px] bg-slate-50 p-4 xl:grid-cols-[1.1fr_1fr_1fr_120px_110px_auto]">
+                <div className="flex flex-col gap-3 rounded-[22px] bg-slate-50 p-4 lg:grid lg:grid-cols-[1.1fr_1fr_1fr_120px_110px_auto]">
                   <PeriodInput label="Period label" value={periodForm.label} onChange={(value) => setPeriodForm({ ...periodForm, label: value })} placeholder="Special Window" surface="white" />
                   <PeriodInput label="Starts" type="datetime-local" value={periodForm.startsAt} onChange={(value) => setPeriodForm({ ...periodForm, startsAt: value })} surface="white" />
                   <PeriodInput label="Ends" type="datetime-local" value={periodForm.endsAt} onChange={(value) => setPeriodForm({ ...periodForm, endsAt: value })} surface="white" />
                   <PeriodInput label="Price" type="number" value={periodForm.price} onChange={(value) => setPeriodForm({ ...periodForm, price: value })} surface="white" />
                   <CurrencySelect value={periodForm.currency} currencies={enabledCurrencies} onChange={(value) => setPeriodForm({ ...periodForm, currency: value })} surface="white" />
                   <ConfirmAction title="Add pricing period?" description="This date window will be added to the selected ticket." confirmLabel="Add period" onConfirm={addPricingPeriod}>
-                    <Button className="mt-auto h-11 rounded-2xl font-extrabold"><Plus className="h-4 w-4" />{adminT(language, "common.addNew")}</Button>
+                    <Button className="mt-auto h-11 rounded-2xl font-extrabold w-full lg:w-auto"><Plus className="h-4 w-4" />{adminT(language, "common.addNew")}</Button>
                   </ConfirmAction>
                 </div>
 
@@ -669,7 +668,6 @@ export function EventsManager() {
               </CardContent>
             </Card>
           )}
-          </div>
         </TabsContent>
 
 

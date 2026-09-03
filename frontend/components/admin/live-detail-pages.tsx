@@ -865,9 +865,34 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
     }
   }
 
-  function downloadAsset() {
-    window.print()
-    toast.success(language === "ar" ? "تم فتح نافذة الطباعة" : "Print dialog opened", { description: language === "ar" ? "اختر حفظ كـ PDF لتحميل هذه المعاينة." : "Choose Save as PDF to download this preview." })
+  async function downloadAsset() {
+    const el = document.getElementById("asset-preview-container")
+    if (!el) return
+    
+    try {
+      toast.info(language === "ar" ? "جاري تحضير الملف..." : "Preparing PDF...")
+      const html2canvas = (await import("html2canvas")).default
+      const { jsPDF } = await import("jspdf")
+      
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false } as any)
+      const imgData = canvas.toDataURL("image/jpeg", 1.0)
+      
+      // Calculate dimensions in mm for PDF (jsPDF default is mm, but we can use px or pt)
+      // We'll use the canvas dimensions to perfectly match the aspect ratio
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? "landscape" : "portrait",
+        unit: "px",
+        format: [canvas.width, canvas.height]
+      })
+      
+      pdf.addImage(imgData, "JPEG", 0, 0, canvas.width, canvas.height)
+      pdf.save(`${kind}-${title}.pdf`)
+      
+      toast.success(language === "ar" ? "تم التحميل بنجاح" : "Downloaded successfully")
+    } catch (error) {
+      console.error(error)
+      toast.error(language === "ar" ? "فشل التحميل" : "Download failed")
+    }
   }
 
   return (
@@ -891,6 +916,7 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
         <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
           <CardContent className="p-4 md:p-6">
             <div
+              id="asset-preview-container"
               className="relative mx-auto aspect-[1.414/1] w-full max-w-5xl overflow-hidden rounded-[28px] border border-slate-100 bg-gradient-to-br from-[#eef6ff] via-white to-[#f8effb] shadow-inner"
               style={
                 certificateTemplateImage
@@ -922,6 +948,7 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
           <Card className="rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
             <CardContent className="p-6">
               <div
+                id="asset-preview-container"
                 className="relative mx-auto aspect-[1.58/1] max-w-xl overflow-hidden rounded-[34px] bg-gradient-to-br from-[#0f172a] to-[hsl(var(--primary))] p-6 text-white shadow-2xl"
                 style={
                   cardTemplateImage
