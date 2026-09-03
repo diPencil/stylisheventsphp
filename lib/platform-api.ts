@@ -450,6 +450,8 @@ export const platformApi = {
     request<any>(`/api/users/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   resetUserPassword: (id: number | string, password: string) =>
     request<any>(`/api/users/${id}/password`, { method: "PATCH", body: JSON.stringify({ password }) }),
+  impersonateUser: (id: number | string) =>
+    request<any>(`/api/users/${id}/impersonate`, { method: "POST" }),
   uploadUserAvatar: (data: { fileName: string; dataUrl: string }) =>
     request<any>("/api/users/avatar-upload", { method: "POST", body: JSON.stringify(data) }),
   listRoles: () => request<any>("/api/users/roles"),
