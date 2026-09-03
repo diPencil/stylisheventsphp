@@ -293,6 +293,8 @@ export function UsersManager() {
   const [accountForm, setAccountForm] = useState(() => createAccountFormDefaults("employee"))
   const [saving, setSaving] = useState(false)
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
+  const [changePasswordUser, setChangePasswordUser] = useState<AdminUser | null>(null)
+  const [newPassword, setNewPassword] = useState("")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [totalUsers, setTotalUsers] = useState(0)
@@ -468,6 +470,25 @@ export function UsersManager() {
       toast.error(adminT(language, "users.statusFailed"), {
         description: language === "ar" ? `تمت إعادة ${user.name} إلى حالة ${adminStatusT(language, user.status)}.` : `${user.name} was restored to ${user.status}.`,
       })
+    }
+  }
+
+  async function executeChangePassword() {
+    if (!changePasswordUser || !newPassword) return
+    if (newPassword.length < 8) {
+      toast.error(language === "ar" ? "كلمة المرور قصيرة جداً (الحد الأدنى 8 أحرف)" : "Password is too short (min 8 chars)")
+      return
+    }
+    setSaving(true)
+    try {
+      await platformApi.resetUserPassword(changePasswordUser.id, newPassword)
+      toast.success(language === "ar" ? "تم تغيير كلمة المرور بنجاح" : "Password changed successfully")
+      setChangePasswordUser(null)
+      setNewPassword("")
+    } catch (err: any) {
+      toast.error(language === "ar" ? "فشل تغيير كلمة المرور" : "Failed to change password", { description: err.message })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -656,6 +677,7 @@ export function UsersManager() {
                               <ConfirmAction title={adminT(language, "users.resetPasswordConfirmTitle")} description={adminT(language, "users.resetPasswordConfirmDescription")} confirmLabel={adminT(language, "users.resetPassword")} onConfirm={() => resetPassword(user)}>
                                 <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-2xl font-bold"><KeyRound className="h-4 w-4" /> {adminT(language, "users.resetPassword")}</DropdownMenuItem>
                               </ConfirmAction>
+                              <DropdownMenuItem onClick={() => setChangePasswordUser(user)} className="cursor-pointer rounded-2xl font-bold"><KeyRound className="h-4 w-4" /> {language === "ar" ? "تغيير كلمة المرور" : "Change password"}</DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <ConfirmAction title={adminT(language, "users.activateConfirmTitle")} description={adminT(language, "users.activateConfirmDescription")} confirmLabel={adminT(language, "users.activateUser")} tone="success" onConfirm={() => setUserStatus(user, "active")}>
                                 <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-2xl font-bold text-emerald-700"><CheckCircle2 className="h-4 w-4" /> {adminT(language, "status.active")}</DropdownMenuItem>
@@ -907,6 +929,35 @@ export function UsersManager() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(changePasswordUser)} onOpenChange={(open) => !open && setChangePasswordUser(null)}>
+        <DialogContent className="max-w-md rounded-[28px] border-0 bg-white p-0">
+          <DialogHeader className="border-b border-slate-100 px-6 py-5 text-start">
+            <DialogTitle className="text-xl font-extrabold text-[#17172f]">{language === "ar" ? "تغيير كلمة المرور" : "Change Password"}</DialogTitle>
+            <DialogDescription className="text-sm font-medium text-slate-500">
+              {language === "ar" ? `أدخل كلمة المرور الجديدة للمستخدم ${changePasswordUser?.name}` : `Enter new password for ${changePasswordUser?.name}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 px-6 py-5">
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "كلمة المرور الجديدة" : "New Password"}</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••"
+                className="h-12 rounded-2xl"
+              />
+            </div>
+          </div>
+          <DialogFooter className="border-t border-slate-100 px-6 py-5">
+            <Button variant="outline" onClick={() => setChangePasswordUser(null)} className="h-11 rounded-2xl px-6 font-extrabold">{adminT(language, "common.cancel")}</Button>
+            <Button onClick={executeChangePassword} disabled={saving || newPassword.length < 8} className="h-11 rounded-2xl bg-[hsl(var(--primary))] px-6 font-extrabold text-white">
+              <Save className="h-4 w-4" /> {saving ? adminT(language, "common.saving") : (language === "ar" ? "حفظ كلمة المرور" : "Save Password")}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
