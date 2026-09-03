@@ -501,7 +501,8 @@ export function UsersManager() {
           const { clearStoredAuthSession, dashboardHrefForAuth } = await import("@/lib/auth-session")
           clearStoredAuthSession()
           window.localStorage.setItem("stylish-holidays-auth-token", data.token)
-          window.location.href = dashboardHrefForAuth(data.user || user, data.token)
+          const target = dashboardHrefForAuth(data.user || user, data.token)
+          window.open(target, '_blank')
         }
       }
     } catch (err: any) {
