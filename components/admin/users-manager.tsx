@@ -679,15 +679,21 @@ export function UsersManager() {
                               </ConfirmAction>
                               <DropdownMenuItem onClick={() => setChangePasswordUser(user)} className="cursor-pointer rounded-2xl font-bold"><KeyRound className="h-4 w-4" /> {language === "ar" ? "تغيير كلمة المرور" : "Change password"}</DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <ConfirmAction title={adminT(language, "users.activateConfirmTitle")} description={adminT(language, "users.activateConfirmDescription")} confirmLabel={adminT(language, "users.activateUser")} tone="success" onConfirm={() => setUserStatus(user, "active")}>
-                                <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-2xl font-bold text-emerald-700"><CheckCircle2 className="h-4 w-4" /> {adminT(language, "status.active")}</DropdownMenuItem>
-                              </ConfirmAction>
-                              <ConfirmAction title={adminT(language, "users.deactivateConfirmTitle")} description={adminT(language, "users.deactivateConfirmDescription")} confirmLabel={adminT(language, "users.deactivateUser")} onConfirm={() => setUserStatus(user, "inactive")}>
-                                <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-2xl font-bold text-amber-700"><PauseCircle className="h-4 w-4" /> {adminT(language, "status.inactive")}</DropdownMenuItem>
-                              </ConfirmAction>
-                              <ConfirmAction title={adminT(language, "users.blockConfirmTitle")} description={adminT(language, "users.blockConfirmDescription")} confirmLabel={adminT(language, "users.blockUser")} tone="danger" onConfirm={() => setUserStatus(user, "blocked")}>
-                                <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-2xl font-bold text-red-600"><Ban className="h-4 w-4" /> {adminT(language, "users.blockUser")}</DropdownMenuItem>
-                              </ConfirmAction>
+                              {user.status !== "active" && (
+                                <ConfirmAction title={adminT(language, "users.activateConfirmTitle")} description={adminT(language, "users.activateConfirmDescription")} confirmLabel={adminT(language, "users.activateUser")} tone="success" onConfirm={() => setUserStatus(user, "active")}>
+                                  <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-2xl font-bold text-emerald-700"><CheckCircle2 className="h-4 w-4" /> {adminT(language, "status.active")}</DropdownMenuItem>
+                                </ConfirmAction>
+                              )}
+                              {user.status !== "inactive" && (
+                                <ConfirmAction title={adminT(language, "users.deactivateConfirmTitle")} description={adminT(language, "users.deactivateConfirmDescription")} confirmLabel={adminT(language, "users.deactivateUser")} onConfirm={() => setUserStatus(user, "inactive")}>
+                                  <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-2xl font-bold text-amber-700"><PauseCircle className="h-4 w-4" /> {adminT(language, "status.inactive")}</DropdownMenuItem>
+                                </ConfirmAction>
+                              )}
+                              {user.status !== "blocked" && (
+                                <ConfirmAction title={adminT(language, "users.blockConfirmTitle")} description={adminT(language, "users.blockConfirmDescription")} confirmLabel={adminT(language, "users.blockUser")} tone="danger" onConfirm={() => setUserStatus(user, "blocked")}>
+                                  <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-2xl font-bold text-red-600"><Ban className="h-4 w-4" /> {adminT(language, "users.blockUser")}</DropdownMenuItem>
+                                </ConfirmAction>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
