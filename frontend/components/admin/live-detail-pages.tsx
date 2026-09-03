@@ -690,14 +690,16 @@ export function LiveRegistrationDetailPage({ id, variant }: { id: string; varian
                 <Button variant="outline" className="h-10 w-full rounded-xl font-bold text-red-600"><XCircle className="h-4 w-4" /> {language === "ar" ? "رفض" : "Reject"}</Button>
               </ConfirmAction>
             ) : null}
-            <ConfirmAction title={language === "ar" ? "تأكيد دفع هذا الطلب؟" : "Mark this order paid?"} description={language === "ar" ? "سيتم تحديث الحجز الفعلي وقد يتم إنشاء سجلات دخول العميل." : "This updates the live booking and can generate customer access records."} confirmLabel={adminT(language, "common.markPaid")} tone="success" onConfirm={() => updateStatus("paid")}>
-              <Button className="h-10 w-full rounded-xl font-bold"><CheckCircle2 className="h-4 w-4" /> {adminT(language, "common.markPaid")}</Button>
-            </ConfirmAction>
+            {status !== "paid" && (
+              <ConfirmAction title={language === "ar" ? "تأكيد دفع هذا الطلب؟" : "Mark this order paid?"} description={language === "ar" ? "سيتم تحديث الحجز الفعلي وقد يتم إنشاء سجلات دخول العميل." : "This updates the live booking and can generate customer access records."} confirmLabel={adminT(language, "common.markPaid")} tone="success" onConfirm={() => updateStatus("paid")}>
+                <Button className="h-10 w-full rounded-xl font-bold"><CheckCircle2 className="h-4 w-4" /> {adminT(language, "common.markPaid")}</Button>
+              </ConfirmAction>
+            )}
             <ConfirmAction title={language === "ar" ? "استرداد هذا الطلب؟" : "Refund this order?"} description={language === "ar" ? "سيتم تحديث حالة الدفع إلى مسترد." : "This updates payment status to refunded."} confirmLabel={adminT(language, "common.refund")} onConfirm={() => updateStatus("refunded")}>
               <Button variant="outline" className="h-10 w-full rounded-xl font-bold"><ReceiptText className="h-4 w-4" /> {adminT(language, "common.refund")}</Button>
             </ConfirmAction>
             <ConfirmAction title={language === "ar" ? "إلغاء هذا الحجز؟" : "Cancel this booking?"} description={language === "ar" ? "سيتم إلغاء أي رمز QR مرتبط بالحضور." : "This revokes any related attendee QR token."} confirmLabel={adminT(language, "common.cancelBooking")} tone="danger" onConfirm={() => updateStatus("cancelled")}>
-              <Button variant="outline" className="h-10 w-full rounded-xl font-bold text-red-600"><XCircle className="h-4 w-4" /> {adminT(language, "common.cancelBooking")}</Button>
+              <Button variant="outline" disabled={status === "paid"} className="h-10 w-full rounded-xl font-bold text-red-600"><XCircle className="h-4 w-4" /> {adminT(language, "common.cancelBooking")}</Button>
             </ConfirmAction>
           </CardContent>
         </Card>
