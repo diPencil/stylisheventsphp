@@ -354,6 +354,31 @@ class UserController extends Controller
         return ApiResponse::ok(['id' => $current->id], 'Password updated');
     }
 
+    public function impersonate(Request $request, $id)
+    {
+        $current = User::with('role')->find($id);
+        if (!$current) return ApiResponse::fail('User not found', 404);
+
+        $authUser = Auth::guard('api')->user();
+        if ($authUser && $current->id === $authUser->id) {
+            return ApiResponse::fail('You cannot impersonate yourself', 400);
+        }
+
+        if ($current->status !== 'active') {
+            return ApiResponse::fail('Cannot impersonate inactive or blocked users', 400);
+        }
+
+        $token = Auth::guard('api')->login($current);
+        if (!$token) return ApiResponse::fail('Failed to generate impersonation token', 500);
+
+        $this->auditLog($request, 'users.impersonate', 'user', $current->id);
+
+        return ApiResponse::ok([
+            'token' => $token,
+            'user' => $this->mapUser($current, $current->role)
+        ], 'Impersonated successfully');
+    }
+
     public function avatarUpload(Request $request)
     {
         $validated = $request->validate([

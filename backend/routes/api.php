@@ -44,6 +44,7 @@ Route::middleware('auth:api')->group(function () {
         Route::put('/{id}', [UserController::class, 'update'])->middleware('permission:users.manage');
         Route::patch('/{id}/status', [UserController::class, 'updateStatus'])->middleware('permission:users.manage');
         Route::patch('/{id}/password', [UserController::class, 'updatePassword'])->middleware('permission:users.manage');
+        Route::post('/{id}/impersonate', [UserController::class, 'impersonate'])->middleware('permission:users.manage');
     });
 });
 

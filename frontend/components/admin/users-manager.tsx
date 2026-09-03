@@ -8,6 +8,7 @@ import {
   Eye,
   KeyRound,
   LockKeyhole,
+  LogIn,
   MoreHorizontal,
   PauseCircle,
   Save,
@@ -492,6 +493,22 @@ export function UsersManager() {
     }
   }
 
+  async function impersonateUser(user: AdminUser) {
+    try {
+      const data = await platformApi.impersonateUser(user.id)
+      if (data && data.token) {
+        if (typeof window !== "undefined") {
+          const { clearStoredAuthSession, dashboardHrefForAuth } = await import("@/lib/auth-session")
+          clearStoredAuthSession()
+          window.localStorage.setItem("stylish-holidays-auth-token", data.token)
+          window.location.href = dashboardHrefForAuth(data.user || user, data.token)
+        }
+      }
+    } catch (err: any) {
+      toast.error(language === "ar" ? "فشل تسجيل الدخول كالمستخدم" : "Failed to login as user", { description: err.message })
+    }
+  }
+
   async function resetPassword(user: AdminUser) {
     try {
       await platformApi.resetUserPassword(user.id, "StylishHolidays@2026")
@@ -678,6 +695,7 @@ export function UsersManager() {
                                 <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-2xl font-bold"><KeyRound className="h-4 w-4" /> {adminT(language, "users.resetPassword")}</DropdownMenuItem>
                               </ConfirmAction>
                               <DropdownMenuItem onClick={() => setChangePasswordUser(user)} className="cursor-pointer rounded-2xl font-bold"><KeyRound className="h-4 w-4" /> {language === "ar" ? "تغيير كلمة المرور" : "Change password"}</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => impersonateUser(user)} className="cursor-pointer rounded-2xl font-bold"><LogIn className="h-4 w-4" /> {language === "ar" ? "تسجيل الدخول كالمستخدم" : "Login as user"}</DropdownMenuItem>
                               <DropdownMenuSeparator />
                               {user.status !== "active" && (
                                 <ConfirmAction title={adminT(language, "users.activateConfirmTitle")} description={adminT(language, "users.activateConfirmDescription")} confirmLabel={adminT(language, "users.activateUser")} tone="success" onConfirm={() => setUserStatus(user, "active")}>
