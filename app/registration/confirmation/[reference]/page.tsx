@@ -9,6 +9,7 @@ import { PublicPageFrame } from "@/components/public/page-building-blocks"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/contexts/language-context"
 import { platformApi } from "@/lib/platform-api"
+import { useAuthSession } from "@/lib/auth-session"
 
 function formatDate(value?: string, locale = "en-US") {
   if (!value) return "-"
@@ -38,6 +39,7 @@ export default function RegistrationConfirmationPage() {
   const reference = params?.reference || ""
   const token = searchParams?.get("token") || ""
   const { isRtl } = useLanguage()
+  const authSession = useAuthSession()
   const [data, setData] = useState<any>(null)
   const [bankAccount, setBankAccount] = useState<any>(null)
   const [error, setError] = useState("")
@@ -107,7 +109,9 @@ export default function RegistrationConfirmationPage() {
 
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Button asChild className="h-12 rounded-full bg-[hsl(var(--primary))] px-6 font-black text-white">
-                <Link href="/login">{isRtl ? "تسجيل الدخول للداشبورد" : "Login to dashboard"}</Link>
+                <Link href={authSession?.user ? "/admin" : "/login"}>
+                  {authSession?.user ? (isRtl ? "عرض الداشبورد" : "View my dashboard") : (isRtl ? "تسجيل الدخول للداشبورد" : "Login to dashboard")}
+                </Link>
               </Button>
               <Button asChild variant="outline" className="h-12 rounded-full px-6 font-black">
                 <Link href="/upcoming-events">{isRtl ? "تصفح الفعاليات" : "Browse events"}</Link>
