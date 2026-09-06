@@ -6,6 +6,7 @@ import { PlatformThemeProvider } from "@/components/platform-theme-provider"
 import { LanguageProvider } from "@/contexts/language-context"
 import { Toaster } from "@/components/ui/sonner"
 import { ScrollToTop } from "@/components/ui/scroll-to-top"
+import { ImpersonationBanner } from "@/components/impersonation-banner"
 import { backendAssetUrl } from "@/lib/asset-url"
 
 const baseMetadata: Metadata = {
@@ -203,7 +204,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             enableSystem
             value={{ light: "white", dark: "black" }}
           >
-            <PlatformThemeProvider>{children}</PlatformThemeProvider>
+            <PlatformThemeProvider>
+              <ImpersonationBanner />
+              {children}
+            </PlatformThemeProvider>
             <Toaster position="top-right" richColors closeButton />
             <ScrollToTop />
           </ThemeProvider>

@@ -498,10 +498,8 @@ export function UsersManager() {
       const data = await platformApi.impersonateUser(user.id)
       if (data && data.token) {
         if (typeof window !== "undefined") {
-          const { clearStoredAuthSession, dashboardHrefForAuth } = await import("@/lib/auth-session")
-          clearStoredAuthSession()
-          window.localStorage.setItem("stylish-holidays-auth-token", data.token)
-          const target = dashboardHrefForAuth(data.user || user, data.token)
+          const { dashboardHrefForAuth } = await import("@/lib/auth-session")
+          const target = dashboardHrefForAuth(data.user || user, data.token) + "?impersonate_token=" + data.token
           window.open(target, '_blank')
         }
       }

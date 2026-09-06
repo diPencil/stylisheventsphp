@@ -26,12 +26,29 @@ export type AuthSession = {
 
 export function readStoredAuthToken() {
   if (typeof window === "undefined") return ""
+  
+  // If we have an impersonate_token in the URL, grab it and save to sessionStorage
+  const params = new URLSearchParams(window.location.search)
+  const impToken = params.get("impersonate_token")
+  if (impToken) {
+    window.sessionStorage.setItem("stylish-holidays-impersonate-token", impToken)
+    // Clean URL
+    const newUrl = window.location.pathname + window.location.search.replace(/impersonate_token=[^&]+&?/, '').replace(/\?$/, '') + window.location.hash
+    window.history.replaceState({}, document.title, newUrl)
+  }
+
+  const impersonate = window.sessionStorage.getItem("stylish-holidays-impersonate-token")
+  if (impersonate) return impersonate
+
   return authTokenKeys.map((key) => window.localStorage.getItem(key)).find(Boolean) || ""
 }
 
 export function readStoredAuthUser() {
   if (typeof window === "undefined") return null
   try {
+    const impersonated = window.sessionStorage.getItem(authUserKey)
+    if (impersonated) return JSON.parse(impersonated)
+
     const saved = window.localStorage.getItem(authUserKey)
     return saved ? JSON.parse(saved) : null
   } catch {
@@ -65,9 +82,16 @@ export function notifyAuthSessionChanged() {
 
 export function clearStoredAuthSession() {
   if (typeof window === "undefined") return
-  authTokenKeys.forEach((key) => window.localStorage.removeItem(key))
-  window.localStorage.removeItem(authUserKey)
-  window.localStorage.removeItem(authProfileKey)
+  
+  if (window.sessionStorage.getItem("stylish-holidays-impersonate-token")) {
+    window.sessionStorage.removeItem("stylish-holidays-impersonate-token")
+    window.sessionStorage.removeItem(authUserKey)
+  } else {
+    authTokenKeys.forEach((key) => window.localStorage.removeItem(key))
+    window.localStorage.removeItem(authUserKey)
+    window.localStorage.removeItem(authProfileKey)
+  }
+  
   notifyAuthSessionChanged()
 }
 
@@ -99,7 +123,12 @@ export function useAuthSession(): AuthSession {
       .me(token)
       .then((user) => {
         if (cancelled) return
-        window.localStorage.setItem(authUserKey, JSON.stringify(user))
+        const isImpersonating = !!window.sessionStorage.getItem("stylish-holidays-impersonate-token")
+        if (isImpersonating) {
+          window.sessionStorage.setItem(authUserKey, JSON.stringify(user))
+        } else {
+          window.localStorage.setItem(authUserKey, JSON.stringify(user))
+        }
         setSession({
           status: "authenticated",
           token,
