@@ -210,6 +210,7 @@ Route::middleware('auth:api')->prefix('me')->group(function () {
     Route::get('/tickets/{id}', [MeController::class, 'showTicket']);
     Route::get('/tickets/{id}/qr', [MeController::class, 'ticketQr']);
     Route::get('/certificates', [MeController::class, 'certificates']);
+    Route::get('/certificates/{id}', [MeController::class, 'showCertificate']);
     Route::get('/notifications', [MeController::class, 'notifications']);
     Route::patch('/notifications/{id}/read', [MeController::class, 'markNotificationRead']);
     Route::patch('/notifications/read-all', [MeController::class, 'markAllNotificationsRead']);
