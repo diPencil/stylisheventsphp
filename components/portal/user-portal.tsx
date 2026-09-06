@@ -683,6 +683,7 @@ function Records({ rows, empty }: { rows: any[]; empty: string }) {
           <div className="flex flex-wrap gap-2 md:justify-end">
             <Button asChild variant="outline" className="h-10 rounded-2xl font-bold"><Link href={`/dashboard/registrations/${row.registration_id || row.id}`}>{isRtl ? "التفاصيل" : "Details"}</Link></Button>
             {row.ticket_id ? <Button asChild variant="outline" className="h-10 rounded-2xl font-bold"><Link href={`/dashboard/tickets/${row.ticket_id}`}>{isRtl ? "التذكرة" : "Ticket"}</Link></Button> : null}
+            {row.certificate_id ? <Button asChild variant="outline" className="h-10 rounded-2xl border-[hsl(var(--primary))] font-bold text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.05)]"><Link href={`/dashboard/certificates/${row.certificate_id}`}>{isRtl ? "عرض الشهادة" : "View Certificate"}</Link></Button> : null}
           </div>
         </article>
       ))}

@@ -237,6 +237,7 @@ export const platformApi = {
     const queryString = searchParams.toString()
     return request<any>(`/api/me/certificates${queryString ? `?${queryString}` : ""}`)
   },
+  getMyCertificate: (id: number | string) => request<any>(`/api/me/certificates/${id}`),
   listMyNotifications: (params?: { page?: number; perPage?: number }) => {
     const searchParams = new URLSearchParams()
     if (params?.page) searchParams.set("page", String(params.page))
