@@ -458,6 +458,54 @@ class MeController extends Controller
         ]);
     }
 
+    public function showCertificate(Request $request, $id)
+    {
+        $id = (int)$id;
+        if (!$id) {
+            return response()->json(['success' => false, 'message' => 'Invalid certificate id'], 400);
+        }
+
+        $userId = $request->user()->id;
+
+        $row = DB::table('certificates as c')
+            ->join('attendees as a', 'a.id', '=', 'c.attendee_id')
+            ->join('generated_tickets as gt', 'gt.attendee_id', '=', 'a.id')
+            ->join('registrations as r', 'r.id', '=', 'gt.registration_id')
+            ->join('doctors as d', 'd.id', '=', 'r.doctor_id')
+            ->join('events as e', 'e.id', '=', 'r.event_id')
+            ->leftJoin('event_certificate_templates as ect', 'ect.event_id', '=', 'e.id')
+            ->leftJoin('certificate_templates as ct', 'ct.id', '=', 'ect.template_id')
+            ->where('c.id', $id)
+            ->where('d.user_id', $userId)
+            ->select([
+                'c.id as certificate_id',
+                'c.certificate_number',
+                'c.status as certificate_status',
+                'c.issued_at as certificate_issued_at',
+                'a.id as attendee_id',
+                'r.id as registration_id',
+                'r.registration_number',
+                'd.full_name as attendee_name',
+                'e.id as event_id',
+                'e.title_en as event_title_en',
+                'e.title_ar as event_title_ar',
+                'e.starts_at',
+                'e.ends_at',
+                'ct.template_url',
+                'ct.field_positions_json'
+            ])
+            ->first();
+
+        if (!$row) {
+            return response()->json(['success' => false, 'message' => 'Certificate not found'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $row
+        ]);
+    }
+
     public function ticketQr(Request $request, $id)
     {
         $id = (int)$id;
