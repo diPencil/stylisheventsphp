@@ -6,13 +6,14 @@ import { platformApi } from "@/lib/platform-api"
 import { useLanguage } from "@/contexts/language-context"
 import { Button } from "@/components/ui/button"
 import { Download, ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
-import { apiAssetUrl } from "@/lib/asset-url"
+import { apiAssetUrl } from "@/lib/platform-api"
 import { toast } from "sonner"
 import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
 
 export default function CertificateDownloadPage() {
-  const { id } = useParams()
+  const params = useParams<{ id: string }>()
+  const id = params?.id
   const router = useRouter()
   const { language } = useLanguage()
   const isRtl = language === "ar"
@@ -49,7 +50,7 @@ export default function CertificateDownloadPage() {
         useCORS: true,
         allowTaint: true,
         backgroundColor: "#ffffff",
-      })
+      } as any)
 
       const imgData = canvas.toDataURL("image/png")
       
