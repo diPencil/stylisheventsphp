@@ -308,7 +308,7 @@ class CertificateController extends Controller
         $fileUrl = $data['fileUrl'] ?? null;
 
         $attendee = DB::table('attendees as a')
-            ->join('events as e', 'e.id', '=', 'a.event_id')
+            ->leftJoin('events as e', 'e.id', '=', 'a.event_id')
             ->select('a.id', 'a.event_id', 'a.full_name', 'a.checked_in_at', 'e.title_en as event_title_en')
             ->where('a.id', $attendeeId)
             ->first();

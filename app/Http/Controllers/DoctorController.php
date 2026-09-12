@@ -153,6 +153,36 @@ class DoctorController extends Controller
         ]);
     }
 
+    public function accountStatus(Request $request)
+    {
+        $email = strtolower(trim($request->query('email', '')));
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return response()->json(['success' => false, 'message' => 'A valid email is required'], 400);
+        }
+
+        $user = DB::table('users as u')
+            ->leftJoin('roles as r', 'r.id', '=', 'u.role_id')
+            ->where('u.email', $email)
+            ->select('u.id', 'u.name', 'u.email', 'u.phone', 'u.country_code', 'u.country_name', 'u.status', 'r.code as role_code')
+            ->first();
+
+        $doctor = DB::table('doctors')->where('email', $email)->first();
+
+        return response()->json(['success' => true, 'data' => [
+            'exists' => $user !== null,
+            'userId' => $user->id ?? null,
+            'name' => $user->name ?? $doctor->full_name ?? null,
+            'email' => $email,
+            'phone' => $user->phone ?? $doctor->mobile ?? null,
+            'countryCode' => $user->country_code ?? $doctor->country_code ?? null,
+            'countryName' => $user->country_name ?? $doctor->country_name ?? null,
+            'status' => $user->status ?? null,
+            'roleCode' => $user->role_code ?? null,
+            'hasDoctorProfile' => $doctor !== null,
+            'doctorLinked' => $doctor !== null && $user !== null && (int) $doctor->user_id === (int) $user->id,
+        ]]);
+    }
+
     public function show(Request $request, $id)
     {
         $user = $request->user();
