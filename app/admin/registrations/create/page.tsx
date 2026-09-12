@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, CheckCircle2, Loader2, ReceiptText, Stethoscope, TicketCheck } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Loader2, ReceiptText, Search, Stethoscope, TicketCheck, UserCheck, UserPlus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,9 +16,25 @@ import { platformApi } from "@/lib/platform-api"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
+type AccountMode = "existing" | "new"
+
+type AccountStatus = {
+  exists: boolean
+  userId: number | null
+  name: string | null
+  phone: string | null
+  countryCode: string | null
+  countryName: string | null
+  status: string | null
+  hasDoctorProfile: boolean
+  doctorLinked: boolean
+} | null
+
 type ManualRegistrationForm = {
   eventId: string
   ticketTypeId: string
+  accountMode: AccountMode
+  linkedUserId: number | null
   fullName: string
   mobile: string
   email: string
@@ -38,6 +54,8 @@ type ManualRegistrationForm = {
 const initialForm: ManualRegistrationForm = {
   eventId: "",
   ticketTypeId: "",
+  accountMode: "new",
+  linkedUserId: null,
   fullName: "",
   mobile: "",
   email: "",
@@ -64,6 +82,24 @@ const copy = {
     eventHelp: "Choose a live event and an active ticket type before entering attendee details.",
     attendeePanel: "Doctor / attendee details",
     attendeeHelp: "These fields create or update the doctor profile used by registrations.",
+    accountMode: "Account type",
+    accountModeHelp: "Choose whether this booking is for an existing platform account or a brand-new one.",
+    existingAccount: "Existing account",
+    existingAccountDesc: "Booking goes straight to their account",
+    newAccount: "New account",
+    newAccountDesc: "Creates the account + emails login credentials",
+    searchAccount: "Search accounts",
+    searchPlaceholder: "Type name or email...",
+    searching: "Searching...",
+    noAccountResults: "No matching accounts found.",
+    useAccount: "Use",
+    accountLinked: "Linked account",
+    accountWillBeCreated: "A new account will be created and login credentials will be emailed to the address above.",
+    emailTaken: "This email already has an account — switch to Existing account mode.",
+    checkingAccount: "Checking account...",
+    selectExistingFirst: "Search and select the existing account first.",
+    credentialsEmailed: "Login credentials emailed",
+    credentialsFailed: "Account created but the credentials email could not be sent",
     paymentPanel: "Payment handling",
     paymentHelp: "Paid registrations follow the event approval policy and may issue a ticket immediately.",
     event: "Event",
@@ -106,6 +142,24 @@ const copy = {
     eventHelp: "اختر فعالية وتذكرة نشطة قبل إدخال بيانات الحضور.",
     attendeePanel: "بيانات الطبيب / الحضور",
     attendeeHelp: "هذه البيانات تنشئ أو تحدث ملف الطبيب المرتبط بالتسجيل.",
+    accountMode: "نوع الحساب",
+    accountModeHelp: "اختر هل الحجز لحساب موجود على المنصة أم حساب جديد.",
+    existingAccount: "حساب حالي",
+    existingAccountDesc: "الحجز يروح على حسابه مباشرة",
+    newAccount: "حساب جديد",
+    newAccountDesc: "ينشئ الحساب + يبعت بيانات الدخول على الإيميل",
+    searchAccount: "البحث عن حساب",
+    searchPlaceholder: "اكتب الاسم أو الإيميل...",
+    searching: "جاري البحث...",
+    noAccountResults: "لا توجد حسابات مطابقة.",
+    useAccount: "اختيار",
+    accountLinked: "الحساب المرتبط",
+    accountWillBeCreated: "سيتم إنشاء حساب جديد وإرسال بيانات الدخول على الإيميل أعلاه.",
+    emailTaken: "الإيميل ده ليه حساب موجود — اختار وضع الحساب الحالي.",
+    checkingAccount: "جاري فحص الحساب...",
+    selectExistingFirst: "ابحث واختار الحساب الحالي أولاً.",
+    credentialsEmailed: "تم إرسال بيانات الدخول على الإيميل",
+    credentialsFailed: "تم إنشاء الحساب لكن تعذر إرسال إيميل بيانات الدخول",
     paymentPanel: "حالة الدفع",
     paymentHelp: "التسجيلات المدفوعة تتبع سياسة اعتماد الفعالية وقد تصدر التذكرة مباشرة.",
     event: "الفعالية",
@@ -153,6 +207,11 @@ export default function ManualRegistrationCreatePage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [created, setCreated] = useState<any>(null)
+  const [accountQuery, setAccountQuery] = useState("")
+  const [accountResults, setAccountResults] = useState<any[]>([])
+  const [searchingAccounts, setSearchingAccounts] = useState(false)
+  const [accountStatus, setAccountStatus] = useState<AccountStatus>(null)
+  const [checkingAccount, setCheckingAccount] = useState(false)
 
   const canCreate = can("registrations.create_manual")
 
@@ -225,9 +284,84 @@ export default function ManualRegistrationCreatePage() {
     setCreated(null)
   }
 
+  const setAccountMode = (mode: AccountMode) => {
+    setForm((current) => ({ ...current, accountMode: mode, linkedUserId: mode === "new" ? null : current.linkedUserId }))
+    setAccountStatus(null)
+    setAccountResults([])
+    setAccountQuery("")
+    setError("")
+    setCreated(null)
+  }
+
+  async function searchAccounts() {
+    const query = accountQuery.trim()
+    if (query.length < 2) return
+    setSearchingAccounts(true)
+    try {
+      const rows = await platformApi.listDoctors(query)
+      setAccountResults(rows || [])
+    } catch (err) {
+      setAccountResults([])
+    } finally {
+      setSearchingAccounts(false)
+    }
+  }
+
+  async function checkAccountByEmail(email: string) {
+    const clean = email.trim()
+    if (!/.+@.+\..+/.test(clean)) {
+      setAccountStatus(null)
+      return
+    }
+    setCheckingAccount(true)
+    try {
+      const status = await platformApi.doctorAccountStatus(clean)
+      setAccountStatus(status)
+      if (form.accountMode === "existing" && status?.exists) {
+        setForm((current) => ({
+          ...current,
+          linkedUserId: status.userId,
+          fullName: status.name || current.fullName,
+          mobile: status.phone || current.mobile,
+          countryCode: status.countryCode || current.countryCode,
+          countryName: status.countryName || current.countryName,
+        }))
+      }
+    } catch {
+      setAccountStatus(null)
+    } finally {
+      setCheckingAccount(false)
+    }
+  }
+
+  function selectAccount(row: any) {
+    setForm((current) => ({
+      ...current,
+      accountMode: "existing",
+      linkedUserId: null,
+      fullName: row.full_name || current.fullName,
+      mobile: row.mobile || current.mobile,
+      email: row.email || current.email,
+      countryCode: row.country_code || current.countryCode,
+      countryName: row.country_name || current.countryName,
+      city: row.city || current.city,
+      specialty: row.specialty || current.specialty,
+      nationality: row.nationality || current.nationality,
+      preferredLanguage: row.preferred_language || current.preferredLanguage,
+    }))
+    setAccountResults([])
+    setAccountQuery("")
+    if (row.email) checkAccountByEmail(row.email)
+  }
+
+  const emailValid = /.+@.+\..+/.test(form.email.trim())
+  const accountComplete =
+    form.accountMode === "new" ? true : form.linkedUserId !== null && emailValid
+
   const requiredComplete = Boolean(
     form.eventId &&
       form.ticketTypeId &&
+      accountComplete &&
       form.fullName.trim().length >= 2 &&
       form.mobile.trim().length >= 7 &&
       /.+@.+\..+/.test(form.email.trim()) &&
@@ -235,7 +369,8 @@ export default function ManualRegistrationCreatePage() {
       form.countryName.trim().length >= 2 &&
       form.city.trim().length >= 2 &&
       form.specialty.trim().length >= 2 &&
-      form.nationality.trim().length >= 2
+      form.nationality.trim().length >= 2 &&
+      !(form.accountMode === "new" && accountStatus?.exists)
   )
 
   async function submit() {
@@ -244,7 +379,7 @@ export default function ManualRegistrationCreatePage() {
       return
     }
     if (!requiredComplete) {
-      setError(t.required)
+      setError(form.accountMode === "existing" && form.linkedUserId === null ? t.selectExistingFirst : t.required)
       return
     }
 
@@ -255,6 +390,8 @@ export default function ManualRegistrationCreatePage() {
         eventId: Number(form.eventId),
         ticketTypeId: Number(form.ticketTypeId),
         source: "manual",
+        accountMode: form.accountMode,
+        ...(form.accountMode === "existing" && form.linkedUserId ? { userId: form.linkedUserId } : {}),
         fullName: form.fullName.trim(),
         mobile: form.mobile.trim(),
         email: form.email.trim(),
@@ -346,10 +483,111 @@ export default function ManualRegistrationCreatePage() {
           </FormPanel>
 
           <FormPanel icon={Stethoscope} title={t.attendeePanel} description={t.attendeeHelp}>
+            <div className="mb-5 space-y-3">
+              <Label className="text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">{t.accountMode}</Label>
+              <p className="text-xs font-medium text-slate-400">{t.accountModeHelp}</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setAccountMode("existing")}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl border-2 p-4 text-start transition",
+                    form.accountMode === "existing" ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.06)]" : "border-slate-100 bg-slate-50 hover:border-slate-200"
+                  )}
+                >
+                  <UserCheck className={cn("h-5 w-5 shrink-0", form.accountMode === "existing" ? "text-[hsl(var(--primary))]" : "text-slate-400")} />
+                  <span>
+                    <span className="block text-sm font-extrabold text-[#17172f]">{t.existingAccount}</span>
+                    <span className="block text-xs font-medium text-slate-500">{t.existingAccountDesc}</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountMode("new")}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl border-2 p-4 text-start transition",
+                    form.accountMode === "new" ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.06)]" : "border-slate-100 bg-slate-50 hover:border-slate-200"
+                  )}
+                >
+                  <UserPlus className={cn("h-5 w-5 shrink-0", form.accountMode === "new" ? "text-[hsl(var(--primary))]" : "text-slate-400")} />
+                  <span>
+                    <span className="block text-sm font-extrabold text-[#17172f]">{t.newAccount}</span>
+                    <span className="block text-xs font-medium text-slate-500">{t.newAccountDesc}</span>
+                  </span>
+                </button>
+              </div>
+
+              {form.accountMode === "existing" ? (
+                <div className="space-y-3 rounded-2xl bg-slate-50 p-4">
+                  <Label className="text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">{t.searchAccount}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={accountQuery}
+                      onChange={(event) => setAccountQuery(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault()
+                          searchAccounts()
+                        }
+                      }}
+                      placeholder={t.searchPlaceholder}
+                      className="h-11 rounded-2xl border-slate-200 bg-white font-bold"
+                    />
+                    <Button type="button" onClick={searchAccounts} disabled={searchingAccounts || accountQuery.trim().length < 2} className="h-11 shrink-0 rounded-2xl font-extrabold">
+                      {searchingAccounts ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      {searchingAccounts ? t.searching : t.searchAccount}
+                    </Button>
+                  </div>
+                  {accountResults.length > 0 ? (
+                    <div className="max-h-56 space-y-2 overflow-y-auto">
+                      {accountResults.map((row) => (
+                        <div key={row.id} className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-extrabold text-[#17172f]">{row.full_name}</p>
+                            <p className="truncate text-xs font-medium text-slate-400">{row.email} · {row.mobile}</p>
+                          </div>
+                          <Button type="button" size="sm" onClick={() => selectAccount(row)} className="h-9 shrink-0 rounded-xl font-extrabold">
+                            {t.useAccount}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {!searchingAccounts && accountQuery.trim().length >= 2 && accountResults.length === 0 ? (
+                    <p className="text-xs font-bold text-amber-600">{t.noAccountResults}</p>
+                  ) : null}
+                  {form.linkedUserId && accountStatus?.exists ? (
+                    <p className="rounded-2xl bg-emerald-50 p-3 text-xs font-extrabold text-emerald-700">
+                      {t.accountLinked}: {accountStatus.name} ({form.email.trim()})
+                    </p>
+                  ) : (
+                    <p className="text-xs font-bold text-slate-400">{t.selectExistingFirst}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="rounded-2xl bg-[hsl(var(--primary)/0.06)] p-3 text-xs font-bold leading-5 text-slate-600">{t.accountWillBeCreated}</p>
+                  {checkingAccount ? <p className="text-xs font-bold text-slate-400">{t.checkingAccount}</p> : null}
+                  {!checkingAccount && accountStatus?.exists ? (
+                    <p className="rounded-2xl bg-red-50 p-3 text-xs font-extrabold text-red-700">{t.emailTaken}</p>
+                  ) : null}
+                </div>
+              )}
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
               <Field label={t.fullName} value={form.fullName} onChange={(value) => setField("fullName", value)} />
               <Field label={t.mobile} value={form.mobile} onChange={(value) => setField("mobile", value)} />
-              <Field label={t.email} value={form.email} onChange={(value) => setField("email", value)} type="email" />
+              <Field
+                label={t.email}
+                value={form.email}
+                onChange={(value) => {
+                  setField("email", value)
+                  setAccountStatus(null)
+                  if (form.accountMode === "existing") setForm((current) => ({ ...current, linkedUserId: null }))
+                }}
+                onBlur={(value) => checkAccountByEmail(value)}
+                type="email"
+              />
               <Field label={t.specialty} value={form.specialty} onChange={(value) => setField("specialty", value)} />
               <Field label={t.countryCode} value={form.countryCode} onChange={(value) => setField("countryCode", value.slice(0, 2).toUpperCase())} />
               <Field label={t.countryName} value={form.countryName} onChange={(value) => setField("countryName", value)} />
@@ -416,6 +654,11 @@ export default function ManualRegistrationCreatePage() {
                   </div>
                   <p className="mt-2 text-xs font-bold">{created.registrationNumber || created.registration_number}</p>
                   <p className="mt-1 text-xs font-bold">{t.status}: {created.status}</p>
+                  {created.accountCreated ? (
+                    <p className={`mt-1 text-xs font-bold ${created.credentialsEmailed ? "text-emerald-700" : "text-amber-700"}`}>
+                      {created.credentialsEmailed ? t.credentialsEmailed : t.credentialsFailed}
+                    </p>
+                  ) : null}
                   <div className="mt-3 flex flex-col gap-2">
                     <Button asChild size="sm" className="h-9 rounded-xl font-extrabold">
                       <Link href={`/admin/orders/${created.id}`}>{t.viewOrder}</Link>
@@ -456,11 +699,17 @@ function FormPanel({ icon: Icon, title, description, children }: { icon: any; ti
   )
 }
 
-function Field({ label, value, onChange, type = "text", className }: { label: string; value: string; onChange: (value: string) => void; type?: string; className?: string }) {
+function Field({ label, value, onChange, onBlur, type = "text", className }: { label: string; value: string; onChange: (value: string) => void; onBlur?: (value: string) => void; type?: string; className?: string }) {
   return (
     <div className={cn("space-y-2", className)}>
       <Label className="text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">{label}</Label>
-      <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} className="h-11 rounded-2xl border-slate-200 bg-slate-50 font-bold" />
+      <Input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur ? (event) => onBlur(event.target.value) : undefined}
+        className="h-11 rounded-2xl border-slate-200 bg-slate-50 font-bold"
+      />
     </div>
   )
 }
