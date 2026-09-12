@@ -238,6 +238,16 @@ export const platformApi = {
     return request<any>(`/api/me/certificates${queryString ? `?${queryString}` : ""}`)
   },
   getMyCertificate: (id: number | string) => request<any>(`/api/me/certificates/${id}`),
+  listMyEventCards: (params?: { search?: string; status?: string; page?: number; perPage?: number }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.search) searchParams.set("search", params.search)
+    if (params?.status) searchParams.set("status", params.status)
+    if (params?.page) searchParams.set("page", String(params.page))
+    if (params?.perPage) searchParams.set("perPage", String(params.perPage))
+    const queryString = searchParams.toString()
+    return request<any>(`/api/me/event-cards${queryString ? `?${queryString}` : ""}`)
+  },
+  getMyEventCard: (id: number | string) => request<any>(`/api/me/event-cards/${id}`),
   listMyNotifications: (params?: { page?: number; perPage?: number }) => {
     const searchParams = new URLSearchParams()
     if (params?.page) searchParams.set("page", String(params.page))
@@ -337,10 +347,19 @@ export const platformApi = {
     return request<any[]>(path)
   },
   getAttendee: (id: number | string) => request<any>(`/api/attendees/${id}`),
-  checkin: (qrToken: string, eventId?: number | string) =>
+  listCheckinHistory: (params?: { eventId?: number; limit?: number; offset?: number; search?: string }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.eventId) searchParams.set("eventId", String(params.eventId))
+    if (typeof params?.limit === "number") searchParams.set("limit", String(params.limit))
+    if (typeof params?.offset === "number") searchParams.set("offset", String(params.offset))
+    if (params?.search) searchParams.set("search", params.search)
+    const queryString = searchParams.toString()
+    return request<any[]>(`/api/attendees/checkin/history${queryString ? `?${queryString}` : ""}`)
+  },
+  checkin: (qrToken: string, eventId?: number | string, source?: "scan" | "manual") =>
     request<any>("/api/attendees/checkin", {
       method: "POST",
-      body: JSON.stringify({ qrToken, ...(eventId ? { eventId: Number(eventId) } : {}) }),
+      body: JSON.stringify({ qrToken, ...(eventId ? { eventId: Number(eventId) } : {}), ...(source ? { source } : {}) }),
     }),
   updateAttendeeQrStatus: (id: number | string, status: "active" | "revoked" | "used") =>
     request<any>(`/api/attendees/${id}/qr-status`, { method: "PATCH", body: JSON.stringify({ status }) }),

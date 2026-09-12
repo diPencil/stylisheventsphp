@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { QRCodeSVG } from "qrcode.react"
 import {
   ArrowLeft,
   BadgeCheck,
@@ -977,7 +978,15 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
           </Card>
           <Card className="rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
             <CardContent className="space-y-4 p-6">
-              <div className="flex h-28 items-center justify-center rounded-[24px] bg-slate-50"><QrCode className="h-16 w-16 text-[#17172f]" /></div>
+              <div className="flex h-28 items-center justify-center rounded-[24px] bg-slate-50">
+                {row.qr_token ? (
+                  <div className="rounded-2xl bg-white p-2 shadow-sm" dir="ltr">
+                    <QRCodeSVG value={row.qr_token} size={76} level="H" />
+                  </div>
+                ) : (
+                  <QrCode className="h-16 w-16 text-[#17172f]" />
+                )}
+              </div>
               <Detail label={adminT(language, "common.customer")}>{row.email}</Detail>
               <Detail label={language === "ar" ? "إرسال الكارت" : "Card sent"}><TableDateTime value={row.card_sent_at} /></Detail>
             </CardContent>

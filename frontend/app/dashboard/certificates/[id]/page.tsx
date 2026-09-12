@@ -25,14 +25,7 @@ export default function CertificateDownloadPage() {
   useEffect(() => {
     if (id) {
       platformApi.getMyCertificate(id as string)
-        .then(res => {
-          if (res.success) {
-            setData(res.data)
-          } else {
-            toast.error(isRtl ? "لم يتم العثور على الشهادة" : "Certificate not found")
-            router.push("/dashboard")
-          }
-        })
+        .then((row) => setData(row))
         .catch(() => {
           toast.error(isRtl ? "حدث خطأ أثناء تحميل الشهادة" : "Failed to load certificate")
           router.push("/dashboard")

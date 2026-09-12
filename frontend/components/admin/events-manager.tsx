@@ -457,7 +457,7 @@ export function EventsManager() {
           ].map((item) => <MetricCard key={item.label} {...item} />)}
         </div>
 
-        <TabsList className="grid w-full grid-cols-5 rounded-2xl bg-white/70 p-1 lg:w-[760px]">
+        <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-white/70 p-1 lg:w-[760px]">
           <TabsTrigger value="events" className="rounded-xl">{adminT(language, "events.eventsTab")}</TabsTrigger>
           <TabsTrigger value="tickets" className="rounded-xl">{adminT(language, "events.ticketsTab")}</TabsTrigger>
           <TabsTrigger value="drafts" className="rounded-xl">{adminT(language, "events.draftsTab")}</TabsTrigger>

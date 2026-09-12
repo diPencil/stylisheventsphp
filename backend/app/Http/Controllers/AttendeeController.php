@@ -17,6 +17,22 @@ class AttendeeController extends Controller
         return bin2hex(random_bytes(32));
     }
 
+    private function scanSource(Request $request)
+    {
+        $source = strtolower((string) $request->input('source', 'manual'));
+        return in_array($source, ['scan', 'manual'], true) ? $source : 'manual';
+    }
+
+    private function checkinNote(?string $note, string $source)
+    {
+        $lines = [];
+        if ($note) {
+            $lines[] = $note;
+        }
+        $lines[] = "source:{$source}";
+        return implode("\n", $lines);
+    }
+
     public function index(Request $request)
     {
         if (!$request->user()->hasPermission('attendees.manage')) {
@@ -172,6 +188,7 @@ class AttendeeController extends Controller
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
+        $source = $this->scanSource($request);
         $token = trim($request->input('qrToken', ''));
         if (!$token) {
             return response()->json(['success' => false, 'message' => 'QR token is required'], 400);
@@ -198,7 +215,7 @@ class AttendeeController extends Controller
                 'scanned_by_user_id' => $request->user()->id,
                 'scan_result' => 'invalid',
                 'scanned_at' => now(),
-                'notes' => "wrong_event: scanner event {$eventId} does not match ticket event {$attendee->event_id}"
+                'notes' => $this->checkinNote("wrong_event: scanner event {$eventId} does not match ticket event {$attendee->event_id}", $source)
             ]);
             return response()->json([
                 'success' => false,
@@ -218,7 +235,7 @@ class AttendeeController extends Controller
                 'scanned_by_user_id' => $request->user()->id,
                 'scan_result' => 'duplicate',
                 'scanned_at' => now(),
-                'notes' => 'Already checked in'
+                'notes' => $this->checkinNote('Already checked in', $source)
             ]);
             return response()->json([
                 'success' => false,
@@ -234,7 +251,7 @@ class AttendeeController extends Controller
                 'scanned_by_user_id' => $request->user()->id,
                 'scan_result' => 'revoked',
                 'scanned_at' => now(),
-                'notes' => 'QR is not active'
+                'notes' => $this->checkinNote('QR is not active', $source)
             ]);
             return response()->json([
                 'success' => false,
@@ -243,7 +260,7 @@ class AttendeeController extends Controller
             ], 409);
         }
 
-        $checkedIn = DB::transaction(function () use ($attendee, $request) {
+        $checkedIn = DB::transaction(function () use ($attendee, $request, $source) {
             $updated = DB::table('attendees')
                 ->where('id', $attendee->id)
                 ->whereNull('checked_in_at')
@@ -260,7 +277,7 @@ class AttendeeController extends Controller
                     'scanned_by_user_id' => $request->user()->id,
                     'scan_result' => 'duplicate',
                     'scanned_at' => now(),
-                    'notes' => 'Already checked in'
+                    'notes' => $this->checkinNote('Already checked in', $source)
                 ]);
                 return null;
             }
@@ -270,7 +287,8 @@ class AttendeeController extends Controller
                 'event_id' => $attendee->event_id,
                 'scanned_by_user_id' => $request->user()->id,
                 'scanned_at' => now(),
-                'scan_result' => 'accepted'
+                'scan_result' => 'accepted',
+                'notes' => $this->checkinNote(null, $source)
             ]);
 
             return DB::table('attendees')->where('id', $attendee->id)->first(['id', 'attendee_number', 'full_name', 'email', 'checked_in_at']);
@@ -290,6 +308,84 @@ class AttendeeController extends Controller
             'message' => 'Check-in accepted',
             'data' => $checkedIn
         ]);
+    }
+
+    public function checkinHistory(Request $request)
+    {
+        if (!$request->user()->hasPermission('checkin.manage')) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        $eventId = (int) $request->query('eventId', 0);
+        if ($eventId && !$request->user()->hasEventScope($eventId)) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        $limit = min(max((int) $request->query('limit', 50), 1), 200);
+        $offset = max((int) $request->query('offset', 0), 0);
+        $search = trim((string) $request->query('search', ''));
+
+        $query = DB::table('checkin_logs as cl')
+            ->leftJoin('attendees as a', 'a.id', '=', 'cl.attendee_id')
+            ->leftJoin('events as e', 'e.id', '=', 'cl.event_id')
+            ->leftJoin('ticket_types as tt', 'tt.id', '=', 'a.ticket_type_id')
+            ->leftJoin('users as u', 'u.id', '=', 'cl.scanned_by_user_id')
+            ->select([
+                'cl.id',
+                'cl.attendee_id',
+                'cl.event_id',
+                'cl.scanned_by_user_id',
+                'cl.scan_result',
+                'cl.scanned_at',
+                'cl.notes',
+                'a.attendee_number',
+                'a.full_name',
+                'a.email',
+                'a.qr_status',
+                'e.title_en as event_title_en',
+                'e.title_ar as event_title_ar',
+                'tt.name_en as ticket_name_en',
+                'tt.name_ar as ticket_name_ar',
+                'u.name as scanned_by_name',
+            ]);
+
+        if ($eventId) {
+            $query->where('cl.event_id', $eventId);
+        }
+
+        $request->user()->applyEventScope($query, 'cl.event_id');
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $like = '%' . $search . '%';
+                $q->where('a.full_name', 'like', $like)
+                    ->orWhere('a.email', 'like', $like)
+                    ->orWhere('a.attendee_number', 'like', $like)
+                    ->orWhere('e.title_en', 'like', $like)
+                    ->orWhere('e.title_ar', 'like', $like)
+                    ->orWhere('tt.name_en', 'like', $like)
+                    ->orWhere('tt.name_ar', 'like', $like)
+                    ->orWhere('cl.scan_result', 'like', $like)
+                    ->orWhere('cl.notes', 'like', $like);
+            });
+        }
+
+        $rows = $query
+            ->orderBy('cl.scanned_at', 'desc')
+            ->orderBy('cl.id', 'desc')
+            ->offset($offset)
+            ->limit($limit)
+            ->get()
+            ->map(function ($row) {
+                $notes = (string) ($row->notes ?? '');
+                $row->scan_source = str_contains(strtolower($notes), 'source:scan')
+                    ? 'scan'
+                    : (str_contains(strtolower($notes), 'source:manual') ? 'manual' : 'unknown');
+                $row->notes = trim(preg_replace('/(^|\n)source:(scan|manual)\b/i', '', $notes) ?? '');
+                return $row;
+            });
+
+        return response()->json(['success' => true, 'data' => $rows]);
     }
 
     public function updateQrStatus(Request $request, $id)

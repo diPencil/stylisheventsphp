@@ -133,6 +133,7 @@ Route::middleware('auth:api')->group(function () {
     Route::patch('/registrations/{id}/order-status', [RegistrationController::class, 'updateOrderStatus']);
 
     Route::get('/attendees', [AttendeeController::class, 'index']);
+    Route::get('/attendees/checkin/history', [AttendeeController::class, 'checkinHistory']);
     Route::get('/attendees/{id}', [AttendeeController::class, 'show']);
     Route::post('/attendees', [AttendeeController::class, 'store']);
     Route::post('/attendees/checkin', [AttendeeController::class, 'checkin']);
@@ -211,6 +212,8 @@ Route::middleware('auth:api')->prefix('me')->group(function () {
     Route::get('/tickets/{id}/qr', [MeController::class, 'ticketQr']);
     Route::get('/certificates', [MeController::class, 'certificates']);
     Route::get('/certificates/{id}', [MeController::class, 'showCertificate']);
+    Route::get('/event-cards', [MeController::class, 'eventCards']);
+    Route::get('/event-cards/{id}', [MeController::class, 'showEventCard']);
     Route::get('/notifications', [MeController::class, 'notifications']);
     Route::patch('/notifications/{id}/read', [MeController::class, 'markNotificationRead']);
     Route::patch('/notifications/read-all', [MeController::class, 'markAllNotificationsRead']);

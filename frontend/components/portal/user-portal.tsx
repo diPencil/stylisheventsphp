@@ -15,6 +15,7 @@ import {
   FileBadge,
   Globe2,
   Home,
+  IdCard,
   LogOut,
   Menu,
   QrCode,
@@ -38,7 +39,7 @@ import { defaultPlatformTheme, normalizePlatformTheme, platformThemeAssetUrl, re
 import { cn } from "@/lib/utils"
 import type { PlatformThemeSettings } from "@/types/platform"
 
-type PortalView = "overview" | "registrations" | "registration-detail" | "tickets" | "ticket-detail" | "certificates" | "notifications" | "reviews" | "profile" | "security" | "support"
+type PortalView = "overview" | "registrations" | "registration-detail" | "tickets" | "ticket-detail" | "certificates" | "event-cards" | "notifications" | "reviews" | "profile" | "security" | "support"
 type AuthState = "loading" | "authenticated" | "unauthenticated" | "forbidden"
 type LangText = { en: string; ar: string }
 
@@ -47,6 +48,7 @@ const navItems = [
   { view: "registrations", href: "/dashboard/registrations", label: { en: "My Registrations", ar: "تسجيلاتي" }, icon: CalendarDays },
   { view: "tickets", href: "/dashboard/tickets", label: { en: "My Tickets", ar: "تذاكري" }, icon: Ticket },
   { view: "certificates", href: "/dashboard/certificates", label: { en: "My Certificates", ar: "شهاداتي" }, icon: FileBadge },
+  { view: "event-cards", href: "/dashboard/event-cards", label: { en: "Event Cards", ar: "كروت الفعالية" }, icon: IdCard },
   { view: "reviews", href: "/dashboard/reviews", label: { en: "My Reviews", ar: "تقييماتي" }, icon: Star },
   { view: "profile", href: "/dashboard/profile", label: { en: "Profile", ar: "الملف الشخصي" }, icon: UserRound },
   { view: "security", href: "/dashboard/security", label: { en: "Security", ar: "الأمان" }, icon: ShieldCheck },
@@ -60,6 +62,7 @@ const viewTitles: Record<PortalView, LangText> = {
   tickets: { en: "My Tickets", ar: "تذاكري" },
   "ticket-detail": { en: "Ticket Details", ar: "تفاصيل التذكرة" },
   certificates: { en: "My Certificates", ar: "شهاداتي" },
+  "event-cards": { en: "Event Cards", ar: "كروت الفعالية" },
   notifications: { en: "Notifications", ar: "الإشعارات" },
   reviews: { en: "My Reviews", ar: "تقييماتي" },
   profile: { en: "Profile", ar: "الملف الشخصي" },
@@ -486,6 +489,7 @@ export function UserPortal({ view, recordId }: { view: PortalView; recordId?: st
             {view === "tickets" ? <RecordList kind="tickets" /> : null}
             {view === "ticket-detail" ? <SecureTicketDetail id={recordId || ""} /> : null}
             {view === "certificates" ? <RecordList kind="certificates" /> : null}
+            {view === "event-cards" ? <RecordList kind="event-cards" /> : null}
             {view === "notifications" ? <NotificationsPage /> : null}
             {view === "reviews" ? <Reviews /> : null}
             {view === "profile" ? <ProfileWithPhoto user={user} onUserUpdate={setUser} /> : null}
@@ -627,18 +631,18 @@ function NextEventCard({ row, pending }: { row?: any; pending?: any }) {
   )
 }
 
-function RecordList({ kind }: { kind: "registrations" | "tickets" | "certificates" }) {
+function RecordList({ kind }: { kind: "registrations" | "tickets" | "certificates" | "event-cards" }) {
   const { isRtl } = useLanguage()
   const [search, setSearch] = useState("")
   const [status, setStatus] = useState("all")
   const [period, setPeriod] = useState("all")
   const [page, setPage] = useState(1)
   const [state, setState] = useState<any>({ loading: true, rows: [], pagination: { total: 0, page: 1, perPage: 10 } })
-  const title = kind === "tickets" ? (isRtl ? "تذاكري" : "My Tickets") : kind === "certificates" ? (isRtl ? "شهاداتي" : "My Certificates") : (isRtl ? "تسجيلاتي" : "My Registrations")
+  const title = kind === "tickets" ? (isRtl ? "تذاكري" : "My Tickets") : kind === "certificates" ? (isRtl ? "شهاداتي" : "My Certificates") : kind === "event-cards" ? (isRtl ? "كروت الفعالية" : "Event Cards") : (isRtl ? "تسجيلاتي" : "My Registrations")
   useEffect(() => { setPage(1) }, [search, status, period])
   useEffect(() => {
     const params = { search, status: status === "all" ? "" : status, period, page, perPage: 10 }
-    const loader = kind === "tickets" ? platformApi.listMyTickets(params) : kind === "certificates" ? platformApi.listMyCertificates(params) : platformApi.listMyRegistrations(params)
+    const loader = kind === "tickets" ? platformApi.listMyTickets(params) : kind === "certificates" ? platformApi.listMyCertificates(params) : kind === "event-cards" ? platformApi.listMyEventCards(params) : platformApi.listMyRegistrations(params)
     setState((current: any) => ({ ...current, loading: true }))
     loader.then((data: any) => setState({ loading: false, rows: data.data || [], pagination: data.pagination || {} })).catch((error: any) => setState({ loading: false, error, rows: [] }))
   }, [kind, page, period, search, status])
@@ -677,13 +681,14 @@ function Records({ rows, empty }: { rows: any[]; empty: string }) {
         <article key={`${row.id}-${row.registration_number || row.ticket_number || row.certificate_number || "record"}`} className="grid gap-4 rounded-2xl border border-slate-100 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <div className="min-w-0">
             <p className="truncate text-base font-black">{isRtl ? row.event_title_ar : row.event_title_en}</p>
-            <p className="mt-1 text-sm font-bold text-slate-500"><span dir="ltr">{row.registration_number || row.ticket_number || row.certificate_number}</span> · {formatDate(row.starts_at || row.created_at || row.issued_at)}</p>
+            <p className="mt-1 text-sm font-bold text-slate-500"><span dir="ltr">{row.registration_number || row.ticket_number || row.certificate_number || row.card_number}</span> · {formatDate(row.starts_at || row.created_at || row.issued_at || row.card_sent_at)}</p>
             <div className="mt-3 flex flex-wrap gap-2"><StatusBadge value={row.registration_status || row.qr_status || row.certificate_status} />{row.ticket_number ? <Badge className="rounded-full bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.12)]"><span dir="ltr">{row.ticket_number}</span></Badge> : null}</div>
           </div>
           <div className="flex flex-wrap gap-2 md:justify-end">
             <Button asChild variant="outline" className="h-10 rounded-2xl font-bold"><Link href={`/dashboard/registrations/${row.registration_id || row.id}`}>{isRtl ? "التفاصيل" : "Details"}</Link></Button>
             {row.ticket_id ? <Button asChild variant="outline" className="h-10 rounded-2xl font-bold"><Link href={`/dashboard/tickets/${row.ticket_id}`}>{isRtl ? "التذكرة" : "Ticket"}</Link></Button> : null}
             {row.certificate_id ? <Button asChild variant="outline" className="h-10 rounded-2xl border-[hsl(var(--primary))] font-bold text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.05)]"><Link href={`/dashboard/certificates/${row.certificate_id}`}>{isRtl ? "عرض الشهادة" : "View Certificate"}</Link></Button> : null}
+            {row.card_id ? <Button asChild variant="outline" className="h-10 rounded-2xl border-[hsl(var(--primary))] font-bold text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.05)]"><Link href={`/dashboard/event-cards/${row.card_id}`}>{isRtl ? "عرض الكارت" : "View Event Card"}</Link></Button> : null}
           </div>
         </article>
       ))}
@@ -728,6 +733,7 @@ function RichRegistrationDetail({ id }: { id: string }) {
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
             {row.ticket_id ? <Button asChild className="h-11 rounded-2xl bg-[hsl(var(--primary))] font-black text-white"><Link href={`/dashboard/tickets/${row.ticket_id}`}>{isRtl ? "عرض التذكرة" : "View Ticket"}</Link></Button> : null}
+            {row.card_id ? <Button asChild variant="outline" className="h-11 rounded-2xl font-black"><Link href={`/dashboard/event-cards/${row.card_id}`}>{isRtl ? "عرض كارت الفعالية" : "View Event Card"}</Link></Button> : null}
             {row.google_maps_url ? <Button asChild variant="outline" className="h-11 rounded-2xl font-black"><Link href={row.google_maps_url} target="_blank">{isRtl ? "الموقع على الخريطة" : "Open map"}</Link></Button> : null}
           </div>
         </div>
@@ -834,7 +840,7 @@ function TicketDetail({ id }: { id: string }) {
 
 function TicketInfo({ row }: { row: any }) {
   const { isRtl } = useLanguage()
-  return <div><p className="text-sm font-black text-[hsl(var(--primary))]" dir="ltr">{row.registration_number}</p><h2 className="mt-2 text-xl font-black">{isRtl ? row.event_title_ar : row.event_title_en}</h2><div className="mt-6 grid gap-3 md:grid-cols-2"><DetailItem label={isRtl ? "حامل التذكرة" : "Ticket holder"} value={row.full_name} /><DetailItem label={isRtl ? "البريد الإلكتروني" : "Email"} value={row.email} ltr /><DetailItem label={isRtl ? "نوع التذكرة" : "Ticket type"} value={isRtl ? row.ticket_name_ar : row.ticket_name_en} /><DetailItem label={isRtl ? "تاريخ الفعالية" : "Event date"} value={formatDate(row.starts_at)} /></div>{row.pdf_url ? <Button asChild className="mt-6 h-11 rounded-xl bg-[hsl(var(--primary))] font-black"><Link href={apiAssetUrl(row.pdf_url)}>{isRtl ? "تحميل التذكرة" : "Download Ticket"}</Link></Button> : null}</div>
+  return <div><p className="text-sm font-black text-[hsl(var(--primary))]" dir="ltr">{row.registration_number}</p><h2 className="mt-2 text-xl font-black">{isRtl ? row.event_title_ar : row.event_title_en}</h2><div className="mt-6 grid gap-3 md:grid-cols-2"><DetailItem label={isRtl ? "حامل التذكرة" : "Ticket holder"} value={row.full_name} /><DetailItem label={isRtl ? "البريد الإلكتروني" : "Email"} value={row.email} ltr /><DetailItem label={isRtl ? "نوع التذكرة" : "Ticket type"} value={isRtl ? row.ticket_name_ar : row.ticket_name_en} /><DetailItem label={isRtl ? "تاريخ الفعالية" : "Event date"} value={formatDate(row.starts_at)} /></div><div className="mt-6 flex flex-wrap gap-3">{row.pdf_url ? <Button asChild className="h-11 rounded-xl bg-[hsl(var(--primary))] font-black"><Link href={apiAssetUrl(row.pdf_url)}>{isRtl ? "تحميل التذكرة" : "Download Ticket"}</Link></Button> : null}{row.card_id ? <Button asChild variant="outline" className="h-11 rounded-xl font-black"><Link href={`/dashboard/event-cards/${row.card_id}`}>{isRtl ? "كارت الفعالية" : "Event Card"}</Link></Button> : null}</div></div>
 }
 
 function DetailPage({ back, row, title, reference }: { back: string; row: any; title: string; reference?: string }) {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import { Camera, CameraOff, CheckCircle2, Clock3, Play, QrCode, RotateCcw, ScanLine, Square, Ticket, UserCheck, XCircle } from "lucide-react"
+import { Camera, CameraOff, CheckCircle2, Clock3, Play, QrCode, RotateCcw, ScanLine, Search, Square, Ticket, UserCheck, XCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,6 +24,22 @@ type ScanResult = {
   scannedAt?: string
 }
 
+type CheckinHistoryRow = {
+  id: number
+  scan_result: ScanStatus
+  scan_source?: "scan" | "manual" | "unknown"
+  scanned_at?: string
+  attendee_number?: string
+  full_name?: string
+  email?: string
+  event_title_en?: string
+  event_title_ar?: string
+  ticket_name_en?: string
+  ticket_name_ar?: string
+  scanned_by_name?: string
+  notes?: string
+}
+
 type BarcodeDetectorInstance = {
   detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>>
 }
@@ -33,6 +49,11 @@ function formatTime(value?: string) {
   return new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit" }).format(new Date(value))
 }
 
+function formatDateTime(value?: string, isArabic = false) {
+  if (!value) return "-"
+  return new Intl.DateTimeFormat(isArabic ? "ar-EG" : "en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
+}
+
 function resultClasses(status: ScanStatus) {
   if (status === "accepted") return "bg-emerald-50 text-emerald-800"
   if (status === "duplicate" || status === "wrong_event") return "bg-amber-50 text-amber-800"
@@ -40,7 +61,7 @@ function resultClasses(status: ScanStatus) {
   return "bg-slate-50 text-slate-700"
 }
 
-function statusLabel(status: ScanStatus, isArabic: boolean) {
+function statusLabel(status: ScanStatus | string | null | undefined, isArabic: boolean) {
   const labels: Record<ScanStatus, [string, string]> = {
     idle: ["Waiting", "في الانتظار"],
     scanning: ["Scanning", "جاري المسح"],
@@ -52,7 +73,14 @@ function statusLabel(status: ScanStatus, isArabic: boolean) {
     camera_error: ["Camera error", "خطأ الكاميرا"],
     network: ["Network error", "خطأ اتصال"],
   }
-  return isArabic ? labels[status][1] : labels[status][0]
+  const label = status && status in labels ? labels[status as ScanStatus] : ["Unknown", "غير محدد"]
+  return isArabic ? label[1] : label[0]
+}
+
+function sourceLabel(source: CheckinHistoryRow["scan_source"], isArabic: boolean) {
+  if (source === "scan") return isArabic ? "مسح QR" : "QR scan"
+  if (source === "manual") return isArabic ? "إدخال يدوي" : "Manual token"
+  return isArabic ? "غير محدد" : "Unknown"
 }
 
 function classifyError(error: any): ScanStatus {
@@ -75,6 +103,9 @@ export function CheckinConsole() {
   const [selectedEventId, setSelectedEventId] = useState<string>("all")
   const [result, setResult] = useState<ScanResult>({ status: "idle", message: "" })
   const [logs, setLogs] = useState<ScanResult[]>([])
+  const [history, setHistory] = useState<CheckinHistoryRow[]>([])
+  const [historySearch, setHistorySearch] = useState("")
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraMessage, setCameraMessage] = useState("")
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -93,14 +124,25 @@ export function CheckinConsole() {
     setAttendees(rows || [])
   }, [eventContext])
 
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const rows = await platformApi.listCheckinHistory({ eventId: eventContext, limit: 50, search: historySearch.trim() })
+      setHistory((rows || []) as CheckinHistoryRow[])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [eventContext, historySearch])
+
   useEffect(() => {
     Promise.all([
       platformApi.listEvents({ limit: 250 }).then((rows) => setEvents(rows || [])),
       loadAttendees(),
+      loadHistory(),
     ]).catch((error) => {
       toast.error(isArabic ? "تعذر تحميل بيانات الدخول" : "Could not load check-in data", { description: error instanceof Error ? error.message : "Check the backend connection." })
     })
-  }, [isArabic, loadAttendees])
+  }, [isArabic, loadAttendees, loadHistory])
 
   const totals = useMemo(() => {
     const checkedIn = attendees.filter((item) => item.checked_in_at || item.qr_status === "used").length
@@ -118,7 +160,7 @@ export function CheckinConsole() {
     setLogs((current) => [entry, ...current].slice(0, 8))
   }
 
-  const scanValue = useCallback(async (rawToken: string) => {
+  const scanValue = useCallback(async (rawToken: string, source: "scan" | "manual" = "manual") => {
     const token = rawToken.trim()
     const scannedAt = new Date().toISOString()
 
@@ -128,22 +170,23 @@ export function CheckinConsole() {
     }
 
     try {
-      const attendee = await platformApi.checkin(token, eventContext)
+      const attendee = await platformApi.checkin(token, eventContext, source)
       const accepted = { status: "accepted" as const, message: isArabic ? "تم قبول الدخول" : "Check-in accepted", attendee, scannedAt }
       pushLog(accepted)
       setQrToken("")
-      await loadAttendees()
+      await Promise.all([loadAttendees(), loadHistory()])
       toast.success(isArabic ? "تم قبول الدخول" : "Check-in accepted", { description: attendee.full_name || attendee.attendee_number })
     } catch (error: any) {
       const message = error instanceof Error ? error.message : isArabic ? "رمز QR غير صالح" : "Invalid QR token"
       const failed = { status: classifyError(error), message, scannedAt }
       pushLog(failed)
       setQrToken("")
+      loadHistory().catch(() => undefined)
       toast.error(isArabic ? "فشل تسجيل الدخول" : "Check-in failed", { description: message })
     }
-  }, [eventContext, isArabic, loadAttendees])
+  }, [eventContext, isArabic, loadAttendees, loadHistory])
 
-  const scanManual = useCallback(() => scanValue(qrToken), [qrToken, scanValue])
+  const scanManual = useCallback(() => scanValue(qrToken, "manual"), [qrToken, scanValue])
 
   const stopCamera = useCallback(() => {
     if (frameRef.current) cancelAnimationFrame(frameRef.current)
@@ -183,7 +226,7 @@ export function CheckinConsole() {
           scanLockRef.current = true
           lastTokenRef.current = token
           lastScanAtRef.current = nowMs
-          await scanValue(token)
+          await scanValue(token, "scan")
           window.setTimeout(() => {
             scanLockRef.current = false
           }, 1200)
@@ -382,6 +425,82 @@ export function CheckinConsole() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
+        <CardHeader>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <CardTitle className="flex items-center gap-2 text-base font-extrabold">
+              <Clock3 className="h-5 w-5 text-[hsl(var(--primary))]" />
+              {isArabic ? "تاريخ تسجيل الحضور" : "Check-in History"}
+            </CardTitle>
+            <div className="relative w-full lg:w-80">
+              <Search className="absolute top-3 h-4 w-4 text-slate-400 ltr:left-3 rtl:right-3" />
+              <Input
+                value={historySearch}
+                onChange={(event) => setHistorySearch(event.target.value)}
+                className="h-10 rounded-xl bg-slate-50 ltr:pl-9 rtl:pr-9"
+                placeholder={isArabic ? "بحث في التاريخ..." : "Search history..."}
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {historyLoading ? (
+            <div className="rounded-2xl bg-slate-50 p-5 text-sm font-bold text-slate-500">{isArabic ? "جاري تحميل التاريخ..." : "Loading history..."}</div>
+          ) : history.length ? (
+            <>
+              <div className="hidden overflow-hidden rounded-2xl border border-slate-100 md:block">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-400">
+                    <tr>
+                      <th className="px-4 py-3 text-start">{isArabic ? "الوقت" : "Time"}</th>
+                      <th className="px-4 py-3 text-start">{isArabic ? "الفعالية" : "Event"}</th>
+                      <th className="px-4 py-3 text-start">{isArabic ? "الحاضر" : "Attendee"}</th>
+                      <th className="px-4 py-3 text-start">{isArabic ? "التذكرة" : "Ticket"}</th>
+                      <th className="px-4 py-3 text-start">{isArabic ? "الطريقة" : "Method"}</th>
+                      <th className="px-4 py-3 text-start">{isArabic ? "النتيجة" : "Result"}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {history.map((row) => (
+                      <tr key={row.id} className="align-top">
+                        <td className="px-4 py-3 font-bold text-slate-600">{formatDateTime(row.scanned_at, isArabic)}</td>
+                        <td className="px-4 py-3 font-extrabold text-slate-900">{isArabic ? row.event_title_ar || row.event_title_en : row.event_title_en || row.event_title_ar}</td>
+                        <td className="px-4 py-3">
+                          <p className="font-extrabold text-slate-900">{row.full_name || row.attendee_number || "-"}</p>
+                          <p className="mt-1 text-xs font-bold text-slate-400" dir="ltr">{row.email || row.attendee_number}</p>
+                        </td>
+                        <td className="px-4 py-3 font-bold text-slate-600">{isArabic ? row.ticket_name_ar || row.ticket_name_en : row.ticket_name_en || row.ticket_name_ar || "-"}</td>
+                        <td className="px-4 py-3"><Badge variant="outline" className="rounded-full">{sourceLabel(row.scan_source, isArabic)}</Badge></td>
+                        <td className="px-4 py-3"><Badge variant={row.scan_result === "accepted" ? "default" : "secondary"} className="rounded-full">{statusLabel((row.scan_result || "invalid") as ScanStatus, isArabic)}</Badge></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="grid gap-3 md:hidden">
+                {history.map((row) => (
+                  <article key={row.id} className="rounded-2xl border border-slate-100 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-extrabold text-slate-900">{row.full_name || row.attendee_number || "-"}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-400">{formatDateTime(row.scanned_at, isArabic)}</p>
+                      </div>
+                      <Badge variant={row.scan_result === "accepted" ? "default" : "secondary"} className="shrink-0 rounded-full">{statusLabel((row.scan_result || "invalid") as ScanStatus, isArabic)}</Badge>
+                    </div>
+                    <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600">
+                      <p>{isArabic ? row.event_title_ar || row.event_title_en : row.event_title_en || row.event_title_ar}</p>
+                      <p>{sourceLabel(row.scan_source, isArabic)}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="rounded-2xl bg-slate-50 p-5 text-sm font-bold text-slate-500">{isArabic ? "لا يوجد تاريخ تسجيل حضور لهذه الفعالية بعد." : "No check-in history for this event yet."}</div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
