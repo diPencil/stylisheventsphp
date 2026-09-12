@@ -35,6 +35,7 @@ class MeController extends Controller
             ->leftJoin('generated_tickets as gt', 'gt.registration_id', '=', 'r.id')
             ->leftJoin('attendees as a', 'a.id', '=', 'gt.attendee_id')
             ->leftJoin('certificates as c', 'c.attendee_id', '=', 'a.id')
+            ->leftJoin('event_cards as ec', 'ec.attendee_id', '=', 'a.id')
             ->where('d.user_id', $userId);
 
         if ($search) {
@@ -71,6 +72,9 @@ class MeController extends Controller
         }
         if (!empty($options['requireCertificate'])) {
             $query->whereNotNull('c.id');
+        }
+        if (!empty($options['requireEventCard'])) {
+            $query->whereNotNull('ec.id');
         }
 
         $total = $query->count();
@@ -121,6 +125,7 @@ class MeController extends Controller
                 'tt.description_ar as ticket_description_ar',
                 'gt.id as ticket_id',
                 'gt.ticket_number',
+                DB::raw('COALESCE(gt.qr_token, a.qr_token) as qr_token'),
                 'gt.pdf_url as ticket_pdf_url',
                 'a.qr_status',
                 'a.checked_in_at',
@@ -128,7 +133,11 @@ class MeController extends Controller
                 'c.certificate_number',
                 'c.status as certificate_status',
                 'c.file_url as certificate_file_url',
-                'c.issued_at as certificate_issued_at'
+                'c.issued_at as certificate_issued_at',
+                'ec.id as card_id',
+                'ec.card_number',
+                'ec.file_url as card_file_url',
+                'ec.created_at as card_sent_at'
             ])
             ->orderBy('r.created_at', 'desc')
             ->orderBy('r.id', 'desc')
@@ -303,6 +312,7 @@ class MeController extends Controller
             ->leftJoin('generated_tickets as gt', 'gt.registration_id', '=', 'r.id')
             ->leftJoin('attendees as a', 'a.id', '=', 'gt.attendee_id')
             ->leftJoin('certificates as c', 'c.attendee_id', '=', 'a.id')
+            ->leftJoin('event_cards as ec', 'ec.attendee_id', '=', 'a.id')
             ->where('r.id', $id)
             ->where('d.user_id', $userId)
             ->select([
@@ -355,12 +365,17 @@ class MeController extends Controller
                 'tt.description_ar as ticket_description_ar',
                 'gt.id as ticket_id',
                 'gt.ticket_number',
+                DB::raw('COALESCE(gt.qr_token, a.qr_token) as qr_token'),
                 'gt.pdf_url as ticket_pdf_url',
                 'a.qr_status',
                 'a.checked_in_at',
                 'c.certificate_number',
                 'c.status as certificate_status',
-                'c.file_url as certificate_file_url'
+                'c.file_url as certificate_file_url',
+                'ec.id as card_id',
+                'ec.card_number',
+                'ec.file_url as card_file_url',
+                'ec.created_at as card_sent_at'
             ])
             ->first();
 
@@ -411,11 +426,13 @@ class MeController extends Controller
             ->leftJoin('venues as v', 'v.id', '=', 'e.venue_id')
             ->join('ticket_types as tt', 'tt.id', '=', 'r.ticket_type_id')
             ->join('attendees as a', 'a.id', '=', 'gt.attendee_id')
+            ->leftJoin('event_cards as ec', 'ec.attendee_id', '=', 'a.id')
             ->where('gt.id', $id)
             ->where('d.user_id', $userId)
             ->select([
                 'gt.id',
                 'gt.ticket_number',
+                DB::raw('COALESCE(gt.qr_token, a.qr_token) as qr_token'),
                 'gt.pdf_url',
                 'gt.generated_at',
                 'r.id as registration_id',
@@ -444,7 +461,11 @@ class MeController extends Controller
                 'tt.name_en as ticket_name_en',
                 'tt.name_ar as ticket_name_ar',
                 'a.qr_status',
-                'a.checked_in_at'
+                'a.checked_in_at',
+                'ec.id as card_id',
+                'ec.card_number',
+                'ec.file_url as card_file_url',
+                'ec.created_at as card_sent_at'
             ])
             ->first();
 
@@ -482,6 +503,7 @@ class MeController extends Controller
                 'c.certificate_number',
                 'c.status as certificate_status',
                 'c.issued_at as certificate_issued_at',
+                'c.file_url as certificate_file_url',
                 'a.id as attendee_id',
                 'r.id as registration_id',
                 'r.registration_number',
@@ -498,6 +520,88 @@ class MeController extends Controller
 
         if (!$row) {
             return response()->json(['success' => false, 'message' => 'Certificate not found'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $row
+        ]);
+    }
+
+    public function eventCards(Request $request)
+    {
+        $options = $request->all();
+        $options['requireEventCard'] = true;
+
+        $result = $this->customerRegistrations($request, $options);
+        return response()->json([
+            'success' => true,
+            'message' => 'OK',
+            'data' => [
+                'data' => $result['rows'],
+                'pagination' => [
+                    'total' => $result['total'],
+                    'page' => $result['page'],
+                    'perPage' => $result['perPage']
+                ],
+            ],
+        ]);
+    }
+
+    public function showEventCard(Request $request, $id)
+    {
+        $id = (int)$id;
+        if (!$id) {
+            return response()->json(['success' => false, 'message' => 'Invalid event card id'], 400);
+        }
+
+        $userId = $request->user()->id;
+
+        $row = DB::table('event_cards as ec')
+            ->join('attendees as a', 'a.id', '=', 'ec.attendee_id')
+            ->join('generated_tickets as gt', 'gt.attendee_id', '=', 'a.id')
+            ->join('registrations as r', 'r.id', '=', 'gt.registration_id')
+            ->join('doctors as d', 'd.id', '=', 'r.doctor_id')
+            ->join('events as e', 'e.id', '=', 'r.event_id')
+            ->join('ticket_types as tt', 'tt.id', '=', 'r.ticket_type_id')
+            ->leftJoin('venues as v', 'v.id', '=', 'e.venue_id')
+            ->where('ec.id', $id)
+            ->where('d.user_id', $userId)
+            ->select([
+                'ec.id as card_id',
+                'ec.card_number',
+                'ec.file_url as card_file_url',
+                'ec.created_at as card_sent_at',
+                'gt.id as ticket_id',
+                'gt.ticket_number',
+                DB::raw('COALESCE(gt.qr_token, a.qr_token) as qr_token'),
+                'r.id as registration_id',
+                'r.registration_number',
+                'r.registration_status',
+                'd.full_name',
+                'd.email',
+                'e.id as event_id',
+                'e.title_en as event_title_en',
+                'e.title_ar as event_title_ar',
+                'e.summary_en as event_summary_en',
+                'e.summary_ar as event_summary_ar',
+                'e.cover_image_url',
+                'e.banner_image_url',
+                'e.starts_at',
+                'e.ends_at',
+                'v.name_en as venue_name_en',
+                'v.name_ar as venue_name_ar',
+                'v.city_en',
+                'v.city_ar',
+                'tt.name_en as ticket_name_en',
+                'tt.name_ar as ticket_name_ar',
+                'a.qr_status',
+                'a.checked_in_at'
+            ])
+            ->first();
+
+        if (!$row) {
+            return response()->json(['success' => false, 'message' => 'Event card not found'], 404);
         }
 
         return response()->json([
@@ -526,7 +630,7 @@ class MeController extends Controller
             ->select([
                 'gt.id',
                 'gt.ticket_number',
-                'gt.qr_token',
+                DB::raw('COALESCE(gt.qr_token, a.qr_token) as qr_token'),
                 'r.registration_number',
                 'r.registration_status',
                 'd.full_name',

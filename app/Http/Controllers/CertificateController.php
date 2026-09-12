@@ -133,6 +133,7 @@ class CertificateController extends Controller
                 'a.attendee_number',
                 'a.full_name',
                 'a.email',
+                'a.qr_token',
                 'a.checked_in_at',
                 'a.certificate_issued_at',
                 'e.id AS event_id',
