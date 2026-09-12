@@ -49,8 +49,8 @@ class AttendeeController extends Controller
         }
 
         $query = DB::table('attendees as a')
-            ->join('events as e', 'e.id', '=', 'a.event_id')
-            ->join('ticket_types as tt', 'tt.id', '=', 'a.ticket_type_id')
+            ->leftJoin('events as e', 'e.id', '=', 'a.event_id')
+            ->leftJoin('ticket_types as tt', 'tt.id', '=', 'a.ticket_type_id')
             ->leftJoin('orders as o', 'o.id', '=', 'a.order_id')
             ->leftJoin('users as customer_user', 'customer_user.id', '=', 'o.customer_id')
             ->leftJoin('roles as customer_role', 'customer_role.id', '=', 'customer_user.role_id')

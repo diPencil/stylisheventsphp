@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -159,9 +161,9 @@ class RegistrationController extends Controller
         }
 
         $query = DB::table('registrations as r')
-            ->join('doctors as d', 'd.id', '=', 'r.doctor_id')
-            ->join('events as e', 'e.id', '=', 'r.event_id')
-            ->join('ticket_types as tt', 'tt.id', '=', 'r.ticket_type_id')
+            ->leftJoin('doctors as d', 'd.id', '=', 'r.doctor_id')
+            ->leftJoin('events as e', 'e.id', '=', 'r.event_id')
+            ->leftJoin('ticket_types as tt', 'tt.id', '=', 'r.ticket_type_id')
             ->leftJoin('orders as o', 'o.id', '=', 'r.order_id')
             ->leftJoin('generated_tickets as gt', 'gt.registration_id', '=', 'r.id')
             ->leftJoin('users as u', 'u.id', '=', 'r.created_by_user_id')
@@ -174,8 +176,11 @@ class RegistrationController extends Controller
                 $this->hasPaymentMethodColumn() ? 'r.payment_method' : DB::raw('NULL as payment_method'),
                 'r.payment_proof_url',
                 'r.created_at', 'o.order_number', 'o.status as order_status', 'o.grand_total',
-                'o.currency as order_currency', 'd.full_name as doctor_name', 'd.mobile as doctor_mobile',
-                'd.email as doctor_email', 'd.country_code', 'd.country_name', 'd.specialty',
+                'o.currency as order_currency', 'r.customer_name as customer_name', 'r.customer_email as customer_email',
+                DB::raw('COALESCE(d.full_name, r.customer_name) as doctor_name'),
+                'd.mobile as doctor_mobile',
+                DB::raw('COALESCE(d.email, r.customer_email) as doctor_email'),
+                'd.country_code', 'd.country_name', 'd.specialty',
                 'd.nationality', 'e.title_en as event_title_en', 'e.title_ar as event_title_ar',
                 'tt.name_en as ticket_name_en', 'tt.name_ar as ticket_name_ar', 'gt.ticket_number',
                 'gt.pdf_url as ticket_pdf_url', 'u.name as created_by_name',
@@ -234,9 +239,9 @@ class RegistrationController extends Controller
         }
 
         $registration = DB::table('registrations as r')
-            ->join('doctors as d', 'd.id', '=', 'r.doctor_id')
-            ->join('events as e', 'e.id', '=', 'r.event_id')
-            ->join('ticket_types as tt', 'tt.id', '=', 'r.ticket_type_id')
+            ->leftJoin('doctors as d', 'd.id', '=', 'r.doctor_id')
+            ->leftJoin('events as e', 'e.id', '=', 'r.event_id')
+            ->leftJoin('ticket_types as tt', 'tt.id', '=', 'r.ticket_type_id')
             ->leftJoin('orders as o', 'o.id', '=', 'r.order_id')
             ->leftJoin('generated_tickets as gt', 'gt.registration_id', '=', 'r.id')
             ->leftJoin('users as u', 'u.id', '=', 'r.created_by_user_id')
@@ -245,8 +250,9 @@ class RegistrationController extends Controller
             ->where('r.id', $id)
             ->select([
                 'r.*', 'o.order_number', 'o.status as order_status', 'o.grand_total',
-                'o.currency as order_currency', 'd.full_name as doctor_name', 'd.mobile as doctor_mobile',
-                'd.email as doctor_email', 'd.address as doctor_address', 'd.country_code',
+                'o.currency as order_currency',
+                DB::raw('COALESCE(d.full_name, r.customer_name) as doctor_name'), 'd.mobile as doctor_mobile',
+                DB::raw('COALESCE(d.email, r.customer_email) as doctor_email'), 'd.address as doctor_address', 'd.country_code',
                 'd.country_name', 'd.city', 'd.specialty', 'd.nationality',
                 'e.title_en as event_title_en', 'e.title_ar as event_title_ar', 'e.starts_at', 'e.ends_at',
                 'tt.name_en as ticket_name_en', 'tt.name_ar as ticket_name_ar', 'gt.ticket_number',
@@ -425,6 +431,8 @@ class RegistrationController extends Controller
             'eventId' => 'required|integer|min:1',
             'ticketTypeId' => 'required|integer|min:1',
             'source' => 'nullable|string|in:online,manual,kiosk',
+            'accountMode' => 'nullable|string|in:existing,new',
+            'userId' => 'nullable|integer|min:1',
             'fullName' => 'required|string|min:2',
             'mobile' => 'required|string|min:7',
             'email' => 'required|email',
@@ -443,6 +451,7 @@ class RegistrationController extends Controller
         ]);
 
         $input = array_merge($validated, [
+            'accountMode' => $validated['accountMode'] ?? 'new',
             'source' => $validated['source'] ?? 'online',
             'preferredLanguage' => $validated['preferredLanguage'] ?? 'en',
             'address' => $validated['address'] ?? '',
@@ -479,22 +488,101 @@ class RegistrationController extends Controller
                 return response()->json(['success' => false, 'message' => 'Capacity exceeded'], 409);
             }
 
-            $existingDoctor = DB::table('doctors')->where('email', $input['email'])->first();
-            if ($existingDoctor) {
-                $doctorId = $existingDoctor->id;
-                DB::table('doctors')->where('id', $doctorId)->update([
-                    'full_name' => $input['fullName'], 'mobile' => $input['mobile'], 'address' => $input['address'],
+            $accountMode = $input['accountMode'] === 'existing' ? 'existing' : 'new';
+            $accountUserId = null;
+            $accountCreated = false;
+            $accountPassword = null;
+            $now = now()->toDateTimeString();
+
+            $specialtyRow = DB::table('specialties')->where('name_en', $input['specialty'])->first()
+                ?? DB::table('specialties')->where('name_ar', $input['specialty'])->first();
+
+            $doctorPayload = [
+                'full_name' => $input['fullName'], 'mobile' => $input['mobile'], 'address' => $input['address'],
+                'country_code' => strtoupper($input['countryCode']), 'country_name' => $input['countryName'],
+                'city' => $input['city'], 'specialty' => $input['specialty'],
+                'specialty_id' => $specialtyRow->id ?? null,
+                'nationality' => $input['nationality'],
+                'preferred_language' => $input['preferredLanguage'],
+                'status' => 'active', 'updated_at' => $now,
+            ];
+
+            if ($accountMode === 'existing') {
+                $linkedUser = null;
+                if (!empty($input['userId'])) {
+                    $linkedUser = DB::table('users')->where('id', $input['userId'])->first();
+                }
+                if (!$linkedUser) {
+                    $linkedUser = DB::table('users')->where('email', $input['email'])->first();
+                }
+                if (!$linkedUser) {
+                    throw ValidationException::withMessages(['email' => 'No existing account found for this email. Switch to new account mode to create one.']);
+                }
+                if ($linkedUser->status !== 'active') {
+                    throw ValidationException::withMessages(['email' => 'The linked account is not active.']);
+                }
+                $accountUserId = $linkedUser->id;
+
+                // Keep the user profile in sync with the latest booking details.
+                DB::table('users')->where('id', $linkedUser->id)->update([
+                    'name' => $input['fullName'], 'phone' => $input['mobile'],
                     'country_code' => strtoupper($input['countryCode']), 'country_name' => $input['countryName'],
-                    'city' => $input['city'], 'specialty' => $input['specialty'], 'nationality' => $input['nationality'],
-                    'preferred_language' => $input['preferredLanguage'],
+                    'preferred_language' => $input['preferredLanguage'], 'updated_at' => $now,
                 ]);
+
+                $existingDoctor = DB::table('doctors')->where('user_id', $linkedUser->id)->first();
+                if (!$existingDoctor) {
+                    $existingDoctor = DB::table('doctors')->where('email', $linkedUser->email)->first();
+                }
+                if ($existingDoctor) {
+                    $doctorId = $existingDoctor->id;
+                    DB::table('doctors')->where('id', $doctorId)->update(array_merge($doctorPayload, [
+                        'user_id' => $linkedUser->id, 'email' => $linkedUser->email,
+                    ]));
+                } else {
+                    $doctorId = DB::table('doctors')->insertGetId(array_merge($doctorPayload, [
+                        'user_id' => $linkedUser->id, 'email' => $linkedUser->email, 'created_at' => $now,
+                    ]));
+                }
             } else {
-                $doctorId = DB::table('doctors')->insertGetId([
-                    'full_name' => $input['fullName'], 'mobile' => $input['mobile'], 'email' => $input['email'],
-                    'address' => $input['address'], 'country_code' => strtoupper($input['countryCode']),
-                    'country_name' => $input['countryName'], 'city' => $input['city'], 'specialty' => $input['specialty'],
-                    'nationality' => $input['nationality'], 'preferred_language' => $input['preferredLanguage'],
+                $duplicateUser = DB::table('users')->where('email', $input['email'])->first();
+                if ($duplicateUser) {
+                    throw ValidationException::withMessages(['email' => 'An account with this email already exists. Please use existing account mode.']);
+                }
+                $linkedDoctor = DB::table('doctors')->where('email', $input['email'])->first();
+                if ($linkedDoctor && $linkedDoctor->user_id) {
+                    throw ValidationException::withMessages(['email' => 'An account with this email already exists. Please use existing account mode.']);
+                }
+
+                $doctorRoleId = DB::table('roles')->where('code', 'doctor')->value('id');
+                if (!$doctorRoleId) {
+                    throw ValidationException::withMessages(['email' => 'Doctor role is missing, cannot create account.']);
+                }
+                $accountPassword = $this->generateAccountPassword();
+                $baseUsername = strtolower(preg_replace('/[^a-z0-9]+/i', '', strstr($input['email'], '@', true) ?: 'user'));
+                $username = $baseUsername !== '' ? $baseUsername : 'user';
+                if (DB::table('users')->where('username', $username)->exists()) {
+                    $username .= rand(100, 999);
+                }
+                $accountUserId = DB::table('users')->insertGetId([
+                    'role_id' => $doctorRoleId, 'name' => $input['fullName'], 'email' => $input['email'],
+                    'username' => $username, 'phone' => $input['mobile'],
+                    'country_code' => strtoupper($input['countryCode']), 'country_name' => $input['countryName'],
+                    'password_hash' => Hash::make($accountPassword), 'status' => 'active',
+                    'preferred_language' => $input['preferredLanguage'], 'created_at' => $now, 'updated_at' => $now,
                 ]);
+                $accountCreated = true;
+
+                if ($linkedDoctor) {
+                    $doctorId = $linkedDoctor->id;
+                    DB::table('doctors')->where('id', $doctorId)->update(array_merge($doctorPayload, [
+                        'user_id' => $accountUserId, 'email' => $input['email'],
+                    ]));
+                } else {
+                    $doctorId = DB::table('doctors')->insertGetId(array_merge($doctorPayload, [
+                        'user_id' => $accountUserId, 'email' => $input['email'], 'created_at' => $now,
+                    ]));
+                }
             }
 
             $isPaid = $input['paymentStatus'] === 'paid';
@@ -504,7 +592,9 @@ class RegistrationController extends Controller
                 'event_id' => $input['eventId'], 'order_number' => $this->orderNumber(),
                 'status' => $orderStatus, 'subtotal' => $pricePeriod['selected_price'],
                 'grand_total' => $pricePeriod['selected_price'], 'currency' => $pricePeriod['selected_currency'],
+                'customer_id' => $accountUserId,
                 'customer_name' => $input['fullName'], 'customer_email' => $input['email'], 'customer_phone' => $input['mobile'],
+                'payment_method' => $input['paymentMethod'], 'payment_reference' => $input['paymentReference'],
             ]);
 
             $approvalState = $isPaid
@@ -538,7 +628,8 @@ class RegistrationController extends Controller
             if ($approvalState['shouldIssueTicket']) {
                 $token = $this->qrToken();
                 $attendeeId = DB::table('attendees')->insertGetId([
-                    'order_id' => $orderId, 'event_id' => $input['eventId'], 'ticket_type_id' => $input['ticketTypeId'],
+                    'order_id' => $orderId, 'registration_id' => $regId,
+                    'event_id' => $input['eventId'], 'ticket_type_id' => $input['ticketTypeId'],
                     'attendee_number' => $this->attendeeNumber(), 'full_name' => $input['fullName'],
                     'email' => $input['email'], 'phone' => $input['mobile'], 'job_title' => $input['specialty'],
                     'qr_token' => $token,
@@ -555,7 +646,10 @@ class RegistrationController extends Controller
             return [
                 'id' => $regId, 'registrationNumber' => $nextRegistrationNumber, 'doctorId' => $doctorId,
                 'orderId' => $orderId, 'currency' => $pricePeriod['selected_currency'], 'price' => $pricePeriod['selected_price'],
-                'status' => $approvalState['registrationStatus'], 'ticketInfo' => (object)$ticketInfo
+                'status' => $approvalState['registrationStatus'], 'ticketInfo' => (object)$ticketInfo,
+                'accountMode' => $accountMode, 'accountUserId' => $accountUserId,
+                'accountCreated' => $accountCreated, 'accountPassword' => $accountPassword,
+                'accountEmail' => $input['email'],
             ];
         });
 
@@ -563,10 +657,27 @@ class RegistrationController extends Controller
             return $registrationData; // Return capacity exceeded error
         }
 
+        $credentialsEmailed = false;
+        if (!empty($registrationData['accountCreated']) && !empty($registrationData['accountPassword'])) {
+            $credentialsEmailed = $this->sendAccountCredentials(
+                $registrationData['accountEmail'],
+                $input['fullName'],
+                $registrationData['accountPassword']
+            );
+            if (!$credentialsEmailed) {
+                Log::warning('Manual booking account email failed', [
+                    'userId' => $registrationData['accountUserId'],
+                    'email' => $registrationData['accountEmail'],
+                ]);
+            }
+        }
+        unset($registrationData['accountPassword']);
+        $registrationData['credentialsEmailed'] = $credentialsEmailed;
+
         DB::table('audit_logs')->insert([
             'user_id' => $request->user()->id, 'action' => 'registrations.manual_create',
             'entity_type' => 'registration', 'entity_id' => $registrationData['id'],
-            'metadata_json' => json_encode(['source' => 'manual', 'eventId' => $input['eventId'], 'ticketTypeId' => $input['ticketTypeId']]),
+            'metadata_json' => json_encode(['source' => 'manual', 'eventId' => $input['eventId'], 'ticketTypeId' => $input['ticketTypeId'], 'accountMode' => $registrationData['accountMode'], 'accountUserId' => $registrationData['accountUserId'], 'accountCreated' => $registrationData['accountCreated']]),
             'created_at' => now()
         ]);
 
@@ -575,6 +686,34 @@ class RegistrationController extends Controller
             'message' => 'Manual booking created successfully.',
             'data' => $registrationData
         ]);
+    }
+
+    private function generateAccountPassword(int $length = 12): string
+    {
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+        $password = '';
+        for ($i = 0; $i < $length; $i++) {
+            $password .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+        }
+        return $password;
+    }
+
+    private function sendAccountCredentials(string $email, string $name, string $password): bool
+    {
+        try {
+            $appName = config('app.name', 'Stylish Holidays');
+            $loginUrl = rtrim(config('app.frontend_url', env('FRONTEND_URL', '')), '/') . '/login';
+            Mail::raw(
+                "Hello {$name},\n\nAn account has been created for you on {$appName}.\n\nEmail: {$email}\nTemporary password: {$password}\nLogin: {$loginUrl}\n\nPlease log in and change your password after your first login.\n",
+                function ($message) use ($email, $name, $appName) {
+                    $message->to($email, $name)->subject("Your {$appName} account is ready");
+                }
+            );
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('Account credentials email failed: ' . $e->getMessage(), ['email' => $email]);
+            return false;
+        }
     }
 
     public function updatePaymentProof(Request $request, $id)

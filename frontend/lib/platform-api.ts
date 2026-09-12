@@ -367,6 +367,8 @@ export const platformApi = {
     request<any[]>(`/api/doctors${search ? `?search=${encodeURIComponent(search)}` : ""}`),
   lookupDoctorProfile: (identity: string) =>
     request<any>(`/api/doctors/lookup/profile?identity=${encodeURIComponent(identity)}`),
+  doctorAccountStatus: (email: string) =>
+    request<any>(`/api/doctors/account-status?email=${encodeURIComponent(email)}`),
   getDoctor: (id: number | string) => request<any>(`/api/doctors/${id}`),
   createDoctor: (data: Record<string, unknown>) =>
     request<any>("/api/doctors", { method: "POST", body: JSON.stringify(data) }),

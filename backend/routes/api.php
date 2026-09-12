@@ -144,6 +144,8 @@ Route::middleware('auth:api')->group(function () {
 // Doctors are public in the legacy Node API. Authenticated staff still get event-scoped history.
 Route::get('/doctors', [\App\Http\Controllers\DoctorController::class, 'index']);
 Route::get('/doctors/lookup/profile', [\App\Http\Controllers\DoctorController::class, 'lookupProfile']);
+Route::get('/doctors/account-status', [\App\Http\Controllers\DoctorController::class, 'accountStatus'])
+    ->middleware(['auth:api', 'permission:registrations.create_manual']);
 Route::get('/doctors/{id}', [\App\Http\Controllers\DoctorController::class, 'show']);
 Route::post('/doctors', [\App\Http\Controllers\DoctorController::class, 'store']);
 
