@@ -1,12 +1,30 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
-import { BadgeCheck, Download, Eye, FileText, MoreHorizontal, Search, Ticket, UserCheck, Users, XCircle } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { BadgeCheck, Download, Eye, FileText, MoreHorizontal, Pencil, RotateCcw, Search, Ticket, UserCheck, Users, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,8 +34,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ConfirmAction } from "@/components/admin/confirm-action"
 import { PaginationControls } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
@@ -32,8 +51,8 @@ type Attendee = {
   attendeeNumber: string
   name: string
   email: string
-  role: string
   phone: string
+  role: string
   event: string
   ticket: string
   qrToken: string
@@ -42,7 +61,10 @@ type Attendee = {
   certificate: CertificateStatus
   registeredAt: string
   checkedInAt?: string
+  raw?: any
 }
+
+type PendingAction = { type: "checkin" | "cancel" | "restore" | "certificate"; attendee: Attendee } | null
 
 function normalizeAttendee(row: any): Attendee {
   const checkedIn = Boolean(row.checked_in_at)
@@ -52,8 +74,8 @@ function normalizeAttendee(row: any): Attendee {
     attendeeNumber: row.attendee_number || `ATT-${row.id}`,
     name: row.full_name || "Attendee",
     email: row.email || "",
-    role: row.customer_role_name_en || "Guest",
     phone: row.phone || "",
+    role: row.customer_role_name_en || "Guest",
     event: row.event_title_en || row.event_title_ar || "Event",
     ticket: row.ticket_name_en || row.ticket_name_ar || "Ticket",
     qrToken: row.qr_token || "",
@@ -62,6 +84,7 @@ function normalizeAttendee(row: any): Attendee {
     certificate: row.certificate_issued_at ? "sent" : checkedIn ? "ready" : "pending",
     registeredAt: row.created_at || "",
     checkedInAt: row.checked_in_at || undefined,
+    raw: row,
   }
 }
 
@@ -79,26 +102,36 @@ function certificateClass(status: CertificateStatus) {
 
 export function AttendeesManager() {
   const { language } = useLanguage()
+  const isAr = language === "ar"
+  const router = useRouter()
   const [attendees, setAttendees] = useState<Attendee[]>([])
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [totalAttendees, setTotalAttendees] = useState(0)
+  const [pending, setPending] = useState<PendingAction>(null)
+  const [busy, setBusy] = useState(false)
+  const [managing, setManaging] = useState<Attendee | null>(null)
+  const [formName, setFormName] = useState("")
+  const [formEmail, setFormEmail] = useState("")
+  const [formPhone, setFormPhone] = useState("")
+  const [formStatus, setFormStatus] = useState<AttendeeStatus>("registered")
+  const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    let active = true
+  function reload() {
     platformApi.listAttendees({ search, limit: pageSize, offset: (page - 1) * pageSize, includeMeta: true })
       .then((result: any) => {
-        if (!active) return
         setAttendees((result.data || []).map(normalizeAttendee))
         setTotalAttendees(Number(result.pagination?.total || 0))
       })
       .catch((error) => {
-        if (active) toast.error("Could not load attendees", { description: error instanceof Error ? error.message : "Check the backend connection." })
+        toast.error(isAr ? "تعذر تحميل الحضور" : "Could not load attendees", { description: error instanceof Error ? error.message : "Check the backend connection." })
       })
-    return () => {
-      active = false
-    }
+  }
+
+  useEffect(() => {
+    reload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, search])
 
   useEffect(() => {
@@ -114,33 +147,88 @@ export function AttendeesManager() {
     return { checkedIn, cancelled, certificatesReady }
   }, [attendees])
 
-  async function checkIn(attendee: Attendee) {
+  function openManage(attendee: Attendee) {
+    setManaging(attendee)
+    setFormName(attendee.name)
+    setFormEmail(attendee.email)
+    setFormPhone(attendee.phone)
+    setFormStatus(attendee.status)
+  }
+
+  async function runPending() {
+    if (!pending) return
+    const { type, attendee } = pending
+    setBusy(true)
     try {
-      const result = await platformApi.checkin(attendee.qrToken)
-      setAttendees((current) => current.map((item) => item.id === attendee.id ? normalizeAttendee({ ...item, ...result, checked_in_at: result.checked_in_at || new Date().toISOString(), qr_status: "used" }) : item))
-      toast.success("Attendee checked in", { description: attendee.name })
+      if (type === "checkin") {
+        if (!attendee.qrToken) throw new Error(isAr ? "لا يوجد رمز QR لهذا الحاضر" : "This attendee has no QR token.")
+        const result: any = await platformApi.checkin(attendee.qrToken, undefined, "manual")
+        const checkedAt = result?.data?.checked_in_at || result?.checked_in_at || new Date().toISOString()
+        setAttendees((current) => current.map((item) => item.id === attendee.id ? { ...item, status: "checked_in", certificate: item.certificate === "sent" ? "sent" : "ready", checkedInAt: checkedAt, qrStatus: "used" } : item))
+        toast.success(isAr ? "تم تسجيل الحضور" : "Attendee checked in", { description: attendee.name })
+      } else if (type === "cancel") {
+        await platformApi.updateAttendee(attendee.id, { status: "cancelled" })
+        setAttendees((current) => current.map((item) => item.id === attendee.id ? { ...item, status: "cancelled", qrStatus: "revoked" } : item))
+        toast.success(isAr ? "تم إلغاء الحاضر" : "Attendee cancelled", { description: isAr ? "تم إيقاف رمز QR." : "QR token was revoked." })
+      } else if (type === "restore") {
+        await platformApi.updateAttendee(attendee.id, { status: "registered" })
+        setAttendees((current) => current.map((item) => item.id === attendee.id ? { ...item, status: "registered", qrStatus: "active", checkedInAt: undefined } : item))
+        toast.success(isAr ? "تمت إعادة التفعيل" : "Attendee restored", { description: attendee.name })
+      } else if (type === "certificate") {
+        await platformApi.issueCertificate({ attendeeId: attendee.id, templateKey: "default" })
+        setAttendees((current) => current.map((item) => item.id === attendee.id ? { ...item, certificate: "sent" } : item))
+        toast.success(isAr ? "تم إصدار الشهادة" : "Certificate issued", { description: attendee.name })
+      }
     } catch (error) {
-      toast.error("Check-in failed", { description: error instanceof Error ? error.message : "Could not check in attendee." })
+      toast.error(isAr ? "فشل الإجراء" : "Action failed", { description: error instanceof Error ? error.message : "Could not complete the action." })
+    } finally {
+      setBusy(false)
+      setPending(null)
     }
   }
 
-  async function cancel(attendee: Attendee) {
+  async function saveManage() {
+    if (!managing) return
+    setSaving(true)
     try {
-      await platformApi.updateAttendeeQrStatus(attendee.id, "revoked")
-      setAttendees((current) => current.map((item) => item.id === attendee.id ? { ...item, status: "cancelled", qrStatus: "revoked" } : item))
-      toast.success("Attendee cancelled", { description: "QR token was revoked." })
+      const payload: Record<string, unknown> = { status: formStatus }
+      if (formName.trim() && formName.trim() !== managing.name) payload.fullName = formName.trim()
+      if (formEmail.trim() && formEmail.trim() !== managing.email) payload.email = formEmail.trim()
+      if ((formPhone || "") !== (managing.phone || "")) payload.phone = formPhone.trim()
+      const result: any = await platformApi.updateAttendee(managing.id, payload)
+      const fresh = result?.data ? normalizeAttendee(result.data) : null
+      setAttendees((current) => current.map((item) => {
+        if (item.id !== managing.id) return item
+        if (fresh) return { ...fresh, role: item.role, event: fresh.event || item.event, ticket: fresh.ticket || item.ticket }
+        return {
+          ...item,
+          name: formName.trim() || item.name,
+          email: formEmail.trim() || item.email,
+          phone: formPhone.trim(),
+          status: formStatus,
+          qrStatus: formStatus === "cancelled" ? "revoked" : formStatus === "checked_in" ? "used" : "active",
+          checkedInAt: formStatus === "checked_in" ? (item.checkedInAt || new Date().toISOString()) : formStatus === "registered" ? undefined : item.checkedInAt,
+          certificate: formStatus === "checked_in" && item.certificate === "pending" ? "ready" : item.certificate,
+        }
+      }))
+      toast.success(isAr ? "تم حفظ بيانات الحاضر" : "Attendee updated", { description: formName || managing.name })
+      setManaging(null)
     } catch (error) {
-      toast.error("Cancel failed", { description: error instanceof Error ? error.message : "Could not revoke QR token." })
+      toast.error(isAr ? "فشل الحفظ" : "Save failed", { description: error instanceof Error ? error.message : "Could not update attendee." })
+    } finally {
+      setSaving(false)
     }
   }
 
-  async function sendCertificate(attendee: Attendee) {
+  async function issueFromManage() {
+    if (!managing) return
     try {
-      await platformApi.issueCertificate({ attendeeId: attendee.id, templateKey: "default" })
-      setAttendees((current) => current.map((item) => item.id === attendee.id ? { ...item, certificate: "sent" } : item))
-      toast.success("Certificate issued", { description: attendee.name })
+      await platformApi.issueCertificate({ attendeeId: managing.id, templateKey: "default" })
+      setAttendees((current) => current.map((item) => item.id === managing.id ? { ...item, certificate: "sent" } : item))
+      setManaging({ ...managing, certificate: "sent" })
+      toast.success(isAr ? "تم إصدار الشهادة" : "Certificate issued", { description: managing.name })
     } catch (error) {
-      toast.error("Certificate failed", { description: error instanceof Error ? error.message : "Certificates can be issued after check-in." })
+      toast.error(isAr ? "فشل إصدار الشهادة" : "Certificate failed", { description: error instanceof Error ? error.message : (isAr ? "يجب تسجيل الحضور أولاً." : "Certificates can be issued after check-in.") })
     }
   }
 
@@ -179,14 +267,26 @@ export function AttendeesManager() {
     toast.success(adminT(language, "attendees.export"), { description: `${exportRows.length} attendee rows downloaded.` })
   }
 
+  const pendingCopy = pending ? {
+    title: pending.type === "checkin" ? (isAr ? "تسجيل حضور؟" : "Check-in attendee?") : pending.type === "cancel" ? (isAr ? "إلغاء الحاضر؟" : "Cancel attendee?") : pending.type === "restore" ? (isAr ? "إعادة تفعيل الحاضر؟" : "Restore attendee?") : (isAr ? "إصدار الشهادة؟" : "Issue certificate?"),
+    description: pending.type === "checkin"
+      ? (isAr ? `سيتم تسجيل حضور ${pending.attendee.name} فوراً.` : `This QR token will be checked in through the backend.`)
+      : pending.type === "cancel"
+        ? (isAr ? "سيتم إيقاف رمز QR الخاص بهذا الحاضر." : "This attendee QR token will be revoked.")
+        : pending.type === "restore"
+          ? (isAr ? "سيعود الحاضر إلى حالة مسجل ويتفعل رمز QR." : "Attendee returns to registered and the QR token is reactivated.")
+          : (isAr ? "سيتم إصدار الشهادة للحاضر (لازم يكون checked-in)." : "Certificate will be issued only when attendee is checked in."),
+    confirm: pending.type === "checkin" ? (isAr ? "تسجيل حضور" : "Check in") : pending.type === "cancel" ? (isAr ? "إلغاء الحاضر" : "Cancel attendee") : pending.type === "restore" ? (isAr ? "إعادة تفعيل" : "Restore") : (isAr ? "إصدار الشهادة" : "Issue certificate"),
+  } : null
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <Badge className="mb-3 rounded-xl bg-[hsl(var(--primary))] text-white hover:bg-[hsl(var(--primary))]">{language === "ar" ? "عمليات الحضور" : "Attendees Operations"}</Badge>
+          <Badge className="mb-3 rounded-xl bg-[hsl(var(--primary))] text-white hover:bg-[hsl(var(--primary))]">{isAr ? "عمليات الحضور" : "Attendees Operations"}</Badge>
           <h1 className="text-xl font-extrabold tracking-tight text-[#17172f] md:text-2xl">{adminT(language, "attendees.title")}</h1>
           <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500">
-            {language === "ar" ? "ملفات الحضور والتذاكر وحالة QR والحضور وتسليم الشهادات." : "Live attendee profiles, tickets, QR status, check-in state, and certificate delivery."}
+            {isAr ? "ملفات الحضور والتذاكر وحالة QR والحضور وتسليم الشهادات." : "Live attendee profiles, tickets, QR status, check-in state, and certificate delivery."}
           </p>
         </div>
         <Button onClick={exportAttendees} className="h-10 rounded-2xl bg-[hsl(var(--primary))] px-4 text-sm font-extrabold text-white">
@@ -196,7 +296,7 @@ export function AttendeesManager() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Metric label={language === "ar" ? "إجمالي الحضور" : "Total Attendees"} value={totalAttendees} icon={Users} />
+        <Metric label={isAr ? "إجمالي الحضور" : "Total Attendees"} value={totalAttendees} icon={Users} />
         <Metric label={adminT(language, "overview.checkedIn")} value={totals.checkedIn} icon={UserCheck} />
         <Metric label={adminT(language, "overview.certificates")} value={totals.certificatesReady} icon={BadgeCheck} />
         <Metric label={adminT(language, "bookings.cancelled")} value={totals.cancelled} icon={XCircle} />
@@ -206,11 +306,11 @@ export function AttendeesManager() {
         <CardHeader className="flex flex-col gap-3 border-b border-slate-100 md:flex-row md:items-center md:justify-between">
           <div>
             <CardTitle className="text-base font-extrabold">{adminT(language, "attendees.table")}</CardTitle>
-            <p className="mt-1 text-sm font-medium text-slate-400">{language === "ar" ? "كل عميل مرتبط بتذكرة وحالة حضور وشهادة." : "Every customer connected to a ticket, attendance state, and certificate."}</p>
+            <p className="mt-1 text-sm font-medium text-slate-400">{isAr ? "كل عميل مرتبط بتذكرة وحالة حضور وشهادة." : "Every customer connected to a ticket, attendance state, and certificate."}</p>
           </div>
           <div className="flex h-10 items-center gap-2 rounded-2xl bg-[#f8f5fb] px-3 md:w-80">
             <Search className="h-4 w-4 text-slate-400" />
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} className="h-9 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0" placeholder={language === "ar" ? "ابحث عن حضور أو فعالية..." : "Search attendee or event..."} />
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} className="h-9 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0" placeholder={isAr ? "ابحث عن حضور أو فعالية..." : "Search attendee or event..."} />
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -219,13 +319,13 @@ export function AttendeesManager() {
               <TableHeader>
                 <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
                   <TableHead className="w-14">#</TableHead>
-                  <TableHead>{language === "ar" ? "الحاضر" : "Attendee"}</TableHead>
+                  <TableHead>{isAr ? "الحاضر" : "Attendee"}</TableHead>
                   <TableHead>{adminT(language, "common.event")}</TableHead>
                   <TableHead>{adminT(language, "common.ticket")}</TableHead>
                   <TableHead>{adminT(language, "common.status")}</TableHead>
                   <TableHead>{adminT(language, "certificates.certificate")}</TableHead>
-                  <TableHead>{language === "ar" ? "التسجيل" : "Registered"}</TableHead>
-                  <TableHead>{language === "ar" ? "الحضور" : "Check-in"}</TableHead>
+                  <TableHead>{isAr ? "التسجيل" : "Registered"}</TableHead>
+                  <TableHead>{isAr ? "الحضور" : "Check-in"}</TableHead>
                   <TableHead className="w-20 text-center">{adminT(language, "common.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -252,36 +352,69 @@ export function AttendeesManager() {
                       <div className="flex justify-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl bg-slate-50"><MoreHorizontal className="h-4 w-4" /></Button>
+                            <Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl bg-slate-50 hover:bg-slate-100"><MoreHorizontal className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-52 rounded-2xl border-0 p-2 shadow-xl">
-                            <DropdownMenuLabel className="text-xs text-slate-400">{adminT(language, "common.actions")}</DropdownMenuLabel>
-                            <DropdownMenuItem asChild className="cursor-pointer rounded-xl px-3 py-2 font-semibold">
-                              <Link href={`/admin/attendees/${attendee.id}`}><Eye className="h-4 w-4" /> {adminT(language, "common.viewDetails")}</Link>
+                          <DropdownMenuContent align="end" className="w-56 rounded-2xl border-0 p-2 shadow-xl">
+                            <DropdownMenuLabel className="text-xs text-slate-400">{adminT(language, "common.actions")} — {attendee.name}</DropdownMenuLabel>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold"
+                              onSelect={(e) => { e.preventDefault(); router.push(`/admin/attendees/${attendee.id}`) }}
+                            >
+                              <Eye className="h-4 w-4" /> {adminT(language, "common.viewDetails")}
                             </DropdownMenuItem>
-                            <ConfirmAction title="Check-in attendee?" description="This QR token will be checked in through the backend." confirmLabel="Check in" onConfirm={() => checkIn(attendee)}>
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600"><UserCheck className="h-4 w-4" /> {adminT(language, "common.markCheckedIn")}</DropdownMenuItem>
-                            </ConfirmAction>
-                            <ConfirmAction title="Issue certificate?" description="Certificate will be issued only when attendee is checked in." confirmLabel="Issue certificate" tone="success" onConfirm={() => sendCertificate(attendee)}>
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-purple-600"><BadgeCheck className="h-4 w-4" /> {language === "ar" ? "إرسال الشهادة" : "Send certificate"}</DropdownMenuItem>
-                            </ConfirmAction>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-slate-700"
+                              onSelect={(e) => { e.preventDefault(); openManage(attendee) }}
+                            >
+                              <Pencil className="h-4 w-4" /> {isAr ? "إدارة / تعديل" : "Manage / Edit"}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {attendee.status !== "checked_in" && attendee.status !== "cancelled" && (
+                              <DropdownMenuItem
+                                className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600"
+                                onSelect={(e) => { e.preventDefault(); setPending({ type: "checkin", attendee }) }}
+                              >
+                                <UserCheck className="h-4 w-4" /> {adminT(language, "common.markCheckedIn")}
+                              </DropdownMenuItem>
+                            )}
+                            {attendee.status !== "cancelled" ? (
+                              <DropdownMenuItem
+                                className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-purple-600"
+                                onSelect={(e) => { e.preventDefault(); setPending({ type: "certificate", attendee }) }}
+                              >
+                                <BadgeCheck className="h-4 w-4" /> {isAr ? "إرسال الشهادة" : "Send certificate"}
+                              </DropdownMenuItem>
+                            ) : null}
                             {attendee.certificate === "sent" ? (
-                              <DropdownMenuItem asChild className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-blue-600 focus:bg-blue-50 focus:text-blue-700">
-                                <Link href={`/admin/certificates/${attendee.id}`} target="_blank">
-                                  <FileText className="h-4 w-4" />
-                                  {language === "ar" ? "معاينة الشهادة" : "View Certificate"}
-                                </Link>
+                              <DropdownMenuItem
+                                className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-blue-600 focus:bg-blue-50 focus:text-blue-700"
+                                onSelect={(e) => { e.preventDefault(); window.open(`/admin/certificates/${attendee.id}`, "_blank") }}
+                              >
+                                <FileText className="h-4 w-4" />
+                                {isAr ? "معاينة الشهادة" : "View Certificate"}
                               </DropdownMenuItem>
                             ) : (
-                              <DropdownMenuItem disabled className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-slate-400">
+                              <DropdownMenuItem disabled className="rounded-xl px-3 py-2 font-semibold text-slate-400">
                                 <FileText className="h-4 w-4" />
-                                {language === "ar" ? "الشهادة غير متاحة" : "Certificate not ready"}
+                                {isAr ? "الشهادة غير متاحة" : "Certificate not ready"}
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
-                            <ConfirmAction title="Cancel attendee?" description="This attendee QR token will be revoked." confirmLabel="Cancel attendee" tone="danger" onConfirm={() => cancel(attendee)}>
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600"><XCircle className="h-4 w-4" /> {language === "ar" ? "إلغاء الحاضر" : "Cancel attendee"}</DropdownMenuItem>
-                            </ConfirmAction>
+                            {attendee.status === "cancelled" ? (
+                              <DropdownMenuItem
+                                className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600"
+                                onSelect={(e) => { e.preventDefault(); setPending({ type: "restore", attendee }) }}
+                              >
+                                <RotateCcw className="h-4 w-4" /> {isAr ? "إعادة تفعيل" : "Restore attendee"}
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600"
+                                onSelect={(e) => { e.preventDefault(); setPending({ type: "cancel", attendee }) }}
+                              >
+                                <XCircle className="h-4 w-4" /> {isAr ? "إلغاء الحاضر" : "Cancel attendee"}
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -290,7 +423,7 @@ export function AttendeesManager() {
                 ))}
               </TableBody>
             </Table>
-            {attendees.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{language === "ar" ? "لا يوجد حضور في قاعدة البيانات حالياً." : "No attendees in database yet."}</div>}
+            {attendees.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{isAr ? "لا يوجد حضور في قاعدة البيانات حالياً." : "No attendees in database yet."}</div>}
           </div>
           <PaginationControls
             page={page}
@@ -302,6 +435,79 @@ export function AttendeesManager() {
           />
         </CardContent>
       </Card>
+
+      {/* Confirm dialog is rendered outside the DropdownMenu so every row's "..." menu works reliably. */}
+      <AlertDialog open={Boolean(pending)} onOpenChange={(open) => { if (!open) setPending(null) }}>
+        <AlertDialogContent dir={isAr ? "rtl" : "ltr"} className="max-w-[92vw] rounded-2xl sm:max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingCopy?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{pendingCopy?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="grid grid-cols-2 gap-3">
+            <AlertDialogCancel disabled={busy} className="mt-0 h-10 rounded-xl font-extrabold">{isAr ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction disabled={busy} onClick={(e) => { e.preventDefault(); runPending() }} className="h-10 rounded-xl bg-[hsl(var(--primary))] font-extrabold text-white">
+              {busy ? (isAr ? "جاري التنفيذ..." : "Working...") : pendingCopy?.confirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={Boolean(managing)} onOpenChange={(open) => { if (!open) setManaging(null) }}>
+        <DialogContent dir={isAr ? "rtl" : "ltr"} className="max-w-[92vw] rounded-3xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isAr ? "إدارة الحاضر" : "Manage attendee"}</DialogTitle>
+            <DialogDescription>{managing ? `${managing.name} • ${managing.event}` : ""}</DialogDescription>
+          </DialogHeader>
+          {managing && (
+            <div className="grid gap-4 py-2">
+              <div className="grid gap-2">
+                <Label>{isAr ? "الاسم" : "Name"}</Label>
+                <Input value={formName} onChange={(e) => setFormName(e.target.value)} className="h-10 rounded-xl" />
+              </div>
+              <div className="grid gap-2">
+                <Label>{isAr ? "البريد الإلكتروني" : "Email"}</Label>
+                <Input value={formEmail} onChange={(e) => setFormEmail(e.target.value)} className="h-10 rounded-xl" />
+              </div>
+              <div className="grid gap-2">
+                <Label>{isAr ? "الهاتف" : "Phone"}</Label>
+                <Input value={formPhone} onChange={(e) => setFormPhone(e.target.value)} className="h-10 rounded-xl" />
+              </div>
+              <div className="grid gap-2">
+                <Label>{isAr ? "الحالة (Status)" : "Status"}</Label>
+                <Select value={formStatus} onValueChange={(v) => setFormStatus(v as AttendeeStatus)}>
+                  <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    <SelectItem value="registered">{isAr ? "مسجل" : "Registered"}</SelectItem>
+                    <SelectItem value="checked_in">{isAr ? "تم الحضور" : "Checked in"}</SelectItem>
+                    <SelectItem value="cancelled">{isAr ? "ملغي" : "Cancelled"}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs font-medium text-slate-400">
+                  {isAr ? "تغيير الحالة يحدّث QR والحضور مباشرة: مسجل = QR فعال، تم الحضور = check-in، ملغي = إيقاف QR." : "Changing status updates QR + check-in directly: registered = active QR, checked-in = check-in, cancelled = revoke QR."}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-extrabold uppercase tracking-wider text-slate-400">{isAr ? "الشهادة" : "Certificate"}</p>
+                    <p className="text-sm font-bold">{managing.certificate === "sent" ? (isAr ? "تم الإصدار" : "Issued") : managing.certificate === "ready" ? (isAr ? "جاهزة للإصدار" : "Ready") : (isAr ? "بانتظار الحضور" : "Pending check-in")}</p>
+                  </div>
+                  <Button variant="outline" size="sm" className="rounded-xl font-bold" onClick={issueFromManage} disabled={formStatus !== "checked_in" && managing.status !== "checked_in"}>
+                    <BadgeCheck className="h-4 w-4" /> {isAr ? "إصدار الشهادة" : "Issue"}
+                  </Button>
+                </div>
+                {(formStatus !== "checked_in" && managing.status !== "checked_in") && (
+                  <p className="mt-2 text-xs font-medium text-amber-600">{isAr ? "لازم الحالة تكون (تم الحضور) عشان تصدر الشهادة." : "Attendee must be checked-in to issue a certificate."}</p>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter className="grid grid-cols-2 gap-3">
+            <Button variant="outline" className="h-10 rounded-xl font-extrabold" onClick={() => setManaging(null)} disabled={saving}>{isAr ? "إغلاق" : "Close"}</Button>
+            <Button className="h-10 rounded-xl bg-[hsl(var(--primary))] font-extrabold text-white" onClick={saveManage} disabled={saving}>{saving ? (isAr ? "جاري الحفظ..." : "Saving...") : (isAr ? "حفظ" : "Save")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { CatalogSelect } from "@/components/admin/catalog-select"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -268,6 +269,11 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
           slug: value(event, "slug"),
           status: value(event, "status") || "draft",
           type: value(event, "type") || "conference",
+          catalogIds: Array.isArray(event?.catalogIds)
+            ? event.catalogIds.map((item: any) => String(item))
+            : Array.isArray(event?.catalogs)
+              ? event.catalogs.map((item: any) => String(item.id))
+              : [],
           maxAttendees: String(value(event, "max_attendees") || ""),
           startsAt: toLocalInput(value(event, "starts_at")),
           endsAt: toLocalInput(value(event, "ends_at")),
@@ -346,6 +352,7 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
         organizerId: event?.organizer_id || null,
         targetAllSpecialties: Boolean(form.targetAllSpecialties),
         specialtyIds: form.targetAllSpecialties ? [] : (form.specialtyIds || []).map(Number),
+        catalogIds: (form.catalogIds || []).map(Number),
       })
       toast.success(language === "ar" ? "تم حفظ الفعالية" : "Event saved", { description: language === "ar" ? "تم تحديث سجل قاعدة البيانات الفعلي." : "Event details were updated." })
     } catch (error) {
@@ -486,7 +493,20 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
-              <Field label="Type" inputValue={form.type} onChange={(next) => setForm({ ...form, type: next })} />
+              <div className="space-y-2">
+                <Label className="text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">{language === "ar" ? "النوع" : "Type"}</Label>
+                <Select value={String(form.type || "conference").toLowerCase()} onValueChange={(next) => setForm({ ...form, type: next })}>
+                  <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-slate-50 font-bold"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["conference", "exhibition", "forum", "workshop", "festival", "webinar", "other"].map((option) => (
+                      <SelectItem key={option} value={option}>{option}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-2">
+                <CatalogSelect selectedIds={form.catalogIds || []} onChange={(catalogIds) => setForm({ ...form, catalogIds })} />
+              </div>
               <Field label="Max attendees" inputValue={form.maxAttendees} type="number" onChange={(next) => setForm({ ...form, maxAttendees: next })} />
             </div>
           </EditorSection>

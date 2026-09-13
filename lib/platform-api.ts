@@ -316,6 +316,14 @@ export const platformApi = {
     request<any>(`/api/events/${id}/restore`, { method: "POST" }),
   listTickets: (eventId?: number) =>
     request<any[]>(`/api/tickets${eventId ? `?eventId=${eventId}` : ""}`),
+  listCatalogs: () =>
+    request<any[]>("/api/catalogs"),
+  createCatalog: (data: Record<string, unknown>) =>
+    request<any>("/api/catalogs", { method: "POST", body: JSON.stringify(data) }),
+  updateCatalog: (id: number | string, data: Record<string, unknown>) =>
+    request<any>(`/api/catalogs/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteCatalog: (id: number | string) =>
+    request<any>(`/api/catalogs/${id}`, { method: "DELETE" }),
   createTicket: (data: Record<string, unknown>) =>
     request<any>("/api/tickets", { method: "POST", body: JSON.stringify(data) }),
   updateTicket: (id: number | string, data: Record<string, unknown>) =>
@@ -363,6 +371,8 @@ export const platformApi = {
     }),
   updateAttendeeQrStatus: (id: number | string, status: "active" | "revoked" | "used") =>
     request<any>(`/api/attendees/${id}/qr-status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  updateAttendee: (id: number | string, data: Record<string, unknown>) =>
+    request<any>(`/api/attendees/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   listDoctors: (search?: string) =>
     request<any[]>(`/api/doctors${search ? `?search=${encodeURIComponent(search)}` : ""}`),
   lookupDoctorProfile: (identity: string) =>
