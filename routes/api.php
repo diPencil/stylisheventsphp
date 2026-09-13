@@ -15,6 +15,7 @@ use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\AttendeeController;
 use App\Http\Controllers\MeController;
 use App\Http\Controllers\SpecialtyController;
+use App\Http\Controllers\CatalogController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
@@ -97,6 +98,10 @@ Route::middleware('auth:api')->group(function () {
     Route::patch('/events/{id}/status', [EventController::class, 'updateStatus'])->middleware('permission:events.manage');
     Route::delete('/events/{id}', [EventController::class, 'destroy'])->middleware('permission:events.manage');
     Route::post('/events/{id}/restore', [EventController::class, 'restore'])->middleware('permission:events.manage');
+    Route::get('/catalogs', [CatalogController::class, 'index']);
+    Route::post('/catalogs', [CatalogController::class, 'store'])->middleware('permission:events.manage');
+    Route::put('/catalogs/{id}', [CatalogController::class, 'update'])->middleware('permission:events.manage');
+    Route::delete('/catalogs/{id}', [CatalogController::class, 'destroy'])->middleware('permission:events.manage');
 });
 
 // Tickets & Pricing
@@ -145,6 +150,7 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/attendees/{id}', [AttendeeController::class, 'show']);
     Route::post('/attendees', [AttendeeController::class, 'store']);
     Route::post('/attendees/checkin', [AttendeeController::class, 'checkin']);
+    Route::patch('/attendees/{id}', [AttendeeController::class, 'update']);
     Route::patch('/attendees/{id}/qr-status', [AttendeeController::class, 'updateQrStatus']);
 
 });

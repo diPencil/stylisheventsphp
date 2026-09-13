@@ -47,6 +47,7 @@ class EventController extends Controller
               e.google_maps_url,
               e.max_attendees,
               e.target_all_specialties,
+              e.catalogs_json,
               e.created_at,
               e.updated_at,
               v.name_en AS venue_name_en,
@@ -69,7 +70,7 @@ class EventController extends Controller
         ";
     }
 
-    private function normalizeEventJsonFields($event)
+    private function normalizeEventJsonFields($event, ?array $catalogMap = null)
     {
         // Parse dates exactly to match ISO format from mysql2 driver in node
         $formatDate = function ($date) {
@@ -107,6 +108,10 @@ class EventController extends Controller
             'event_details_image_url' => $event->event_details_image_url,
             'event_pdf_url' => $event->event_pdf_url ?? null,
             'gallery_json' => $event->gallery_json !== null ? (string)$event->gallery_json : "[]", // string response expected by frontend (it does JSON.parse)
+            'catalogIds' => $this->parseCatalogIds($event->catalogs_json ?? null),
+            'catalogs' => $catalogMap !== null
+                ? array_values(array_filter(array_map(fn($id) => $catalogMap[(int) $id] ?? null, $this->parseCatalogIds($event->catalogs_json ?? null))))
+                : $this->resolveCatalogs($this->parseCatalogIds($event->catalogs_json ?? null)),
             'google_maps_url' => $event->google_maps_url,
             'max_attendees' => $event->max_attendees !== null ? (int) $event->max_attendees : null,
             'target_all_specialties' => isset($event->target_all_specialties) ? (int) $event->target_all_specialties : 0,
@@ -124,6 +129,33 @@ class EventController extends Controller
             'registrations_count' => (int) $event->registrations_count,
             'average_rating' => number_format((float) $event->average_rating, 4, '.', '')
         ];
+    }
+
+    private function parseCatalogIds($value): array
+    {
+        $decoded = is_string($value) ? json_decode($value, true) : $value;
+        if (!is_array($decoded)) return [];
+        $ids = [];
+        foreach ($decoded as $id) {
+            $id = (int) $id;
+            if ($id > 0 && !in_array($id, $ids, true)) $ids[] = $id;
+        }
+        return $ids;
+    }
+
+    private function resolveCatalogs(array $ids): array
+    {
+        if (empty($ids)) return [];
+        $rows = DB::table('event_catalogs')->whereIn('id', $ids)->where('is_active', 1)->get(['id', 'name_en', 'name_ar']);
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int) $row->id] = ['id' => (int) $row->id, 'name_en' => $row->name_en, 'name_ar' => $row->name_ar];
+        }
+        $resolved = [];
+        foreach ($ids as $id) {
+            if (isset($map[(int) $id])) $resolved[] = $map[(int) $id];
+        }
+        return $resolved;
     }
 
     private function getEventScopeClause($user, $tableAlias = 'e')
@@ -377,7 +409,7 @@ class EventController extends Controller
               e.registration_approval_mode, e.registration_access, e.max_tickets_per_checkout,
               e.capacity_hold_hours_override, e.manual_payment_enabled, e.timezone, e.cover_image_url,
               e.banner_image_url, e.event_details_image_url, e.event_pdf_url, e.gallery_json, e.google_maps_url,
-              e.max_attendees, e.target_all_specialties, e.created_at, e.updated_at,
+              e.max_attendees, e.target_all_specialties, e.catalogs_json, e.created_at, e.updated_at,
               v.name_en, v.name_ar, v.city_en, v.city_ar, v.capacity, u.name
             ORDER BY $orderBy
             LIMIT ?
@@ -385,7 +417,20 @@ class EventController extends Controller
 
         $rows = DB::select($sql, $bindings);
 
-        $data = array_map([$this, 'normalizeEventJsonFields'], $rows);
+        $allCatalogIds = [];
+        foreach ($rows as $row) {
+            foreach ($this->parseCatalogIds($row->catalogs_json ?? null) as $catalogId) {
+                $allCatalogIds[$catalogId] = true;
+            }
+        }
+        $catalogMap = [];
+        if (!empty($allCatalogIds)) {
+            foreach ($this->resolveCatalogs(array_keys($allCatalogIds)) as $catalog) {
+                $catalogMap[(int) $catalog['id']] = $catalog;
+            }
+        }
+
+        $data = array_map(fn($row) => $this->normalizeEventJsonFields($row, $catalogMap), $rows);
 
         return response()->json([
             'success' => true,
@@ -417,7 +462,7 @@ class EventController extends Controller
             'summaryAr' => 'nullable|string',
             'descriptionEn' => 'nullable|string',
             'descriptionAr' => 'nullable|string',
-            'type' => 'nullable|in:conference,exhibition,workshop,festival,webinar,other',
+            'type' => 'nullable|in:conference,exhibition,forum,workshop,festival,webinar,other',
             'status' => 'nullable|in:draft,published,sold_out,completed,cancelled,disabled,deleted',
             'startsAt' => 'required_without:titleEn|nullable|string|min:1',
             'endsAt' => 'required_without:titleEn|nullable|string|min:1',
@@ -442,6 +487,8 @@ class EventController extends Controller
             'targetAllSpecialties' => 'nullable|boolean',
             'specialtyIds' => 'nullable|array',
             'specialtyIds.*' => 'integer|exists:specialties,id',
+            'catalogIds' => 'nullable|array',
+            'catalogIds.*' => 'integer|exists:event_catalogs,id',
         ]);
 
         $titleEn = trim($validated['titleEn']);
@@ -487,6 +534,7 @@ class EventController extends Controller
             'google_maps_url' => $validated['googleMapsUrl'] ?? null,
             'venue_id' => $validated['venueId'] ?? null,
             'organizer_id' => $validated['organizerId'] ?? null,
+            'catalogs_json' => json_encode(array_values(array_unique(array_map('intval', $validated['catalogIds'] ?? [])))),
         ];
 
         $user = auth('api')->user();
@@ -516,7 +564,7 @@ class EventController extends Controller
             'summaryAr' => 'nullable|string',
             'descriptionEn' => 'nullable|string',
             'descriptionAr' => 'nullable|string',
-            'type' => 'nullable|in:conference,exhibition,workshop,festival,webinar,other',
+            'type' => 'nullable|in:conference,exhibition,forum,workshop,festival,webinar,other',
             'status' => 'nullable|in:draft,published,sold_out,completed,cancelled,disabled,deleted',
             'startsAt' => 'required_without:titleEn|nullable|string|min:1',
             'endsAt' => 'required_without:titleEn|nullable|string|min:1',
@@ -541,6 +589,8 @@ class EventController extends Controller
             'targetAllSpecialties' => 'nullable|boolean',
             'specialtyIds' => 'nullable|array',
             'specialtyIds.*' => 'integer|exists:specialties,id',
+            'catalogIds' => 'nullable|array',
+            'catalogIds.*' => 'integer|exists:event_catalogs,id',
         ]);
 
         $id = (int)$id;
@@ -592,6 +642,9 @@ class EventController extends Controller
             'google_maps_url' => $validated['googleMapsUrl'] ?? null,
             'venue_id' => $validated['venueId'] ?? null,
             'organizer_id' => $validated['organizerId'] ?? null,
+            'catalogs_json' => array_key_exists('catalogIds', $validated)
+                ? json_encode(array_values(array_unique(array_map('intval', $validated['catalogIds'] ?? []))))
+                : ($existing->catalogs_json ?? json_encode([])),
         ];
 
         if ($user->role_code === 'organizer') {
