@@ -48,6 +48,14 @@ Route::middleware('auth:api')->group(function () {
     });
 });
 
+Route::get('/payment-methods', [\App\Http\Controllers\PaymentMethodController::class, 'index']);
+Route::middleware(['auth:api', 'permission:settings.manage'])->prefix('payment-methods')->group(function () {
+    Route::post('/', [\App\Http\Controllers\PaymentMethodController::class, 'store']);
+    Route::put('/{id}', [\App\Http\Controllers\PaymentMethodController::class, 'update']);
+    Route::patch('/{id}/status', [\App\Http\Controllers\PaymentMethodController::class, 'updateStatus']);
+    Route::delete('/{id}', [\App\Http\Controllers\PaymentMethodController::class, 'destroy']);
+});
+
 Route::get('/specialties', [SpecialtyController::class, 'index']);
 Route::middleware(['auth:api', 'permission:settings.manage'])->prefix('specialties')->group(function () {
     Route::post('/', [SpecialtyController::class, 'store']);
