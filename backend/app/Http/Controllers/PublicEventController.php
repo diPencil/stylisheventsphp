@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 
 class PublicEventController extends Controller
 {
@@ -42,16 +43,38 @@ class PublicEventController extends Controller
 
     private function publicEventSelect()
     {
+        $organizerNameSql = Schema::hasColumn('events', 'organizer_name') ? 'e.organizer_name' : 'NULL';
+        $cityNameSql = Schema::hasColumn('events', 'city_name') ? 'e.city_name' : 'NULL';
+        $venueNameSql = Schema::hasColumn('events', 'venue_name') ? 'e.venue_name' : 'NULL';
+        $seoTitleSql = Schema::hasColumn('events', 'seo_title') ? 'e.seo_title' : 'NULL';
+        $seoDescriptionSql = Schema::hasColumn('events', 'seo_description') ? 'e.seo_description' : 'NULL';
+        $seoKeywordsSql = Schema::hasColumn('events', 'seo_keywords') ? 'e.seo_keywords' : 'NULL';
+        $agendaArSql = Schema::hasColumn('events', 'agenda_ar') ? 'e.agenda_ar' : 'NULL';
+        $agendaEnSql = Schema::hasColumn('events', 'agenda_en') ? 'e.agenda_en' : 'NULL';
+        $checkinNotesArSql = Schema::hasColumn('events', 'checkin_notes_ar') ? 'e.checkin_notes_ar' : 'NULL';
+        $checkinNotesEnSql = Schema::hasColumn('events', 'checkin_notes_en') ? 'e.checkin_notes_en' : 'NULL';
+        $ticketTermsArSql = Schema::hasColumn('events', 'ticket_terms_ar') ? 'e.ticket_terms_ar' : 'NULL';
+        $ticketTermsEnSql = Schema::hasColumn('events', 'ticket_terms_en') ? 'e.ticket_terms_en' : 'NULL';
+
         return "
             SELECT
               e.id,
               e.slug,
+              {$organizerNameSql} AS organizer_name,
+              {$cityNameSql} AS city_name,
+              {$venueNameSql} AS custom_venue_name,
               e.title_en,
               e.title_ar,
               e.summary_en,
               e.summary_ar,
               e.description_en,
               e.description_ar,
+              {$agendaArSql} AS agenda_ar,
+              {$agendaEnSql} AS agenda_en,
+              {$checkinNotesArSql} AS checkin_notes_ar,
+              {$checkinNotesEnSql} AS checkin_notes_en,
+              {$ticketTermsArSql} AS ticket_terms_ar,
+              {$ticketTermsEnSql} AS ticket_terms_en,
               e.type,
               e.status,
               e.starts_at,
@@ -70,6 +93,9 @@ class PublicEventController extends Controller
               e.event_details_image_url,
               e.gallery_json,
               e.google_maps_url,
+              {$seoTitleSql} AS seo_title,
+              {$seoDescriptionSql} AS seo_description,
+              {$seoKeywordsSql} AS seo_keywords,
               e.max_attendees,
               v.name_en AS venue_name_en,
               v.name_ar AS venue_name_ar,
@@ -359,12 +385,21 @@ class PublicEventController extends Controller
         $eventData = [
             'id' => (int)$event->id,
             'slug' => $event->slug,
+            'organizer_name' => $event->organizer_name ?? null,
+            'city_name' => $event->city_name ?? null,
+            'custom_venue_name' => $event->custom_venue_name ?? null,
             'title_en' => $event->title_en,
             'title_ar' => $event->title_ar,
             'summary_en' => $event->summary_en,
             'summary_ar' => $event->summary_ar,
             'description_en' => $event->description_en,
             'description_ar' => $event->description_ar,
+            'agenda_ar' => $event->agenda_ar ?? null,
+            'agenda_en' => $event->agenda_en ?? null,
+            'checkin_notes_ar' => $event->checkin_notes_ar ?? null,
+            'checkin_notes_en' => $event->checkin_notes_en ?? null,
+            'ticket_terms_ar' => $event->ticket_terms_ar ?? null,
+            'ticket_terms_en' => $event->ticket_terms_en ?? null,
             'type' => $event->type,
             'status' => $event->status,
             'starts_at' => $formatDate($event->starts_at),
@@ -384,6 +419,9 @@ class PublicEventController extends Controller
             'event_pdf_url' => $event->event_pdf_url ?? null,
             'gallery_json' => $event->gallery_json !== null ? (string)$event->gallery_json : "[]",
             'google_maps_url' => $event->google_maps_url,
+            'seo_title' => $event->seo_title ?? null,
+            'seo_description' => $event->seo_description ?? null,
+            'seo_keywords' => $event->seo_keywords ?? null,
             'max_attendees' => $event->max_attendees !== null ? (int)$event->max_attendees : null,
             'venue_name_en' => $event->venue_name_en,
             'venue_name_ar' => $event->venue_name_ar,

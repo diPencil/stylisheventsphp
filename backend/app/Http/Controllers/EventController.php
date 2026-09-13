@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use App\Services\UserNotificationService;
 
@@ -14,11 +15,27 @@ class EventController extends Controller
 {
     private function eventSelect()
     {
+        $organizerNameSql = Schema::hasColumn('events', 'organizer_name') ? 'e.organizer_name' : 'NULL';
+        $cityNameSql = Schema::hasColumn('events', 'city_name') ? 'e.city_name' : 'NULL';
+        $venueNameSql = Schema::hasColumn('events', 'venue_name') ? 'e.venue_name' : 'NULL';
+        $seoTitleSql = Schema::hasColumn('events', 'seo_title') ? 'e.seo_title' : 'NULL';
+        $seoDescriptionSql = Schema::hasColumn('events', 'seo_description') ? 'e.seo_description' : 'NULL';
+        $seoKeywordsSql = Schema::hasColumn('events', 'seo_keywords') ? 'e.seo_keywords' : 'NULL';
+        $agendaArSql = Schema::hasColumn('events', 'agenda_ar') ? 'e.agenda_ar' : 'NULL';
+        $agendaEnSql = Schema::hasColumn('events', 'agenda_en') ? 'e.agenda_en' : 'NULL';
+        $checkinNotesArSql = Schema::hasColumn('events', 'checkin_notes_ar') ? 'e.checkin_notes_ar' : 'NULL';
+        $checkinNotesEnSql = Schema::hasColumn('events', 'checkin_notes_en') ? 'e.checkin_notes_en' : 'NULL';
+        $ticketTermsArSql = Schema::hasColumn('events', 'ticket_terms_ar') ? 'e.ticket_terms_ar' : 'NULL';
+        $ticketTermsEnSql = Schema::hasColumn('events', 'ticket_terms_en') ? 'e.ticket_terms_en' : 'NULL';
+
         return "
             SELECT
               e.id,
               e.organizer_id,
+              {$organizerNameSql} AS custom_organizer_name,
               e.venue_id,
+              {$cityNameSql} AS city_name,
+              {$venueNameSql} AS custom_venue_name,
               e.slug,
               e.title_en,
               e.title_ar,
@@ -26,6 +43,12 @@ class EventController extends Controller
               e.summary_ar,
               e.description_en,
               e.description_ar,
+              {$agendaArSql} AS agenda_ar,
+              {$agendaEnSql} AS agenda_en,
+              {$checkinNotesArSql} AS checkin_notes_ar,
+              {$checkinNotesEnSql} AS checkin_notes_en,
+              {$ticketTermsArSql} AS ticket_terms_ar,
+              {$ticketTermsEnSql} AS ticket_terms_en,
               e.type,
               e.status,
               e.starts_at,
@@ -45,6 +68,9 @@ class EventController extends Controller
               e.event_pdf_url,
               e.gallery_json,
               e.google_maps_url,
+              {$seoTitleSql} AS seo_title,
+              {$seoDescriptionSql} AS seo_description,
+              {$seoKeywordsSql} AS seo_keywords,
               e.max_attendees,
               e.target_all_specialties,
               e.catalogs_json,
@@ -55,7 +81,7 @@ class EventController extends Controller
               v.city_en AS venue_city_en,
               v.city_ar AS venue_city_ar,
               v.capacity AS venue_capacity,
-              u.name AS organizer_name,
+              COALESCE({$organizerNameSql}, u.name) AS organizer_name,
               COUNT(DISTINCT tt.id) AS ticket_types_count,
               COUNT(DISTINCT a.id) AS attendees_count,
               COUNT(DISTINCT r.id) AS registrations_count,
@@ -83,6 +109,8 @@ class EventController extends Controller
             'id' => (int) $event->id,
             'organizer_id' => $event->organizer_id !== null ? (int) $event->organizer_id : null,
             'venue_id' => $event->venue_id !== null ? (int) $event->venue_id : null,
+            'city_name' => $event->city_name ?? null,
+            'custom_venue_name' => $event->custom_venue_name ?? null,
             'slug' => $event->slug,
             'title_en' => $event->title_en,
             'title_ar' => $event->title_ar,
@@ -90,6 +118,12 @@ class EventController extends Controller
             'summary_ar' => $event->summary_ar,
             'description_en' => $event->description_en,
             'description_ar' => $event->description_ar,
+            'agenda_ar' => $event->agenda_ar ?? null,
+            'agenda_en' => $event->agenda_en ?? null,
+            'checkin_notes_ar' => $event->checkin_notes_ar ?? null,
+            'checkin_notes_en' => $event->checkin_notes_en ?? null,
+            'ticket_terms_ar' => $event->ticket_terms_ar ?? null,
+            'ticket_terms_en' => $event->ticket_terms_en ?? null,
             'type' => $event->type,
             'status' => $event->status,
             'starts_at' => $formatDate($event->starts_at),
@@ -113,6 +147,9 @@ class EventController extends Controller
                 ? array_values(array_filter(array_map(fn($id) => $catalogMap[(int) $id] ?? null, $this->parseCatalogIds($event->catalogs_json ?? null))))
                 : $this->resolveCatalogs($this->parseCatalogIds($event->catalogs_json ?? null)),
             'google_maps_url' => $event->google_maps_url,
+            'seo_title' => $event->seo_title ?? null,
+            'seo_description' => $event->seo_description ?? null,
+            'seo_keywords' => $event->seo_keywords ?? null,
             'max_attendees' => $event->max_attendees !== null ? (int) $event->max_attendees : null,
             'target_all_specialties' => isset($event->target_all_specialties) ? (int) $event->target_all_specialties : 0,
             'targetSpecialties' => isset($event->id) ? $this->eventSpecialties((int) $event->id) : [],
@@ -124,6 +161,7 @@ class EventController extends Controller
             'venue_city_ar' => $event->venue_city_ar,
             'venue_capacity' => $event->venue_capacity !== null ? (int) $event->venue_capacity : null,
             'organizer_name' => $event->organizer_name,
+            'custom_organizer_name' => $event->custom_organizer_name ?? null,
             'ticket_types_count' => (int) $event->ticket_types_count,
             'attendees_count' => (int) $event->attendees_count,
             'registrations_count' => (int) $event->registrations_count,
@@ -410,7 +448,19 @@ class EventController extends Controller
               e.capacity_hold_hours_override, e.manual_payment_enabled, e.timezone, e.cover_image_url,
               e.banner_image_url, e.event_details_image_url, e.event_pdf_url, e.gallery_json, e.google_maps_url,
               e.max_attendees, e.target_all_specialties, e.catalogs_json, e.created_at, e.updated_at,
-              v.name_en, v.name_ar, v.city_en, v.city_ar, v.capacity, u.name
+              v.name_en, v.name_ar, v.city_en, v.city_ar, v.capacity, u.name"
+              . (Schema::hasColumn('events', 'organizer_name') ? ", e.organizer_name" : "")
+              . (Schema::hasColumn('events', 'city_name') ? ", e.city_name" : "")
+              . (Schema::hasColumn('events', 'venue_name') ? ", e.venue_name" : "")
+              . (Schema::hasColumn('events', 'seo_title') ? ", e.seo_title" : "")
+              . (Schema::hasColumn('events', 'seo_description') ? ", e.seo_description" : "")
+              . (Schema::hasColumn('events', 'seo_keywords') ? ", e.seo_keywords" : "")
+              . (Schema::hasColumn('events', 'agenda_ar') ? ", e.agenda_ar" : "")
+              . (Schema::hasColumn('events', 'agenda_en') ? ", e.agenda_en" : "")
+              . (Schema::hasColumn('events', 'checkin_notes_ar') ? ", e.checkin_notes_ar" : "")
+              . (Schema::hasColumn('events', 'checkin_notes_en') ? ", e.checkin_notes_en" : "")
+              . (Schema::hasColumn('events', 'ticket_terms_ar') ? ", e.ticket_terms_ar" : "")
+              . (Schema::hasColumn('events', 'ticket_terms_en') ? ", e.ticket_terms_en" : "") . "
             ORDER BY $orderBy
             LIMIT ?
         ";
@@ -477,6 +527,12 @@ class EventController extends Controller
             'summaryAr' => 'nullable|string',
             'descriptionEn' => 'nullable|string',
             'descriptionAr' => 'nullable|string',
+            'agendaAr' => 'nullable|string',
+            'agendaEn' => 'nullable|string',
+            'checkInNotesAr' => 'nullable|string',
+            'checkInNotesEn' => 'nullable|string',
+            'termsAr' => 'nullable|string',
+            'termsEn' => 'nullable|string',
             'type' => 'nullable|in:conference,exhibition,forum,workshop,festival,webinar,other',
             'status' => 'nullable|in:draft,published,sold_out,completed,cancelled,disabled,deleted',
             'startsAt' => 'required_without:titleEn|nullable|string|min:1',
@@ -499,6 +555,12 @@ class EventController extends Controller
             'googleMapsUrl' => 'required_without:slug|nullable|string',
             'venueId' => 'nullable|integer|min:1',
             'organizerId' => 'nullable|integer|min:1',
+            'organizerName' => 'nullable|string|max:255',
+            'cityName' => 'nullable|string|max:255',
+            'venueName' => 'nullable|string|max:255',
+            'seoTitle' => 'nullable|string|max:255',
+            'seoDescription' => 'nullable|string',
+            'seoKeywords' => 'nullable|string',
             'targetAllSpecialties' => 'nullable|boolean',
             'specialtyIds' => 'nullable|array',
             'specialtyIds.*' => 'integer|exists:specialties,id',
@@ -551,6 +613,36 @@ class EventController extends Controller
             'organizer_id' => $validated['organizerId'] ?? null,
             'catalogs_json' => json_encode(array_values(array_unique(array_map('intval', $validated['catalogIds'] ?? [])))),
         ];
+        if (Schema::hasColumn('events', 'organizer_name')) {
+            $event['organizer_name'] = trim($validated['organizerName'] ?? '') ?: null;
+        }
+        if (Schema::hasColumn('events', 'city_name')) {
+            $event['city_name'] = trim($validated['cityName'] ?? '') ?: null;
+        }
+        if (Schema::hasColumn('events', 'venue_name')) {
+            $event['venue_name'] = trim($validated['venueName'] ?? '') ?: null;
+        }
+        if (Schema::hasColumn('events', 'seo_title')) {
+            $event['seo_title'] = trim($validated['seoTitle'] ?? '') ?: null;
+        }
+        if (Schema::hasColumn('events', 'seo_description')) {
+            $event['seo_description'] = trim($validated['seoDescription'] ?? '') ?: null;
+        }
+        if (Schema::hasColumn('events', 'seo_keywords')) {
+            $event['seo_keywords'] = trim($validated['seoKeywords'] ?? '') ?: null;
+        }
+        foreach ([
+            'agenda_ar' => 'agendaAr',
+            'agenda_en' => 'agendaEn',
+            'checkin_notes_ar' => 'checkInNotesAr',
+            'checkin_notes_en' => 'checkInNotesEn',
+            'ticket_terms_ar' => 'termsAr',
+            'ticket_terms_en' => 'termsEn',
+        ] as $column => $input) {
+            if (Schema::hasColumn('events', $column)) {
+                $event[$column] = trim($validated[$input] ?? '') ?: null;
+            }
+        }
 
         $user = auth('api')->user();
         if ($user->role_code === 'organizer') {
@@ -579,6 +671,12 @@ class EventController extends Controller
             'summaryAr' => 'nullable|string',
             'descriptionEn' => 'nullable|string',
             'descriptionAr' => 'nullable|string',
+            'agendaAr' => 'nullable|string',
+            'agendaEn' => 'nullable|string',
+            'checkInNotesAr' => 'nullable|string',
+            'checkInNotesEn' => 'nullable|string',
+            'termsAr' => 'nullable|string',
+            'termsEn' => 'nullable|string',
             'type' => 'nullable|in:conference,exhibition,forum,workshop,festival,webinar,other',
             'status' => 'nullable|in:draft,published,sold_out,completed,cancelled,disabled,deleted',
             'startsAt' => 'required_without:titleEn|nullable|string|min:1',
@@ -601,6 +699,12 @@ class EventController extends Controller
             'googleMapsUrl' => 'required_without:slug|nullable|string',
             'venueId' => 'nullable|integer|min:1',
             'organizerId' => 'nullable|integer|min:1',
+            'organizerName' => 'nullable|string|max:255',
+            'cityName' => 'nullable|string|max:255',
+            'venueName' => 'nullable|string|max:255',
+            'seoTitle' => 'nullable|string|max:255',
+            'seoDescription' => 'nullable|string',
+            'seoKeywords' => 'nullable|string',
             'targetAllSpecialties' => 'nullable|boolean',
             'specialtyIds' => 'nullable|array',
             'specialtyIds.*' => 'integer|exists:specialties,id',
@@ -661,6 +765,36 @@ class EventController extends Controller
                 ? json_encode(array_values(array_unique(array_map('intval', $validated['catalogIds'] ?? []))))
                 : ($existing->catalogs_json ?? json_encode([])),
         ];
+        if (Schema::hasColumn('events', 'organizer_name')) {
+            $event['organizer_name'] = trim($validated['organizerName'] ?? '') ?: null;
+        }
+        if (Schema::hasColumn('events', 'city_name')) {
+            $event['city_name'] = trim($validated['cityName'] ?? '') ?: null;
+        }
+        if (Schema::hasColumn('events', 'venue_name')) {
+            $event['venue_name'] = trim($validated['venueName'] ?? '') ?: null;
+        }
+        if (Schema::hasColumn('events', 'seo_title')) {
+            $event['seo_title'] = trim($validated['seoTitle'] ?? '') ?: null;
+        }
+        if (Schema::hasColumn('events', 'seo_description')) {
+            $event['seo_description'] = trim($validated['seoDescription'] ?? '') ?: null;
+        }
+        if (Schema::hasColumn('events', 'seo_keywords')) {
+            $event['seo_keywords'] = trim($validated['seoKeywords'] ?? '') ?: null;
+        }
+        foreach ([
+            'agenda_ar' => 'agendaAr',
+            'agenda_en' => 'agendaEn',
+            'checkin_notes_ar' => 'checkInNotesAr',
+            'checkin_notes_en' => 'checkInNotesEn',
+            'ticket_terms_ar' => 'termsAr',
+            'ticket_terms_en' => 'termsEn',
+        ] as $column => $input) {
+            if (Schema::hasColumn('events', $column)) {
+                $event[$column] = trim($validated[$input] ?? '') ?: null;
+            }
+        }
 
         if ($user->role_code === 'organizer') {
             $event['organizer_id'] = $user->id;

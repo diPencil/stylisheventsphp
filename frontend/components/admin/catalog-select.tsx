@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Check, Plus } from "lucide-react"
+import { Check, ChevronDown, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useLanguage } from "@/contexts/language-context"
@@ -28,9 +29,11 @@ export function catalogName(catalog: CatalogItem, language: "ar" | "en") {
 export function CatalogSelect({
   selectedIds,
   onChange,
+  compact = false,
 }: {
   selectedIds: string[]
   onChange: (ids: string[]) => void
+  compact?: boolean
 }) {
   const { language } = useLanguage()
   const isAr = language === "ar"
@@ -77,39 +80,71 @@ export function CatalogSelect({
     }
   }
 
+  const selectedCatalogs = catalogs.filter((catalog) => selectedIds.includes(String(catalog.id)))
+  const selectedLabel = selectedCatalogs.length
+    ? selectedCatalogs.map((catalog) => catalogName(catalog, language)).join(", ")
+    : (isAr ? "اختار كتالوج..." : "Choose catalog...")
+
   return (
     <div className="space-y-3">
       <Label className="text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">
         {isAr ? "الكتالوج (اختار واحد أو أكتر)" : "Catalog (pick one or more)"}
       </Label>
       {catalogs.length > 0 ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {catalogs.map((catalog) => {
-            const id = String(catalog.id)
-            const checked = selectedIds.includes(id)
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => toggle(id)}
-                className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-2xl border px-3 text-sm font-bold transition",
-                  checked
-                    ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.06)] text-[#17172f]"
-                    : "border-slate-100 bg-white text-slate-600 hover:border-[hsl(var(--primary)/0.4)]"
-                )}
-              >
-                <span className={cn(
-                  "flex h-5 w-5 items-center justify-center rounded-md border",
-                  checked ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-white" : "border-slate-300 text-transparent"
-                )}>
-                  <Check className="h-3.5 w-3.5" />
-                </span>
-                {catalogName(catalog, language)}
-              </button>
-            )
-          })}
-        </div>
+        compact ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" className="h-11 w-full justify-between rounded-2xl border-slate-200 bg-slate-50 px-4 font-bold text-[#17172f]">
+                <span className="truncate">{selectedLabel}</span>
+                <ChevronDown className="h-4 w-4 text-slate-400" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align={isAr ? "end" : "start"} className="max-h-72 w-[--radix-dropdown-menu-trigger-width] overflow-y-auto rounded-2xl border-0 p-2 shadow-xl">
+              {catalogs.map((catalog) => {
+                const id = String(catalog.id)
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={id}
+                    checked={selectedIds.includes(id)}
+                    onCheckedChange={() => toggle(id)}
+                    onSelect={(event) => event.preventDefault()}
+                    className="cursor-pointer rounded-xl py-2 font-bold"
+                  >
+                    {catalogName(catalog, language)}
+                  </DropdownMenuCheckboxItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {catalogs.map((catalog) => {
+              const id = String(catalog.id)
+              const checked = selectedIds.includes(id)
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => toggle(id)}
+                  className={cn(
+                    "flex min-h-11 items-center gap-3 rounded-2xl border px-3 text-sm font-bold transition",
+                    checked
+                      ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.06)] text-[#17172f]"
+                      : "border-slate-100 bg-white text-slate-600 hover:border-[hsl(var(--primary)/0.4)]"
+                  )}
+                >
+                  <span className={cn(
+                    "flex h-5 w-5 items-center justify-center rounded-md border",
+                    checked ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-white" : "border-slate-300 text-transparent"
+                  )}>
+                    <Check className="h-3.5 w-3.5" />
+                  </span>
+                  {catalogName(catalog, language)}
+                </button>
+              )
+            })}
+          </div>
+        )
       ) : (
         <p className="rounded-2xl bg-slate-50 px-4 py-3 text-xs font-bold text-slate-400">
           {isAr ? "مفيش كتالوج لسه — ضيف أول واحد من تحت وهيتحفظ وتقدر تختاره كل مرة." : "No catalogs yet — add the first one below and it will be saved for reuse."}

@@ -275,6 +275,9 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
             : Array.isArray(event?.catalogs)
               ? event.catalogs.map((item: any) => String(item.id))
               : [],
+          organizerName: value(event, "custom_organizer_name") || value(event, "organizer_name") || "Stylish Holidays",
+          cityName: value(event, "city_name"),
+          venueName: value(event, "custom_venue_name"),
           maxAttendees: String(value(event, "max_attendees") || ""),
           startsAt: toLocalInput(value(event, "starts_at")),
           endsAt: toLocalInput(value(event, "ends_at")),
@@ -284,12 +287,21 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
           summaryEn: value(event, "summary_en"),
           descriptionAr: value(event, "description_ar"),
           descriptionEn: value(event, "description_en"),
+          agendaAr: value(event, "agenda_ar"),
+          agendaEn: value(event, "agenda_en"),
+          checkInNotesAr: value(event, "checkin_notes_ar"),
+          checkInNotesEn: value(event, "checkin_notes_en"),
+          termsAr: value(event, "ticket_terms_ar"),
+          termsEn: value(event, "ticket_terms_en"),
           coverImageUrl: value(event, "cover_image_url"),
           bannerImageUrl: value(event, "banner_image_url"),
           eventDetailsImageUrl: value(event, "event_details_image_url"),
           eventPdfUrl: value(event, "event_pdf_url"),
           gallery: parseStringArrayField(value(event, "gallery_json"), "Event gallery").join("\n"),
           googleMapsUrl: value(event, "google_maps_url"),
+          seoTitle: value(event, "seo_title"),
+          seoDescription: value(event, "seo_description"),
+          seoKeywords: value(event, "seo_keywords"),
           publicRegistrationEnabled: Number(value(event, "public_registration_enabled") || 1) === 1,
           registrationApprovalMode: value(event, "registration_approval_mode") || "automatic",
           registrationAccess: value(event, "registration_access") || "guest_allowed",
@@ -332,6 +344,12 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
         summaryEn: form.summaryEn,
         descriptionAr: form.descriptionAr,
         descriptionEn: form.descriptionEn,
+        agendaAr: form.agendaAr,
+        agendaEn: form.agendaEn,
+        checkInNotesAr: form.checkInNotesAr,
+        checkInNotesEn: form.checkInNotesEn,
+        termsAr: form.termsAr,
+        termsEn: form.termsEn,
         type: String(form.type || "conference").toLowerCase(),
         status: form.status,
         startsAt: fromLocalInput(form.startsAt),
@@ -354,6 +372,12 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
         googleMapsUrl: form.googleMapsUrl || null,
         venueId: event?.venue_id || null,
         organizerId: event?.organizer_id || null,
+        organizerName: String(form.organizerName || "").trim() || null,
+        cityName: String(form.cityName || "").trim() || null,
+        venueName: String(form.venueName || "").trim() || null,
+        seoTitle: String(form.seoTitle || "").trim() || null,
+        seoDescription: String(form.seoDescription || "").trim() || null,
+        seoKeywords: String(form.seoKeywords || "").trim() || null,
         targetAllSpecialties: Boolean(form.targetAllSpecialties),
         specialtyIds: form.targetAllSpecialties ? [] : (form.specialtyIds || []).map(Number),
         catalogIds: (form.catalogIds || []).map(Number),
@@ -418,8 +442,9 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
               <CardHeader><CardTitle className="text-base font-extrabold">{language === "ar" ? "كل تفاصيل الفعالية" : "Full Event Details"}</CardTitle></CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
                 <Detail label={adminT(language, "createEvent.arabicTitle")}>{form.titleAr}</Detail>
-                <Detail label={language === "ar" ? "المكان" : "Venue"}>{value(event, "venue_name_en") || "-"}</Detail>
-                <Detail label={language === "ar" ? "المدينة" : "City"}>{value(event, "venue_city_en") || "-"}</Detail>
+                <Detail label={language === "ar" ? "المنظم" : "Organizer"}>{form.organizerName || "-"}</Detail>
+                <Detail label={language === "ar" ? "المكان" : "Venue"}>{form.venueName || value(event, "venue_name_en") || "-"}</Detail>
+                <Detail label={language === "ar" ? "المدينة" : "City"}>{form.cityName || value(event, "venue_city_en") || "-"}</Detail>
                 <Detail label={language === "ar" ? "خريطة Google" : "Google map"}>{form.googleMapsUrl || "-"}</Detail>
                 <Detail label={language === "ar" ? "بداية الفعالية" : "Event starts"}><TableDateTime value={event.starts_at} /></Detail>
                 <Detail label={language === "ar" ? "نهاية الفعالية" : "Event ends"}><TableDateTime value={event.ends_at} /></Detail>
@@ -503,22 +528,31 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
                 <Field label="Max attendees" inputValue={form.maxAttendees} type="number" onChange={(next) => setForm({ ...form, maxAttendees: next })} />
               </div>
               <div className="grid gap-4 lg:grid-cols-2">
-                <CatalogSelect selectedIds={form.catalogIds || []} onChange={(catalogIds) => setForm({ ...form, catalogIds })} />
-                <div className="space-y-2">
-                  <Label className="text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">{language === "ar" ? "حالة النشر" : "Publish status"}</Label>
-                  <Select value={form.status} onValueChange={(next) => setForm({ ...form, status: next })}>
-                    <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-slate-50 font-bold"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft (Hidden)</SelectItem>
-                      <SelectItem value="published">{language === "ar" ? "منشور (القادم / السابق تلقائيًا حسب تاريخ النهاية)" : "Published (auto Upcoming / Previous by end date)"}</SelectItem>
-                      <SelectItem value="disabled">Disabled</SelectItem>
-                      <SelectItem value="sold_out">Sold out</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <CatalogSelect selectedIds={form.catalogIds || []} onChange={(catalogIds) => setForm({ ...form, catalogIds })} compact />
+                <div className="space-y-4">
+                  <Field label="Organizer" inputValue={form.organizerName} onChange={(next) => setForm({ ...form, organizerName: next })} />
+                  <div>
+                    <Select value={form.status} onValueChange={(next) => setForm({ ...form, status: next })}>
+                      <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-slate-50 font-bold"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Draft (Hidden)</SelectItem>
+                        <SelectItem value="published">{language === "ar" ? "منشور (القادم / السابق تلقائيًا حسب تاريخ النهاية)" : "Published (auto Upcoming / Previous by end date)"}</SelectItem>
+                        <SelectItem value="disabled">Disabled</SelectItem>
+                        <SelectItem value="sold_out">Sold out</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
+            </div>
+          </EditorSection>
+          <EditorSection icon={MapPin} title="Venue & Location">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="City" inputValue={form.cityName} onChange={(next) => setForm({ ...form, cityName: next })} />
+              <Field label="Venue" inputValue={form.venueName} onChange={(next) => setForm({ ...form, venueName: next })} />
+              <Field label="Google maps URL" inputValue={form.googleMapsUrl} dir="ltr" onChange={(next) => setForm({ ...form, googleMapsUrl: next })} className="md:col-span-2" />
             </div>
           </EditorSection>
           <EditorSection icon={CalendarDays} title="Dates & Registration">
@@ -599,7 +633,19 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
               <TextAreaField label="English summary" inputValue={form.summaryEn} dir="ltr" onChange={(next) => setForm({ ...form, summaryEn: next })} />
               <TextAreaField label="Arabic description" inputValue={form.descriptionAr} dir="rtl" onChange={(next) => setForm({ ...form, descriptionAr: next })} />
               <TextAreaField label="English description" inputValue={form.descriptionEn} dir="ltr" onChange={(next) => setForm({ ...form, descriptionEn: next })} />
-              <Field label="Google maps URL" inputValue={form.googleMapsUrl} dir="ltr" onChange={(next) => setForm({ ...form, googleMapsUrl: next })} className="md:col-span-2" />
+              <TextAreaField label="Arabic agenda" inputValue={form.agendaAr} dir="rtl" onChange={(next) => setForm({ ...form, agendaAr: next })} />
+              <TextAreaField label="English agenda" inputValue={form.agendaEn} dir="ltr" onChange={(next) => setForm({ ...form, agendaEn: next })} />
+              <TextAreaField label="Arabic check-in notes" inputValue={form.checkInNotesAr} dir="rtl" onChange={(next) => setForm({ ...form, checkInNotesAr: next })} />
+              <TextAreaField label="English check-in notes" inputValue={form.checkInNotesEn} dir="ltr" onChange={(next) => setForm({ ...form, checkInNotesEn: next })} />
+              <TextAreaField label="Arabic ticket terms" inputValue={form.termsAr} dir="rtl" onChange={(next) => setForm({ ...form, termsAr: next })} />
+              <TextAreaField label="English ticket terms" inputValue={form.termsEn} dir="ltr" onChange={(next) => setForm({ ...form, termsEn: next })} />
+            </div>
+          </EditorSection>
+          <EditorSection icon={Search} title="SEO">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="SEO title" inputValue={form.seoTitle} onChange={(next) => setForm({ ...form, seoTitle: next })} />
+              <Field label="Keywords" inputValue={form.seoKeywords} onChange={(next) => setForm({ ...form, seoKeywords: next })} />
+              <TextAreaField label="SEO description" inputValue={form.seoDescription} onChange={(next) => setForm({ ...form, seoDescription: next })} />
             </div>
           </EditorSection>
         </TabsContent>
