@@ -10,6 +10,7 @@ import {
   EyeOff,
   FileText,
   IdCard,
+  Loader2,
   Mail,
   MoreHorizontal,
   QrCode,
@@ -737,6 +738,7 @@ export function CertificateBuilder() {
   const [cardTemplateImage, setCardTemplateImage] = useState("")
   const [builderTab, setBuilderTab] = useState<"certificate" | "card">("certificate")
   const [activity, setActivity] = useState("Certificate design workspace is ready.")
+  const [builderLoading, setBuilderLoading] = useState(true)
 
   useEffect(() => {
     let active = true
@@ -774,6 +776,8 @@ export function CertificateBuilder() {
       } catch (error) {
         if (!active) return
         toast.error("Could not load builder data", { description: error instanceof Error ? error.message : "Check the backend connection." })
+      } finally {
+        if (active) setBuilderLoading(false)
       }
     }
     loadBuilderData()
@@ -871,6 +875,20 @@ export function CertificateBuilder() {
       </div>
     </section>
   )
+
+  if (builderLoading) {
+    return (
+      <Card className="rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
+        <CardContent className="flex min-h-[360px] flex-col items-center justify-center gap-4 p-8 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--primary))]" />
+          <div>
+            <p className="text-base font-extrabold text-[#17172f]">{language === "ar" ? "جاري تحميل مصمم الشهادات..." : "Loading certificate builder..."}</p>
+            <p className="mt-2 text-sm font-semibold text-slate-400">{language === "ar" ? "بنجهز الفعاليات والقوالب قبل عرض المصمم." : "Loading events and templates before opening the builder."}</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (!selectedEvent) {
     return (

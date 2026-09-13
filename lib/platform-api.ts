@@ -368,12 +368,15 @@ export const platformApi = {
     return request<any[]>(path)
   },
   getAttendee: (id: number | string) => request<any>(`/api/attendees/${id}`),
-  listCheckinHistory: (params?: { eventId?: number; limit?: number; offset?: number; search?: string }) => {
+  listCheckinHistory: (params?: { eventId?: number; limit?: number; offset?: number; search?: string; date?: string; from?: string; to?: string }) => {
     const searchParams = new URLSearchParams()
     if (params?.eventId) searchParams.set("eventId", String(params.eventId))
     if (typeof params?.limit === "number") searchParams.set("limit", String(params.limit))
     if (typeof params?.offset === "number") searchParams.set("offset", String(params.offset))
     if (params?.search) searchParams.set("search", params.search)
+    if (params?.date) searchParams.set("date", params.date)
+    if (params?.from) searchParams.set("from", params.from)
+    if (params?.to) searchParams.set("to", params.to)
     const queryString = searchParams.toString()
     return request<any[]>(`/api/attendees/checkin/history${queryString ? `?${queryString}` : ""}`)
   },
@@ -449,6 +452,15 @@ export const platformApi = {
     request<any[]>(`/api/reports/specialties${eventId ? `?eventId=${eventId}` : ""}`),
   reportTicketPerformance: (eventId?: number) =>
     request<any[]>(`/api/reports/ticket-performance${eventId ? `?eventId=${eventId}` : ""}`),
+  reportAttendance: (params?: { eventId?: number; date?: string; from?: string; to?: string }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.eventId) searchParams.set("eventId", String(params.eventId))
+    if (params?.date) searchParams.set("date", params.date)
+    if (params?.from) searchParams.set("from", params.from)
+    if (params?.to) searchParams.set("to", params.to)
+    const queryString = searchParams.toString()
+    return request<any[]>(`/api/reports/attendance${queryString ? `?${queryString}` : ""}`)
+  },
   listCertificateTemplates: (eventId?: number) =>
     request<any[]>(`/api/certificates/templates${eventId ? `?eventId=${eventId}` : ""}`),
   listCertificateDelivery: (params?: number | { eventId?: number; limit?: number; offset?: number; search?: string; includeMeta?: boolean }) => {

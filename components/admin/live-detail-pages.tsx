@@ -759,6 +759,7 @@ export function LiveAttendeeDetailPage({ id }: { id: string }) {
 
   const row = state.data
   if (state.loading || state.error || !row) return <PageState backHref="/admin/attendees" backLabel={language === "ar" ? "رجوع للحضور" : "Back to Attendees"} loading={state.loading} error={state.error} />
+  const attendanceHistory = Array.isArray(row.attendance_history) ? row.attendance_history : []
 
   async function checkIn() {
     try {
@@ -784,10 +785,11 @@ export function LiveAttendeeDetailPage({ id }: { id: string }) {
     <div className="space-y-5">
       <BackButton href="/admin/attendees" label={language === "ar" ? "رجوع للحضور" : "Back to Attendees"} />
       <Hero badge={row.qr_status || "attendee"} title={row.full_name} subtitle={eventTitle(row)} />
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Metric label={adminT(language, "common.ticket")} value={row.ticket_name_en || "-"} icon={Ticket} />
         <Metric label={language === "ar" ? "رقم الحضور" : "Attendee No."} value={row.attendee_number || "-"} icon={IdCard} />
         <Metric label="QR" value={row.qr_status || "-"} icon={QrCode} />
+        <Metric label={language === "ar" ? "أيام الحضور" : "Attendance Days"} value={String(row.days_attended || attendanceHistory.length || 0)} icon={CalendarDays} />
         <Metric label={adminT(language, "attendees.certificate")} value={adminStatusT(language, row.certificate_status || "pending")} icon={BadgeCheck} />
       </div>
       <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
@@ -836,6 +838,47 @@ export function LiveAttendeeDetailPage({ id }: { id: string }) {
           </CardContent>
         </Card>
       </div>
+      <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
+        <CardHeader>
+          <CardTitle className="text-base font-extrabold">{language === "ar" ? "سجل الحضور اليومي" : "Daily Attendance History"}</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {attendanceHistory.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-400">
+                  <tr>
+                    <th className="px-5 py-3 text-start">{language === "ar" ? "اليوم" : "Date"}</th>
+                    <th className="px-5 py-3 text-start">{language === "ar" ? "أول حضور" : "First Check-in"}</th>
+                    <th className="px-5 py-3 text-start">{language === "ar" ? "آخر حضور" : "Last Check-in"}</th>
+                    <th className="px-5 py-3 text-start">{language === "ar" ? "الطريقة" : "Method"}</th>
+                    <th className="px-5 py-3 text-start">{language === "ar" ? "بواسطة" : "By"}</th>
+                    <th className="px-5 py-3 text-start">{language === "ar" ? "العدد" : "Count"}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {attendanceHistory.map((item: any) => (
+                    <tr key={item.id}>
+                      <td className="px-5 py-4 font-extrabold text-slate-900" dir="ltr">{item.checkin_date || "-"}</td>
+                      <td className="px-5 py-4 font-bold text-slate-600"><TableDateTime value={item.first_checked_in_at} /></td>
+                      <td className="px-5 py-4 font-bold text-slate-600"><TableDateTime value={item.last_checked_in_at} /></td>
+                      <td className="px-5 py-4">
+                        <Badge variant="outline" className="rounded-full">
+                          {item.last_source === "scan" ? (language === "ar" ? "مسح QR" : "QR scan") : item.last_source === "manual" ? (language === "ar" ? "إدخال يدوي" : "Manual token") : "-"}
+                        </Badge>
+                      </td>
+                      <td className="px-5 py-4 font-bold text-slate-600">{item.last_scanned_by_name || item.first_scanned_by_name || "-"}</td>
+                      <td className="px-5 py-4 font-extrabold text-slate-900" dir="ltr">{Number(item.checkin_count || 1).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="p-6 text-sm font-bold text-slate-500">{language === "ar" ? "لا يوجد حضور يومي مسجل لهذا العميل بعد." : "No daily attendance has been recorded for this attendee yet."}</div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

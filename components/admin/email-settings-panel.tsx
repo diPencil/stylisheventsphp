@@ -17,12 +17,14 @@ type EmailSettings = {
   sender: { fromName: string; fromEmail: string }
   smtp: { host: string; port: string; encryption: string; username: string; password: string; passwordConfigured?: boolean; timeout: string; auth: boolean }
   incoming: { protocol: string; host: string; port: string; encryption: string; username: string; password: string; passwordConfigured?: boolean; folder: string }
+  auth: { emailVerificationEnabled: boolean }
 }
 
 const emptySettings: EmailSettings = {
   sender: { fromName: "", fromEmail: "" },
   smtp: { host: "", port: "465", encryption: "SSL", username: "", password: "", timeout: "30", auth: true },
   incoming: { protocol: "IMAP", host: "", port: "993", encryption: "SSL", username: "", password: "", folder: "INBOX" },
+  auth: { emailVerificationEnabled: true },
 }
 
 function normalizeSettings(remote: any): EmailSettings {
@@ -50,6 +52,9 @@ function normalizeSettings(remote: any): EmailSettings {
       password: "",
       passwordConfigured: Boolean(remote?.incoming?.passwordConfigured),
       folder: remote?.incoming?.folder || "INBOX",
+    },
+    auth: {
+      emailVerificationEnabled: remote?.auth?.emailVerificationEnabled !== false,
     },
   }
 }
@@ -79,6 +84,8 @@ export function EmailSettingsPanel() {
     setSettings((current) => ({ ...current, smtp: { ...current.smtp, [key]: value } }))
   const setIncoming = (key: keyof EmailSettings["incoming"], value: string) =>
     setSettings((current) => ({ ...current, incoming: { ...current.incoming, [key]: value } }))
+  const setAuth = (key: keyof EmailSettings["auth"], value: boolean) =>
+    setSettings((current) => ({ ...current, auth: { ...current.auth, [key]: value } }))
 
   const payload = () => ({
     sender: { fromName: settings.sender.fromName.trim(), fromEmail: settings.sender.fromEmail.trim() },
@@ -99,6 +106,9 @@ export function EmailSettingsPanel() {
       username: settings.incoming.username.trim(),
       ...(settings.incoming.password ? { password: settings.incoming.password } : {}),
       folder: settings.incoming.folder.trim() || "INBOX",
+    },
+    auth: {
+      emailVerificationEnabled: settings.auth.emailVerificationEnabled,
     },
   })
 
@@ -180,6 +190,26 @@ export function EmailSettingsPanel() {
             </p>
           </div>
         </div>
+
+        <SectionCard title={isAr ? "تسجيل الحسابات" : "Account Registration"}>
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <Checkbox
+              checked={settings.auth.emailVerificationEnabled}
+              onCheckedChange={(checked) => setAuth("emailVerificationEnabled", Boolean(checked))}
+              className="mt-1"
+            />
+            <span className="grid gap-1">
+              <span className="text-sm font-extrabold text-slate-800">
+                {isAr ? "تفعيل كود التحقق من البريد للتسجيل" : "Require email verification for signups"}
+              </span>
+              <span className="text-xs font-bold leading-5 text-slate-500">
+                {settings.auth.emailVerificationEnabled
+                  ? (isAr ? "الحسابات الجديدة تحتاج كود البريد قبل الدخول." : "New accounts must verify by email before login.")
+                  : (isAr ? "الحسابات الجديدة تدخل مباشرة بدون إرسال كود بريد." : "New accounts can sign in immediately without an email code.")}
+              </span>
+            </span>
+          </label>
+        </SectionCard>
 
         <SectionCard title={isAr ? "هوية المرسل" : "Sender Identity"}>
           <div className="grid gap-4 md:grid-cols-2">
