@@ -492,4 +492,19 @@ export const platformApi = {
     request<any>(`/api/specialties/${id}/status`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
   deleteSpecialty: (id: number | string) =>
     request<any>(`/api/specialties/${id}`, { method: "DELETE" }),
+  listPaymentMethods: (params?: { activeOnly?: boolean; currency?: string }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.activeOnly) searchParams.set("activeOnly", "true")
+    if (params?.currency) searchParams.set("currency", params.currency)
+    const queryString = searchParams.toString()
+    return request<any[]>(`/api/payment-methods${queryString ? `?${queryString}` : ""}`)
+  },
+  createPaymentMethod: (data: Record<string, unknown>) =>
+    request<any>("/api/payment-methods", { method: "POST", body: JSON.stringify(data) }),
+  updatePaymentMethod: (id: number | string, data: Record<string, unknown>) =>
+    request<any>(`/api/payment-methods/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  updatePaymentMethodStatus: (id: number | string, isActive: boolean) =>
+    request<any>(`/api/payment-methods/${id}/status`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
+  deletePaymentMethod: (id: number | string) =>
+    request<any>(`/api/payment-methods/${id}`, { method: "DELETE" }),
 }

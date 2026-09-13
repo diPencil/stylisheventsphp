@@ -8,6 +8,7 @@ import { ThemeSettingsPanel } from "@/components/admin/theme-settings-panel"
 import { SiteContentSettingsPanel } from "@/components/admin/site-content-settings-panel"
 import { CurrencySettingsPanel } from "@/components/admin/currency-settings-panel"
 import { MedicalSpecialtiesPanel } from "@/components/admin/medical-specialties-panel"
+import { PaymentMethodsPanel } from "@/components/admin/payment-methods-panel"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
@@ -31,11 +32,12 @@ export default function AdminSettingsPage() {
       </div>
       <Tabs defaultValue="theme" className="space-y-5">
         <div className="settings-tabs-scroll w-full overflow-x-auto pb-1">
-        <TabsList className="grid h-auto min-w-[860px] rounded-[20px] bg-white p-1 shadow-[0_12px_32px_rgba(15,23,42,0.06)] lg:w-[920px] lg:grid-cols-4">
+        <TabsList className="grid h-auto min-w-[1020px] grid-cols-5 rounded-[20px] bg-white p-1 shadow-[0_12px_32px_rgba(15,23,42,0.06)] lg:w-[1120px]">
           <TabsTrigger value="theme" className="rounded-xl py-2.5 font-extrabold">{adminT(language, "settings.themeIdentity")}</TabsTrigger>
           <TabsTrigger value="website" className="rounded-xl py-2.5 font-extrabold">{adminT(language, "settings.websiteContent")}</TabsTrigger>
           <TabsTrigger value="currency" className="rounded-xl py-2.5 font-extrabold">{adminT(language, "settings.currencyRates")}</TabsTrigger>
           <TabsTrigger value="specialties" className="rounded-xl py-2.5 font-extrabold">{language === "ar" ? "التخصصات الطبية" : "Medical Specialties"}</TabsTrigger>
+          <TabsTrigger value="payments" className="rounded-xl py-2.5 font-extrabold">{adminT(language, "settings.payments")}</TabsTrigger>
         </TabsList>
         </div>
         <TabsContent value="theme" className="mt-0">
@@ -49,6 +51,9 @@ export default function AdminSettingsPage() {
         </TabsContent>
         <TabsContent value="specialties" className="mt-0">
           <MedicalSpecialtiesPanel />
+        </TabsContent>
+        <TabsContent value="payments" className="mt-0">
+          <PaymentMethodsPanel />
         </TabsContent>
       </Tabs>
     </div>
