@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import { Camera, CameraOff, CheckCircle2, Clock3, Play, QrCode, RotateCcw, ScanLine, Search, Square, Ticket, UserCheck, XCircle } from "lucide-react"
+import { CalendarDays, Camera, CameraOff, CheckCircle2, Clock3, Play, QrCode, RotateCcw, ScanLine, Search, Square, Ticket, UserCheck, XCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -106,6 +106,7 @@ export function CheckinConsole() {
   const [logs, setLogs] = useState<ScanResult[]>([])
   const [history, setHistory] = useState<CheckinHistoryRow[]>([])
   const [historySearch, setHistorySearch] = useState("")
+  const [historyDate, setHistoryDate] = useState("")
   const [historyLoading, setHistoryLoading] = useState(false)
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraMessage, setCameraMessage] = useState("")
@@ -128,12 +129,12 @@ export function CheckinConsole() {
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true)
     try {
-      const rows = await platformApi.listCheckinHistory({ eventId: eventContext, limit: 50, search: historySearch.trim() })
+      const rows = await platformApi.listCheckinHistory({ eventId: eventContext, limit: 50, search: historySearch.trim(), date: historyDate || undefined })
       setHistory((rows || []) as CheckinHistoryRow[])
     } finally {
       setHistoryLoading(false)
     }
-  }, [eventContext, historySearch])
+  }, [eventContext, historyDate, historySearch])
 
   useEffect(() => {
     Promise.all([
@@ -415,14 +416,25 @@ export function CheckinConsole() {
               <Clock3 className="h-5 w-5 text-[hsl(var(--primary))]" />
               {isArabic ? "تاريخ تسجيل الحضور" : "Check-in History"}
             </CardTitle>
-            <div className="relative w-full lg:w-80">
-              <Search className="absolute top-3 h-4 w-4 text-slate-400 ltr:left-3 rtl:right-3" />
-              <Input
-                value={historySearch}
-                onChange={(event) => setHistorySearch(event.target.value)}
-                className="h-10 rounded-xl bg-slate-50 ltr:pl-9 rtl:pr-9"
-                placeholder={isArabic ? "بحث في التاريخ..." : "Search history..."}
-              />
+            <div className="grid w-full gap-2 sm:grid-cols-[180px_1fr] lg:w-[520px]">
+              <div className="relative">
+                <CalendarDays className="absolute top-3 h-4 w-4 text-slate-400 ltr:left-3 rtl:right-3" />
+                <Input
+                  type="date"
+                  value={historyDate}
+                  onChange={(event) => setHistoryDate(event.target.value)}
+                  className="h-10 rounded-xl bg-slate-50 ltr:pl-9 rtl:pr-9"
+                />
+              </div>
+              <div className="relative">
+                <Search className="absolute top-3 h-4 w-4 text-slate-400 ltr:left-3 rtl:right-3" />
+                <Input
+                  value={historySearch}
+                  onChange={(event) => setHistorySearch(event.target.value)}
+                  className="h-10 rounded-xl bg-slate-50 ltr:pl-9 rtl:pr-9"
+                  placeholder={isArabic ? "بحث في التاريخ..." : "Search history..."}
+                />
+              </div>
             </div>
           </div>
         </CardHeader>

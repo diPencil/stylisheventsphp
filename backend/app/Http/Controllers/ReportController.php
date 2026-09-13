@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
@@ -29,6 +30,25 @@ class ReportController extends Controller
                   ->where('user_id', $user->id);
             });
         }
+    }
+
+    private function reportDateRange(Request $request): array
+    {
+        $validated = $request->validate([
+            'date' => 'nullable|date_format:Y-m-d',
+            'from' => 'nullable|date_format:Y-m-d',
+            'to' => 'nullable|date_format:Y-m-d',
+        ]);
+
+        $from = $validated['date'] ?? ($validated['from'] ?? null);
+        $to = $validated['date'] ?? ($validated['to'] ?? null);
+
+        return [
+            $from ? Carbon::parse($from)->startOfDay() : null,
+            $to ? Carbon::parse($to)->endOfDay() : null,
+            $from,
+            $to,
+        ];
     }
 
     public function summary(Request $request)
@@ -232,6 +252,95 @@ class ReportController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $query->get()
+        ]);
+    }
+
+    public function attendance(Request $request)
+    {
+        $eventId = (int) $request->query('eventId', 0);
+        $user = $request->user();
+        [$fromDate, $toDate, $fromLabel, $toLabel] = $this->reportDateRange($request);
+
+        if ($eventId !== 0 && !$this->requireEventScope($user, $eventId)) {
+            return response()->json(['status' => 'error', 'message' => 'Forbidden'], 403);
+        }
+
+        $logStats = DB::table('checkin_logs')
+            ->select(
+                'event_id',
+                DB::raw("COUNT(*) as total_scans"),
+                DB::raw("SUM(CASE WHEN scan_result = 'accepted' THEN 1 ELSE 0 END) as accepted_scans"),
+                DB::raw("SUM(CASE WHEN scan_result = 'duplicate' THEN 1 ELSE 0 END) as duplicate_scans"),
+                DB::raw("SUM(CASE WHEN scan_result = 'invalid' THEN 1 ELSE 0 END) as invalid_scans"),
+                DB::raw("SUM(CASE WHEN scan_result = 'revoked' THEN 1 ELSE 0 END) as revoked_scans"),
+                DB::raw("SUM(CASE WHEN LOWER(COALESCE(notes, '')) LIKE '%source:manual%' THEN 1 ELSE 0 END) as manual_scans"),
+                DB::raw("SUM(CASE WHEN LOWER(COALESCE(notes, '')) LIKE '%source:scan%' THEN 1 ELSE 0 END) as qr_scans"),
+                DB::raw("COUNT(DISTINCT CASE WHEN scan_result = 'accepted' THEN attendee_id END) as range_checked_in"),
+                DB::raw("MIN(CASE WHEN scan_result = 'accepted' THEN scanned_at END) as first_checkin_at"),
+                DB::raw("MAX(CASE WHEN scan_result = 'accepted' THEN scanned_at END) as last_checkin_at")
+            )
+            ->groupBy('event_id');
+
+        if ($fromDate) {
+            $logStats->where('scanned_at', '>=', $fromDate);
+        }
+
+        if ($toDate) {
+            $logStats->where('scanned_at', '<=', $toDate);
+        }
+
+        $query = DB::table('events as e')
+            ->leftJoin('attendees as a', 'a.event_id', '=', 'e.id')
+            ->leftJoinSub($logStats, 'ls', function ($join) {
+                $join->on('ls.event_id', '=', 'e.id');
+            })
+            ->select(
+                'e.id as event_id',
+                'e.title_en as event_title_en',
+                'e.title_ar as event_title_ar',
+                DB::raw('COUNT(a.id) as total_attendees'),
+                DB::raw("SUM(CASE WHEN a.checked_in_at IS NOT NULL OR a.qr_status = 'used' THEN 1 ELSE 0 END) as total_checked_in"),
+                DB::raw('COALESCE(ls.range_checked_in, 0) as range_checked_in'),
+                DB::raw('COALESCE(ls.total_scans, 0) as total_scans'),
+                DB::raw('COALESCE(ls.accepted_scans, 0) as accepted_scans'),
+                DB::raw('COALESCE(ls.duplicate_scans, 0) as duplicate_scans'),
+                DB::raw('COALESCE(ls.invalid_scans, 0) as invalid_scans'),
+                DB::raw('COALESCE(ls.revoked_scans, 0) as revoked_scans'),
+                DB::raw('COALESCE(ls.manual_scans, 0) as manual_scans'),
+                DB::raw('COALESCE(ls.qr_scans, 0) as qr_scans'),
+                DB::raw('ls.first_checkin_at as first_checkin_at'),
+                DB::raw('ls.last_checkin_at as last_checkin_at')
+            )
+            ->groupBy(
+                'e.id',
+                'e.title_en',
+                'e.title_ar',
+                'ls.range_checked_in',
+                'ls.total_scans',
+                'ls.accepted_scans',
+                'ls.duplicate_scans',
+                'ls.invalid_scans',
+                'ls.revoked_scans',
+                'ls.manual_scans',
+                'ls.qr_scans',
+                'ls.first_checkin_at',
+                'ls.last_checkin_at'
+            )
+            ->orderBy('e.starts_at', 'desc');
+
+        if ($eventId !== 0) {
+            $query->where('e.id', $eventId);
+        }
+
+        $this->applyEventScope($query, $user, 'e.id');
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $query->get()->map(function ($row) use ($fromLabel, $toLabel) {
+                $row->date_from = $fromLabel;
+                $row->date_to = $toLabel;
+                return $row;
+            }),
         ]);
     }
 }

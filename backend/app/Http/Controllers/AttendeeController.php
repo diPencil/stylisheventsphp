@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class AttendeeController extends Controller
@@ -324,6 +325,13 @@ class AttendeeController extends Controller
         $limit = min(max((int) $request->query('limit', 50), 1), 200);
         $offset = max((int) $request->query('offset', 0), 0);
         $search = trim((string) $request->query('search', ''));
+        $validated = $request->validate([
+            'date' => 'nullable|date_format:Y-m-d',
+            'from' => 'nullable|date_format:Y-m-d',
+            'to' => 'nullable|date_format:Y-m-d',
+        ]);
+        $dateFrom = $validated['date'] ?? ($validated['from'] ?? null);
+        $dateTo = $validated['date'] ?? ($validated['to'] ?? null);
 
         $query = DB::table('checkin_logs as cl')
             ->leftJoin('attendees as a', 'a.id', '=', 'cl.attendee_id')
@@ -351,6 +359,14 @@ class AttendeeController extends Controller
 
         if ($eventId) {
             $query->where('cl.event_id', $eventId);
+        }
+
+        if ($dateFrom) {
+            $query->where('cl.scanned_at', '>=', Carbon::parse($dateFrom)->startOfDay());
+        }
+
+        if ($dateTo) {
+            $query->where('cl.scanned_at', '<=', Carbon::parse($dateTo)->endOfDay());
         }
 
         $request->user()->applyEventScope($query, 'cl.event_id');

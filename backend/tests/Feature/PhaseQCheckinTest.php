@@ -237,6 +237,22 @@ class PhaseQCheckinTest extends TestCase
         $this->assertEquals(1, DB::table('checkin_logs')->where('attendee_id', $ticket['attendeeId'])->where('scan_result', 'accepted')->count());
         $this->assertEquals(1, DB::table('checkin_logs')->where('attendee_id', $ticket['attendeeId'])->where('scan_result', 'duplicate')->count());
         $this->assertTrue(DB::table('checkin_logs')->where('attendee_id', $ticket['attendeeId'])->where('scanned_by_user_id', $admin->id)->whereNotNull('scanned_at')->exists());
+
+        DB::table('checkin_logs')
+            ->where('attendee_id', $ticket['attendeeId'])
+            ->where('scan_result', 'accepted')
+            ->update(['scanned_at' => now()->subDay()]);
+        DB::table('checkin_logs')
+            ->where('attendee_id', $ticket['attendeeId'])
+            ->where('scan_result', 'duplicate')
+            ->update(['scanned_at' => now()]);
+
+        $this->withHeaders($this->bearer($admin))
+            ->getJson('/api/attendees/checkin/history?eventId=' . $eventId . '&date=' . now()->toDateString())
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.scan_result', 'duplicate')
+            ->assertJsonPath('data.0.scan_source', 'manual');
     }
 
     public function test_invalid_revoked_and_wrong_event_scans_are_rejected(): void

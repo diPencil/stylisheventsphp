@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -28,10 +29,13 @@ type ReportRow = {
   bookings: number
   attendees: number
   checkedIn: number
+  rangeCheckedIn: number
   ticketsSold: number
   capacity: number
   topTicket: string
   updatedAt: string
+  firstCheckinAt?: string
+  lastCheckinAt?: string
 }
 
 function money(value: number, currency = "USD") {
@@ -61,6 +65,7 @@ export function ReportsManager() {
   const isRtl = language === "ar"
   const [search, setSearch] = useState("")
   const [currencyFilter, setCurrencyFilter] = useState("all")
+  const [attendanceDate, setAttendanceDate] = useState("")
   const [rows, setRows] = useState<ReportRow[]>([])
   const [serverCurrencies, setServerCurrencies] = useState<string[]>([])
 
@@ -110,6 +115,8 @@ export function ReportsManager() {
           platformApi.reportTicketPerformance(),
           platformApi.reportSummary(),
         ])
+        const attendanceRows = attendanceDate ? await platformApi.reportAttendance({ date: attendanceDate }) : []
+        const attendanceByEvent = new Map((attendanceRows || []).map((row: any) => [Number(row.event_id), row]))
 
         const revenueTotal = (summary?.revenue || []).reduce((sum: number, row: any) => sum + Number(row.total || 0), 0)
         const defaultCurrency = summary?.revenue?.[0]?.currency || "USD"
@@ -117,6 +124,7 @@ export function ReportsManager() {
           const eventRegistrations = (registrations || []).filter((registration: any) => Number(registration.event_id) === Number(event.id))
           const eventAttendees = (attendees || []).filter((attendee: any) => Number(attendee.event_id) === Number(event.id))
           const eventPerformance = (performance || []).filter((item: any) => item.event_title_en === event.title_en)
+          const attendance = attendanceByEvent.get(Number(event.id)) as any
           const roleNames = Array.from(new Set([
             ...eventRegistrations.map((registration: any) => registration.customer_role_name_en || "Guest"),
             ...eventAttendees.map((attendee: any) => attendee.customer_role_name_en || "Guest"),
@@ -140,11 +148,16 @@ export function ReportsManager() {
             revenueByCurrency,
             bookings: eventRegistrations.length,
             attendees: eventAttendees.length,
-            checkedIn: eventAttendees.filter((attendee: any) => attendee.checked_in_at || attendee.qr_status === "used").length,
+            checkedIn: attendanceDate
+              ? Number(attendance?.range_checked_in || 0)
+              : eventAttendees.filter((attendee: any) => attendee.checked_in_at || attendee.qr_status === "used").length,
+            rangeCheckedIn: Number(attendance?.range_checked_in || 0),
             ticketsSold: eventPerformance.reduce((sum: number, item: any) => sum + Number(item.registrations || 0), 0),
             capacity: Number(event.max_attendees || event.venue_capacity || 0),
             topTicket: (language === "ar" ? topTicket?.ticket_name_ar || topTicket?.ticket_name_en : topTicket?.ticket_name_en || topTicket?.ticket_name_ar) || "-",
-            updatedAt: event.updated_at || event.starts_at || "",
+            updatedAt: attendance?.last_checkin_at || event.updated_at || event.starts_at || "",
+            firstCheckinAt: attendance?.first_checkin_at || "",
+            lastCheckinAt: attendance?.last_checkin_at || "",
           }
         })
 
@@ -160,7 +173,7 @@ export function ReportsManager() {
     return () => {
       active = false
     }
-  }, [language])
+  }, [attendanceDate, language])
 
   const filteredRows = rows.filter((row) => row.event.toLowerCase().includes(search.toLowerCase()))
 
@@ -178,7 +191,7 @@ export function ReportsManager() {
     return searched.filter((row) => Number((row.revenueByCurrency || {})[currencyFilter] || 0) > 0)
   }, [filteredRows, currencyFilter])
 
-  const reportPagination = useTablePagination(visibleRows, [search, currencyFilter])
+  const reportPagination = useTablePagination(visibleRows, [attendanceDate, search, currencyFilter])
 
   const displayRevenue = (row: ReportRow) => {
     if (currencyFilter === "all") return moneyBreakdown(row.revenueByCurrency || {})
@@ -222,6 +235,15 @@ export function ReportsManager() {
               ))}
             </SelectContent>
           </Select>
+          {(mode === "attendance" || mode === "full") && (
+            <Input
+              type="date"
+              value={attendanceDate}
+              onChange={(event) => setAttendanceDate(event.target.value)}
+              className="h-10 rounded-2xl bg-[#f8f5fb] font-bold md:w-44"
+              title={isRtl ? "تاريخ الحضور" : "Attendance date"}
+            />
+          )}
           <TableSearch value={search} onChange={setSearch} placeholder={adminT(language, "reports.search")} />
         </div>
       </CardHeader>

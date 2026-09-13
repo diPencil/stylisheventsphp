@@ -185,6 +185,7 @@ Route::middleware(['auth:api', 'permission:reports.view'])->group(function () {
     Route::get('/reports/nationalities', [\App\Http\Controllers\ReportController::class, 'nationalities']);
     Route::get('/reports/specialties', [\App\Http\Controllers\ReportController::class, 'specialties']);
     Route::get('/reports/ticket-performance', [\App\Http\Controllers\ReportController::class, 'ticketPerformance']);
+    Route::get('/reports/attendance', [\App\Http\Controllers\ReportController::class, 'attendance']);
 });
 
 // Phase G: Certificates
