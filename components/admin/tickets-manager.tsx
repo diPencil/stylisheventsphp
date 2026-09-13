@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { CheckCircle2, Clock3, CreditCard, Download, Eye, MoreHorizontal, Ticket, UserCheck, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -17,7 +17,16 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
-import { ConfirmAction } from "@/components/admin/confirm-action"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { PaginationControls } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
@@ -81,6 +90,9 @@ function paymentClass(status: PaymentStatus) {
 
 export function TicketsManager() {
   const { language } = useLanguage()
+  const router = useRouter()
+  const isAr = language === "ar"
+  const [pending, setPending] = useState<null | { type: "checkin" | "cancel"; booking: TicketBooking }>(null)
   const [bookings, setBookings] = useState<TicketBooking[]>([])
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
@@ -200,6 +212,13 @@ export function TicketsManager() {
 
   const attendanceRate = bookings.length ? Math.round((totals.checkedIn / bookings.length) * 100) : 0
 
+  async function runPending() {
+    if (!pending) return
+    if (pending.type === "checkin") await checkInBooking(pending.booking)
+    else await cancelBooking(pending.booking)
+    setPending(null)
+  }
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
@@ -269,15 +288,24 @@ export function TicketsManager() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48 rounded-2xl border-0 p-2 shadow-xl">
                             <DropdownMenuLabel className="text-xs text-slate-400">{adminT(language, "common.actions")}</DropdownMenuLabel>
-                            <DropdownMenuItem asChild className="cursor-pointer rounded-xl px-3 py-2 font-semibold">
-                              <Link href={`/admin/tickets/${booking.registrationId}`}><Eye className="h-4 w-4" /> {adminT(language, "common.viewTicket")}</Link>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold"
+                              onSelect={(e) => { e.preventDefault(); router.push(`/admin/tickets/${booking.registrationId}`) }}
+                            >
+                              <Eye className="h-4 w-4" /> {adminT(language, "common.viewTicket")}
                             </DropdownMenuItem>
-                            <ConfirmAction title="Check-in attendee?" description="This ticket QR will be checked in through the backend." confirmLabel="Check in" onConfirm={() => checkInBooking(booking)}>
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600"><UserCheck className="h-4 w-4" /> {adminT(language, "common.markCheckedIn")}</DropdownMenuItem>
-                            </ConfirmAction>
-                            <ConfirmAction title="Cancel ticket booking?" description="This booking will be cancelled." confirmLabel="Cancel booking" tone="danger" onConfirm={() => cancelBooking(booking)}>
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600"><XCircle className="h-4 w-4" /> {adminT(language, "common.cancelBooking")}</DropdownMenuItem>
-                            </ConfirmAction>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600"
+                              onSelect={(e) => { e.preventDefault(); setPending({ type: "checkin", booking }) }}
+                            >
+                              <UserCheck className="h-4 w-4" /> {adminT(language, "common.markCheckedIn")}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600"
+                              onSelect={(e) => { e.preventDefault(); setPending({ type: "cancel", booking }) }}
+                            >
+                              <XCircle className="h-4 w-4" /> {adminT(language, "common.cancelBooking")}
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -317,6 +345,26 @@ export function TicketsManager() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Confirm dialog lives outside the DropdownMenu so every row's menu works reliably. */}
+      <AlertDialog open={Boolean(pending)} onOpenChange={(open) => { if (!open) setPending(null) }}>
+        <AlertDialogContent dir={isAr ? "rtl" : "ltr"} className="max-w-[92vw] rounded-2xl sm:max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pending?.type === "cancel" ? (isAr ? "إلغاء الحجز؟" : "Cancel ticket booking?") : (isAr ? "تسجيل حضور؟" : "Check-in attendee?")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pending?.type === "cancel"
+                ? (isAr ? "سيتم إلغاء هذا الحجز." : "This booking will be cancelled.")
+                : (isAr ? "سيتم تسجيل حضور هذه التذكرة." : "This ticket QR will be checked in through the backend.")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="grid grid-cols-2 gap-3">
+            <AlertDialogCancel className="mt-0 h-10 rounded-xl font-extrabold">{isAr ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); runPending() }} className="h-10 rounded-xl bg-[hsl(var(--primary))] font-extrabold text-white">
+              {pending?.type === "cancel" ? adminT(language, "common.cancelBooking") : (isAr ? "تسجيل حضور" : "Check in")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

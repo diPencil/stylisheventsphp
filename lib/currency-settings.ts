@@ -77,3 +77,37 @@ export function formatCurrencyAmount(value: number, currencyCode: string, settin
 
   return settings.symbolPosition === "before" ? `${currency.symbol} ${formatted}` : `${formatted} ${currency.symbol}`
 }
+
+function rateFor(code: string, settings: CurrencySettings): number {
+  return Number(settings.rates.find((rate) => rate.code === code)?.rate || 0)
+}
+
+/** Convert an amount between currencies using the admin-configured rates (per 1 USD). */
+export function convertCurrencyAmount(value: number, fromCode: string, toCode: string, settings: CurrencySettings = readCurrencySettings()) {
+  const from = (fromCode || settings.baseCurrency).toUpperCase()
+  const to = (toCode || settings.baseCurrency).toUpperCase()
+  const amount = Number(value || 0)
+  if (from === to) return amount
+  const fromRate = rateFor(from, settings)
+  const toRate = rateFor(to, settings)
+  if (!fromRate || !toRate) return amount
+  return (amount / fromRate) * toRate
+}
+
+export function pricingCurrencyForCountry(countryCode?: string | null, fallback: string = "USD") {
+  return String(countryCode || "").toUpperCase() === "EG" ? "EGP" : String(countryCode || "").toUpperCase() ? "USD" : fallback
+}
+
+/**
+ * Price of a ticket row in the requested currency. A stored 0/empty means
+ * "not priced in this currency" and falls back to conversion, mirroring the backend.
+ */
+export function ticketPriceForCurrency(ticket: any, currency: string, settings: CurrencySettings = readCurrencySettings()) {
+  const target = (currency || "USD").toUpperCase()
+  const stored = Number(target === "EGP" ? ticket?.price_egp : ticket?.price_usd)
+  if (Number.isFinite(stored) && stored > 0) return stored
+  const base = Number(ticket?.price)
+  const periodCurrency = String(ticket?.currency || "USD").toUpperCase()
+  const source = Number.isFinite(base) && base > 0 ? base : Number(target === "EGP" ? ticket?.price_usd : ticket?.price_egp) || 0
+  return convertCurrencyAmount(source, periodCurrency, target, settings)
+}

@@ -121,6 +121,11 @@ export default function Login() {
       const next = new URLSearchParams(window.location.search).get("next")
       window.location.href = next || dashboardHrefForAuth(result.user, result.token)
     } catch (loginError) {
+      const needsVerification = (loginError as any)?.details?.code === "verification_required"
+      if (needsVerification) {
+        router.replace(`/verify-email?email=${encodeURIComponent(login.trim())}`)
+        return
+      }
       setError(loginError instanceof Error ? loginError.message : text.errorFallback)
     } finally {
       setIsLoading(false)

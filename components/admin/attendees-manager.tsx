@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { BadgeCheck, Download, Eye, FileText, MoreHorizontal, Pencil, RotateCcw, Search, Ticket, UserCheck, Users, XCircle } from "lucide-react"
+import { BadgeCheck, Download, Eye, FileText, MoreHorizontal, Pencil, RotateCcw, Ticket, UserCheck, Users, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -37,6 +37,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
 import { PaginationControls } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
@@ -281,25 +282,18 @@ export function AttendeesManager() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <Badge className="mb-3 rounded-xl bg-[hsl(var(--primary))] text-white hover:bg-[hsl(var(--primary))]">{isAr ? "عمليات الحضور" : "Attendees Operations"}</Badge>
-          <h1 className="text-xl font-extrabold tracking-tight text-[#17172f] md:text-2xl">{adminT(language, "attendees.title")}</h1>
-          <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500">
-            {isAr ? "ملفات الحضور والتذاكر وحالة QR والحضور وتسليم الشهادات." : "Live attendee profiles, tickets, QR status, check-in state, and certificate delivery."}
-          </p>
-        </div>
-        <Button onClick={exportAttendees} className="h-10 rounded-2xl bg-[hsl(var(--primary))] px-4 text-sm font-extrabold text-white">
-          <Download className="h-4 w-4" />
-          {adminT(language, "attendees.export")}
-        </Button>
-      </div>
+      <AdminPageHeader
+        eyebrow={isAr ? "عمليات الحضور" : "Attendees Operations"}
+        title={adminT(language, "attendees.title")}
+        description={isAr ? "ملفات الحضور والتذاكر وحالة QR والحضور وتسليم الشهادات." : "Live attendee profiles, tickets, QR status, check-in state, and certificate delivery."}
+        action={{ label: adminT(language, "attendees.export"), icon: Download, onClick: exportAttendees }}
+      />
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Metric label={isAr ? "إجمالي الحضور" : "Total Attendees"} value={totalAttendees} icon={Users} />
-        <Metric label={adminT(language, "overview.checkedIn")} value={totals.checkedIn} icon={UserCheck} />
-        <Metric label={adminT(language, "overview.certificates")} value={totals.certificatesReady} icon={BadgeCheck} />
-        <Metric label={adminT(language, "bookings.cancelled")} value={totals.cancelled} icon={XCircle} />
+        <MetricCard label={isAr ? "إجمالي الحضور" : "Total Attendees"} value={totalAttendees} icon={Users} />
+        <MetricCard label={adminT(language, "overview.checkedIn")} value={totals.checkedIn} icon={UserCheck} />
+        <MetricCard label={adminT(language, "overview.certificates")} value={totals.certificatesReady} icon={BadgeCheck} />
+        <MetricCard label={adminT(language, "bookings.cancelled")} value={totals.cancelled} icon={XCircle} />
       </div>
 
       <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
@@ -308,10 +302,7 @@ export function AttendeesManager() {
             <CardTitle className="text-base font-extrabold">{adminT(language, "attendees.table")}</CardTitle>
             <p className="mt-1 text-sm font-medium text-slate-400">{isAr ? "كل عميل مرتبط بتذكرة وحالة حضور وشهادة." : "Every customer connected to a ticket, attendance state, and certificate."}</p>
           </div>
-          <div className="flex h-10 items-center gap-2 rounded-2xl bg-[#f8f5fb] px-3 md:w-80">
-            <Search className="h-4 w-4 text-slate-400" />
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} className="h-9 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0" placeholder={isAr ? "ابحث عن حضور أو فعالية..." : "Search attendee or event..."} />
-          </div>
+          <TableSearch value={search} onChange={setSearch} placeholder={isAr ? "ابحث عن حضور أو فعالية..." : "Search attendee or event..."} />
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -509,21 +500,5 @@ export function AttendeesManager() {
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
-
-function Metric({ label, value, icon: Icon }: { label: string; value: number; icon: any }) {
-  return (
-    <Card className="rounded-[24px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.05)]">
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[hsl(var(--primary)/0.10)] text-[hsl(var(--primary))]">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">{label}</p>
-          <p className="text-lg font-extrabold text-[#17172f]">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
   )
 }

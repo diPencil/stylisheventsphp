@@ -142,7 +142,7 @@ function DoctorPortalDashboard() {
       <section className="grid gap-5 rounded-[30px] bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] lg:grid-cols-[1fr_420px]">
         <div>
           <Badge className="mb-4 rounded-full bg-primary px-4 py-1 text-white hover:bg-primary">Doctor Portal</Badge>
-          <h1 className="text-3xl font-black leading-tight text-[#0f172a] md:text-5xl">
+          <h1 className="text-2xl font-black leading-tight text-[#0f172a] md:text-4xl">
             {isRtl ? "ملف الدكتور والتذاكر والشهادات" : "Doctor profile, tickets, and certificates"}
           </h1>
           <p className="mt-3 max-w-3xl text-base font-medium leading-8 text-slate-500">
@@ -235,12 +235,24 @@ function DoctorPortalDashboard() {
                       </td>
                       <td className="px-6 py-5">
                         <div className="flex flex-wrap gap-2">
-                          <Button asChild disabled={!item.ticket_pdf_url} variant="outline" className="h-9 rounded-xl font-black">
-                            <Link href={item.ticket_pdf_url || "#"}><Download className="h-4 w-4" /> {isRtl ? "التذكرة" : "Ticket"}</Link>
-                          </Button>
-                          <Button asChild disabled={!item.certificate_file_url} variant="outline" className="h-9 rounded-xl font-black">
-                            <Link href={item.certificate_file_url || "#"}><BadgeCheck className="h-4 w-4" /> {isRtl ? "الشهادة" : "Certificate"}</Link>
-                          </Button>
+                          {item.ticket_pdf_url ? (
+                            <Button asChild variant="outline" className="h-9 rounded-xl font-black">
+                              <Link href={item.ticket_pdf_url}><Download className="h-4 w-4" /> {isRtl ? "التذكرة" : "Ticket"}</Link>
+                            </Button>
+                          ) : (
+                            <Button disabled variant="outline" className="h-9 rounded-xl font-black">
+                              <Download className="h-4 w-4" /> {isRtl ? "التذكرة" : "Ticket"}
+                            </Button>
+                          )}
+                          {item.certificate_file_url ? (
+                            <Button asChild variant="outline" className="h-9 rounded-xl font-black">
+                              <Link href={item.certificate_file_url}><BadgeCheck className="h-4 w-4" /> {isRtl ? "الشهادة" : "Certificate"}</Link>
+                            </Button>
+                          ) : (
+                            <Button disabled variant="outline" className="h-9 rounded-xl font-black">
+                              <BadgeCheck className="h-4 w-4" /> {isRtl ? "الشهادة" : "Certificate"}
+                            </Button>
+                          )}
                         </div>
                         {needsProof ? (
                           <div className="mt-3 grid gap-2 rounded-2xl bg-slate-50 p-3">
@@ -287,7 +299,7 @@ function OperationsPortal({ role }: { role: Exclude<Role, "customer"> }) {
     <div className="space-y-6">
       <section className="rounded-[30px] bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
         <Badge className="mb-4 rounded-full bg-primary px-4 py-1 text-white hover:bg-primary">{copy.badge}</Badge>
-        <h1 className="max-w-4xl text-3xl font-black leading-tight text-[#0f172a] md:text-5xl">{isRtl ? copy.titleAr : copy.titleEn}</h1>
+        <h1 className="max-w-4xl text-2xl font-black leading-tight text-[#0f172a] md:text-4xl">{isRtl ? copy.titleAr : copy.titleEn}</h1>
         <p className="mt-4 max-w-3xl text-base font-medium leading-8 text-slate-500">{isRtl ? copy.bodyAr : copy.bodyEn}</p>
       </section>
       <section className="grid gap-4 md:grid-cols-3">

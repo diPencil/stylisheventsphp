@@ -225,6 +225,10 @@ export default function SignUp() {
       payload.preferredLanguage = language
       ;(payload as any).avatarUrl = (formData as any).avatarUrl || null
       const result = await platformApi.register(payload as Record<string, unknown>)
+      if (result?.needsVerification) {
+        router.replace(`/verify-email?email=${encodeURIComponent((formData as any).email || "")}`)
+        return
+      }
       window.localStorage.setItem("stylish-holidays-auth-token", result.token)
       window.localStorage.setItem("stylish-holidays-admin-user", JSON.stringify(result.user))
       notifyAuthSessionChanged()
@@ -289,7 +293,7 @@ export default function SignUp() {
                 <div className="mx-auto flex justify-center">
                   <AuthBrandHeadline isRtl={isRtl} color="var(--signup-secondary)" size="compact" />
                 </div>
-                <h1 className="mt-2 text-2xl font-bold tracking-normal text-slate-950 sm:text-3xl lg:text-4xl">{text.title}</h1>
+                <h1 className="mt-2 text-2xl font-bold tracking-normal text-slate-950 sm:text-2xl lg:text-3xl">{text.title}</h1>
                 <p className="mx-auto mt-2 max-w-xl text-sm font-medium leading-6 text-slate-600">{text.intro}</p>
               </div>
 

@@ -33,7 +33,7 @@ export function HowItWorksSteps() {
     <section className="py-16 bg-gradient-to-b from-muted/50 to-muted/30">
       <div className="container px-4">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Get Insights in 3 Simple Steps</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Get Insights in 3 Simple Steps</h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
             Our streamlined process gets you from setup to actionable insights in minutes, not days.
           </p>

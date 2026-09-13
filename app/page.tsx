@@ -104,7 +104,7 @@ export default function Home() {
               >
                 {isRtl ? featuresSection.eyebrowAr : featuresSection.eyebrowEn}
               </motion.div>
-              <h2 className={`text-2xl md:text-4xl lg:text-5xl ${isRtl ? 'font-bold' : 'font-extrabold'} tracking-tighter text-[#0f172a] mb-6 max-w-4xl leading-[1.1]`}>
+              <h2 className={`text-2xl md:text-3xl lg:text-4xl ${isRtl ? 'font-bold' : 'font-extrabold'} tracking-tighter text-[#0f172a] mb-6 max-w-4xl leading-[1.1]`}>
                 {isRtl ? featuresSection.titleAr : featuresSection.titleEn}
               </h2>
               <p className="text-lg text-slate-500 max-w-2xl mx-auto font-medium">
@@ -204,7 +204,7 @@ export default function Home() {
               >
                 {isRtl ? siteContent?.homepage?.whyUsBadgeAr || "المزايا" : siteContent?.homepage?.whyUsBadgeEn || "Benefits"}
               </motion.div>
-              <h2 className={`text-2xl md:text-4xl lg:text-5xl ${isRtl ? 'font-bold' : 'font-extrabold'} tracking-tighter text-[#0f172a] mb-6 leading-[1.4] md:leading-[1.5]`}>
+              <h2 className={`text-2xl md:text-3xl lg:text-4xl ${isRtl ? 'font-bold' : 'font-extrabold'} tracking-tighter text-[#0f172a] mb-6 leading-[1.4] md:leading-[1.5]`}>
                 {isRtl ? whyUsTitleAr : whyUsTitleEn === "Our experience makes your event easier to run" ? (
                   <>
                     Our experience makes

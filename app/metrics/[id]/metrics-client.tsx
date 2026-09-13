@@ -66,7 +66,7 @@ export default function MetricsClient({ params }: { params: { id: string } }) {
                 </Button>
               </Link>
               <div>
-                <h1 className="text-3xl font-bold">{analysis.name}</h1>
+                <h1 className="text-2xl font-bold">{analysis.name}</h1>
                 <p className="text-muted-foreground">
                   Analysis completed on {new Date(analysis.completedAt).toLocaleDateString()}
                 </p>

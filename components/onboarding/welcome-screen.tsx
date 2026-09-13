@@ -14,7 +14,7 @@ export function WelcomeScreen() {
       exit={{ opacity: 0, y: -20 }}
       className="text-center"
     >
-      <h2 className="text-3xl font-bold mb-4">Welcome to VideoMetrics.ai</h2>
+      <h2 className="text-2xl font-bold mb-4">Welcome to VideoMetrics.ai</h2>
       <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
         We're excited to help you gain valuable insights from your video data. Let's get you set up with a quick tour of
         the platform.

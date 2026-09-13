@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
@@ -23,6 +24,7 @@ type ReportRow = {
   roles: string[]
   revenue: number
   currency: string
+  revenueByCurrency: Record<string, number>
   bookings: number
   attendees: number
   checkedIn: number
@@ -34,6 +36,12 @@ type ReportRow = {
 
 function money(value: number, currency = "USD") {
   return `${currency} ${Number(value || 0).toLocaleString()}`
+}
+
+function moneyBreakdown(breakdown: Record<string, number>) {
+  const entries = Object.entries(breakdown).filter(([, value]) => Number(value) > 0).sort(([a], [b]) => a.localeCompare(b))
+  if (!entries.length) return "—"
+  return entries.map(([currency, value]) => money(value, currency)).join(" · ")
 }
 
 function percent(value: number, total: number) {
@@ -52,7 +60,9 @@ export function ReportsManager() {
   const { language } = useLanguage()
   const isRtl = language === "ar"
   const [search, setSearch] = useState("")
+  const [currencyFilter, setCurrencyFilter] = useState("all")
   const [rows, setRows] = useState<ReportRow[]>([])
+  const [serverCurrencies, setServerCurrencies] = useState<string[]>([])
 
   const exportCsv = (mode: "revenue" | "attendance" | "tickets" | "full") => {
     const headers = [
@@ -65,11 +75,11 @@ export function ReportsManager() {
       "Updated At",
     ]
 
-    const csvRows = filteredRows.map((row) => [
+    const csvRows = visibleRows.map((row) => [
       row.id,
       row.event,
       row.roles.length ? row.roles.join("; ") : "Guest",
-      ...(mode === "revenue" || mode === "full" ? [String(row.revenue), row.currency, String(row.bookings)] : []),
+      ...(mode === "revenue" || mode === "full" ? [displayRevenue(row), currencyFilter === "all" ? Object.keys(row.revenueByCurrency || {}).sort().join("+") || row.currency : currencyFilter, String(row.bookings)] : []),
       ...(mode === "attendance" || mode === "full" ? [String(row.attendees), String(row.checkedIn), `${percent(row.checkedIn, row.attendees)}%`, String(row.capacity)] : []),
       ...(mode === "tickets" || mode === "full" ? [String(row.ticketsSold), row.topTicket] : []),
       row.updatedAt,
@@ -86,7 +96,7 @@ export function ReportsManager() {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
-    toast.success(adminT(language, "reports.exported"), { description: `${filteredRows.length} ${adminT(language, "reports.exportedCopy")}` })
+    toast.success(adminT(language, "reports.exported"), { description: `${visibleRows.length} ${adminT(language, "reports.exportedCopy")}` })
   }
 
   useEffect(() => {
@@ -113,13 +123,21 @@ export function ReportsManager() {
           ].filter(Boolean))) as string[]
           const topTicket = [...eventPerformance].sort((a: any, b: any) => Number(b.registrations || 0) - Number(a.registrations || 0))[0]
           const eventTitle = language === "ar" ? event.title_ar || event.title_en || "فعالية" : event.title_en || event.title_ar || "Event"
+          const revenueByCurrency: Record<string, number> = {}
+          for (const item of eventRegistrations) {
+            if (item.payment_status !== "approved") continue
+            const code = String(item.selected_currency || defaultCurrency || "USD").toUpperCase()
+            revenueByCurrency[code] = (revenueByCurrency[code] || 0) + Number(item.selected_price || 0)
+          }
+          const revenueCurrencies = Object.keys(revenueByCurrency).sort()
           return {
             id: `RPT-${event.id}`,
             eventId: Number(event.id),
             event: eventTitle,
             roles: roleNames,
-            revenue: eventRegistrations.reduce((sum: number, item: any) => sum + Number(item.payment_status === "approved" ? item.selected_price || 0 : 0), 0),
-            currency: eventRegistrations.find((item: any) => item.selected_currency)?.selected_currency || defaultCurrency,
+            revenue: Object.values(revenueByCurrency).reduce((sum, value) => sum + value, 0),
+            currency: revenueCurrencies[0] || defaultCurrency,
+            revenueByCurrency,
             bookings: eventRegistrations.length,
             attendees: eventAttendees.length,
             checkedIn: eventAttendees.filter((attendee: any) => attendee.checked_in_at || attendee.qr_status === "used").length,
@@ -132,6 +150,7 @@ export function ReportsManager() {
 
         if (!active) return
         setRows(liveRows)
+        setServerCurrencies(((summary?.revenue || []) as any[]).map((row: any) => String(row.currency || "").toUpperCase()).filter(Boolean))
         if (!liveRows.length && revenueTotal > 0) toast.info(adminT(language, "reports.reportsLoaded"), { description: adminT(language, "reports.reportsLoadedCopy") })
       } catch (error) {
         if (active) toast.error(adminT(language, "reports.loadError"), { description: error instanceof Error ? error.message : adminT(language, "reports.backendError") })
@@ -144,15 +163,45 @@ export function ReportsManager() {
   }, [language])
 
   const filteredRows = rows.filter((row) => row.event.toLowerCase().includes(search.toLowerCase()))
-  const reportPagination = useTablePagination(filteredRows, [search])
+
+  const currencies = useMemo(() => {
+    const codes = new Set<string>(serverCurrencies)
+    for (const row of rows) {
+      for (const code of Object.keys(row.revenueByCurrency || {})) codes.add(code)
+    }
+    return Array.from(codes).sort()
+  }, [rows, serverCurrencies])
+
+  const visibleRows = useMemo(() => {
+    const searched = filteredRows
+    if (currencyFilter === "all") return searched
+    return searched.filter((row) => Number((row.revenueByCurrency || {})[currencyFilter] || 0) > 0)
+  }, [filteredRows, currencyFilter])
+
+  const reportPagination = useTablePagination(visibleRows, [search, currencyFilter])
+
+  const displayRevenue = (row: ReportRow) => {
+    if (currencyFilter === "all") return moneyBreakdown(row.revenueByCurrency || {})
+    const value = Number((row.revenueByCurrency || {})[currencyFilter] || 0)
+    return value > 0 ? money(value, currencyFilter) : "—"
+  }
 
   const totals = useMemo(() => {
-    const revenue = rows.reduce((sum, row) => sum + row.revenue, 0)
+    const byCurrency: Record<string, number> = {}
+    for (const row of rows) {
+      for (const [code, value] of Object.entries(row.revenueByCurrency || {})) {
+        byCurrency[code] = (byCurrency[code] || 0) + Number(value || 0)
+      }
+    }
     const bookings = rows.reduce((sum, row) => sum + row.bookings, 0)
     const checkedIn = rows.reduce((sum, row) => sum + row.checkedIn, 0)
     const attendees = rows.reduce((sum, row) => sum + row.attendees, 0)
-    return { revenue, bookings, checkInRate: percent(checkedIn, attendees), tickets: rows.reduce((sum, row) => sum + row.ticketsSold, 0) }
+    return { byCurrency, bookings, checkInRate: percent(checkedIn, attendees), tickets: rows.reduce((sum, row) => sum + row.ticketsSold, 0) }
   }, [rows])
+
+  const totalsRevenueLabel = currencyFilter === "all"
+    ? moneyBreakdown(totals.byCurrency)
+    : money(Number(totals.byCurrency[currencyFilter] || 0), currencyFilter)
 
   const renderTable = (mode: "revenue" | "attendance" | "tickets" | "full") => (
     <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
@@ -161,7 +210,20 @@ export function ReportsManager() {
           <CardTitle className="text-base font-extrabold">{adminT(language, "reports.table")}</CardTitle>
           <p className="mt-1 text-sm font-medium text-slate-400">{adminT(language, "reports.tableCopy")}</p>
         </div>
-        <TableSearch value={search} onChange={setSearch} placeholder={adminT(language, "reports.search")} />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
+            <SelectTrigger className="h-10 rounded-2xl bg-[#f8f5fb] font-bold md:w-44">
+              <SelectValue placeholder={isRtl ? "العملة" : "Currency"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{isRtl ? "كل العملات" : "All currencies"}</SelectItem>
+              {currencies.map((code) => (
+                <SelectItem key={code} value={code}>{code}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <TableSearch value={search} onChange={setSearch} placeholder={adminT(language, "reports.search")} />
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         <div className={cn("overflow-x-auto", isRtl && "[direction:rtl]")}>
@@ -186,7 +248,7 @@ export function ReportsManager() {
                   <TableRow key={row.id} className="hover:bg-[hsl(var(--primary)/0.04)]">
                     <TableCell className="text-sm font-extrabold text-slate-400" dir="ltr">{(reportPagination.page - 1) * reportPagination.pageSize + index + 1}</TableCell>
                     <TableCell className="max-w-[260px]"><p className="line-clamp-2 text-sm font-extrabold text-[#17172f]">{row.event}</p><p className={cn("text-xs font-semibold text-slate-400", isRtl && "inline-block")} dir="ltr">{row.id}</p></TableCell>
-                    {(mode === "revenue" || mode === "full") && <TableCell className="text-sm font-extrabold" dir="ltr">{money(row.revenue, row.currency)}</TableCell>}
+                    {(mode === "revenue" || mode === "full") && <TableCell className="text-sm font-extrabold" dir="ltr">{displayRevenue(row)}</TableCell>}
                     {(mode === "revenue" || mode === "full") && <TableCell className="text-sm font-extrabold" dir="ltr">{row.bookings.toLocaleString()}</TableCell>}
                     {(mode === "attendance" || mode === "full") && <TableCell><p className="text-sm font-extrabold" dir="ltr">{row.attendees.toLocaleString()}</p><p className="text-xs font-bold text-slate-400">{adminT(language, "reports.capacity")} <span dir="ltr">{row.capacity.toLocaleString()}</span></p></TableCell>}
                     {(mode === "attendance" || mode === "full") && <TableCell><div className="space-y-2"><p className="text-sm font-extrabold" dir="ltr">{checkInRate}%</p><ProgressLine value={checkInRate} /></div></TableCell>}
@@ -198,12 +260,12 @@ export function ReportsManager() {
               })}
             </TableBody>
           </Table>
-          {filteredRows.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{adminT(language, "reports.noRows")}</div>}
+          {visibleRows.length === 0 && <div className="p-8 text-center text-sm font-semibold text-slate-400">{adminT(language, "reports.noRows")}</div>}
         </div>
         <PaginationControls
           page={reportPagination.page}
           pageSize={reportPagination.pageSize}
-          total={filteredRows.length}
+          total={visibleRows.length}
           totalPages={reportPagination.totalPages}
           onPageChange={reportPagination.setPage}
           onPageSizeChange={reportPagination.setPageSize}
@@ -222,7 +284,7 @@ export function ReportsManager() {
       />
 
       <div className="grid gap-4 md:grid-cols-4">
-        <MetricCard label={adminT(language, "reports.totalRevenue")} value={money(totals.revenue)} icon={TrendingUp} />
+        <MetricCard label={adminT(language, "reports.totalRevenue")} value={totalsRevenueLabel} icon={TrendingUp} />
         <MetricCard label={adminT(language, "nav.orders")} value={totals.bookings.toLocaleString()} icon={CalendarDays} />
         <MetricCard label={adminT(language, "reports.checkInRate")} value={`${totals.checkInRate}%`} icon={Users} />
         <MetricCard label={adminT(language, "overview.ticketsSold")} value={totals.tickets.toLocaleString()} icon={Ticket} />

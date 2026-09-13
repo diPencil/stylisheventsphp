@@ -63,7 +63,7 @@ export function PublicPageHero({
         "relative z-20 w-full px-4 text-center flex flex-col items-center justify-center",
         compactMobile ? "pb-6 md:pt-20 md:pb-8" : "pb-8 md:pt-20 md:pb-8"
       )}>
-        <h1 className="mb-3 md:mb-4 max-w-[16rem] sm:max-w-xl md:max-w-3xl text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white text-balance drop-shadow-lg">
+        <h1 className="mb-3 md:mb-4 max-w-[16rem] sm:max-w-xl md:max-w-3xl text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-white text-balance drop-shadow-lg">
           {title}
         </h1>
         <p className="mx-auto max-w-[20rem] sm:max-w-2xl px-2 text-sm sm:text-base md:text-xl font-medium leading-relaxed text-slate-100 drop-shadow-md">
@@ -102,7 +102,7 @@ export function PageHero({
             <span className="inline-flex rounded-full bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-primary shadow-sm">
               {isRtl ? eyebrowAr : eyebrowEn}
             </span>
-            <h1 className="mt-4 md:mt-6 max-w-5xl text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-black leading-[1.15] tracking-tight text-[#0f172a] text-balance">
+            <h1 className="mt-4 md:mt-6 max-w-5xl text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-black leading-[1.15] tracking-tight text-[#0f172a] text-balance">
               {isRtl ? titleAr : titleEn}
             </h1>
             <p className="mt-4 md:mt-6 max-w-3xl text-sm sm:text-base md:text-lg font-medium leading-relaxed md:leading-8 text-slate-600">
@@ -156,7 +156,7 @@ export function SectionHeader({
   return (
     <div className={cn("mb-10", align === "center" ? "mx-auto max-w-3xl text-center" : "max-w-3xl")}>
       <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-primary">{isRtl ? eyebrowAr : eyebrowEn}</p>
-      <h2 className="mt-3 text-2xl font-black tracking-tight text-[#0f172a] md:text-4xl lg:text-5xl text-balance">{isRtl ? titleAr : titleEn}</h2>
+      <h2 className="mt-3 text-2xl font-black tracking-tight text-[#0f172a] md:text-3xl lg:text-4xl text-balance">{isRtl ? titleAr : titleEn}</h2>
       {(subtitleEn || subtitleAr) && (
         <p className="mt-4 text-base font-medium leading-8 text-slate-600">{isRtl ? subtitleAr : subtitleEn}</p>
       )}
@@ -280,7 +280,7 @@ export function SplitPanel({
         <div className="grid overflow-hidden rounded-[36px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)] lg:grid-cols-[0.9fr_1.1fr]">
           <div className="bg-[hsl(var(--secondary))] p-8 text-white md:p-12">
             <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary">Stylish Holidays</p>
-            <h2 className="mt-4 text-2xl font-black leading-tight md:text-4xl lg:text-5xl">{isRtl ? titleAr : titleEn}</h2>
+            <h2 className="mt-4 text-2xl font-black leading-tight md:text-3xl lg:text-4xl">{isRtl ? titleAr : titleEn}</h2>
             <p className="mt-5 text-base font-medium leading-8 text-white/70">{isRtl ? textAr : textEn}</p>
           </div>
           <div className="grid gap-3 p-6 md:p-10">

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { CheckCircle2, CreditCard, Eye, MoreHorizontal, ReceiptText, RefreshCcw, Ticket, User, UserPlus, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -18,7 +18,16 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
 import { useAdminPermissions } from "@/components/admin/admin-shell"
-import { ConfirmAction } from "@/components/admin/confirm-action"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { PaginationControls } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
@@ -73,7 +82,10 @@ function money(value: number, currency = "USD") {
 
 export function BookingsManager() {
   const { language } = useLanguage()
+  const router = useRouter()
+  const isAr = language === "ar"
   const { can } = useAdminPermissions()
+  const [pending, setPending] = useState<null | { type: "paid" | "refunded" | "cancelled"; booking: Booking }>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
@@ -158,6 +170,12 @@ export function BookingsManager() {
     }
   }
 
+  async function runPending() {
+    if (!pending) return
+    await updateStatus(pending.booking, pending.type)
+    setPending(null)
+  }
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
@@ -232,26 +250,37 @@ export function BookingsManager() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48 rounded-2xl border-0 p-2 shadow-xl">
                             <DropdownMenuLabel className="text-xs text-slate-400">{adminT(language, "common.actions")}</DropdownMenuLabel>
-                            <DropdownMenuItem asChild className="cursor-pointer rounded-xl px-3 py-2 font-semibold">
-                              <Link href={`/admin/orders/${booking.registrationId}`}>
-                                <Eye className="h-4 w-4" />
-                                {adminT(language, "common.viewOrder")}
-                              </Link>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold"
+                              onSelect={(e) => { e.preventDefault(); router.push(`/admin/orders/${booking.registrationId}`) }}
+                            >
+                              <Eye className="h-4 w-4" />
+                              {adminT(language, "common.viewOrder")}
                             </DropdownMenuItem>
                             {booking.status !== "paid" ? (
-                              <ConfirmAction title="Mark as paid?" description="This order will be marked as paid." confirmLabel="Mark paid" onConfirm={() => updateStatus(booking, "paid")}>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600"><CheckCircle2 className="h-4 w-4" /> {adminT(language, "common.markPaid")}</DropdownMenuItem>
-                              </ConfirmAction>
+                              <DropdownMenuItem
+                                className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600"
+                                onSelect={(e) => { e.preventDefault(); setPending({ type: "paid", booking }) }}
+                              >
+                                <CheckCircle2 className="h-4 w-4" /> {adminT(language, "common.markPaid")}
+                              </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem disabled className="rounded-xl px-3 py-2 font-semibold text-emerald-600 opacity-50"><CheckCircle2 className="h-4 w-4" /> {adminStatusT(language, "paid")}</DropdownMenuItem>
                             )}
-                            <ConfirmAction title="Refund booking?" description="This order will be marked refunded." confirmLabel="Refund" onConfirm={() => updateStatus(booking, "refunded")}>
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-slate-600"><RefreshCcw className="h-4 w-4" /> {adminT(language, "common.refund")}</DropdownMenuItem>
-                            </ConfirmAction>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-slate-600"
+                              onSelect={(e) => { e.preventDefault(); setPending({ type: "refunded", booking }) }}
+                            >
+                              <RefreshCcw className="h-4 w-4" /> {adminT(language, "common.refund")}
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <ConfirmAction title="Cancel booking?" description="This booking will be cancelled and attendee QR will be revoked." confirmLabel="Cancel booking" tone="danger" onConfirm={() => updateStatus(booking, "cancelled")}>
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={booking.status === "paid"} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600"><XCircle className="h-4 w-4" /> {adminT(language, "common.cancelBooking")}</DropdownMenuItem>
-                            </ConfirmAction>
+                            <DropdownMenuItem
+                              disabled={booking.status === "paid"}
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600"
+                              onSelect={(e) => { e.preventDefault(); setPending({ type: "cancelled", booking }) }}
+                            >
+                              <XCircle className="h-4 w-4" /> {adminT(language, "common.cancelBooking")}
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -272,6 +301,33 @@ export function BookingsManager() {
           />
         </CardContent>
       </Card>
+
+      {/* Confirm dialog lives outside the DropdownMenu so every row's menu works reliably. */}
+      <AlertDialog open={Boolean(pending)} onOpenChange={(open) => { if (!open) setPending(null) }}>
+        <AlertDialogContent dir={isAr ? "rtl" : "ltr"} className="max-w-[92vw] rounded-2xl sm:max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pending?.type === "paid" ? (isAr ? "تعليم كمدفوع؟" : "Mark as paid?") : pending?.type === "refunded" ? (isAr ? "استرداد الحجز؟" : "Refund booking?") : (isAr ? "إلغاء الحجز؟" : "Cancel booking?")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pending?.type === "paid"
+                ? (isAr ? "سيتم تعليم هذا الطلب كمدفوع." : "This order will be marked as paid.")
+                : pending?.type === "refunded"
+                  ? (isAr ? "سيتم تعليم هذا الطلب كمسترد." : "This order will be marked refunded.")
+                  : (isAr ? "سيتم إلغاء الحجز وإيقاف QR المرتبط." : "This booking will be cancelled and attendee QR will be revoked.")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="grid grid-cols-2 gap-3">
+            <AlertDialogCancel className="mt-0 h-10 rounded-xl font-extrabold">{isAr ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); runPending() }}
+              className={pending?.type === "cancelled" ? "h-10 rounded-xl bg-red-600 font-extrabold text-white hover:bg-red-700" : "h-10 rounded-xl bg-[hsl(var(--primary))] font-extrabold text-white"}
+            >
+              {pending?.type === "paid" ? adminT(language, "common.markPaid") : pending?.type === "refunded" ? adminT(language, "common.refund") : adminT(language, "common.cancelBooking")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

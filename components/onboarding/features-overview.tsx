@@ -65,7 +65,7 @@ export function FeaturesOverview() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <h2 className="text-3xl font-bold mb-4 text-center">Key Features</h2>
+      <h2 className="text-2xl font-bold mb-4 text-center">Key Features</h2>
       <p className="text-muted-foreground mb-8 text-center">Discover what VideoMetrics.ai can do for your business</p>
 
       <Card className="mb-8 overflow-hidden">

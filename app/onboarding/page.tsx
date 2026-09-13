@@ -41,7 +41,7 @@ export default function Onboarding() {
             transition={{ duration: 0.5 }}
             className="text-center mb-10"
           >
-            <h1 className="text-3xl font-bold">Set Up Your First Analysis</h1>
+            <h1 className="text-2xl font-bold">Set Up Your First Analysis</h1>
             <p className="text-muted-foreground mt-2">
               Let's get you started with your first video analysis in just a few steps
             </p>

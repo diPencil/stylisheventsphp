@@ -12,17 +12,16 @@ import {
   MapPin,
   MoreHorizontal,
   PauseCircle,
+  Pencil,
   PlayCircle,
   Plus,
   RotateCcw,
-  Search,
   Star,
   Ticket,
   Trash2,
   Users,
   X,
 } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -42,6 +41,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -52,6 +59,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ConfirmAction } from "@/components/admin/confirm-action"
+import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
 import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
@@ -149,6 +157,12 @@ function statusBadge(status: EventStatus) {
   if (status === "completed") return "bg-blue-50 text-blue-700 hover:bg-blue-50"
   if (status === "disabled") return "bg-red-50 text-red-700 hover:bg-red-50"
   return "bg-slate-100 text-slate-700 hover:bg-slate-100"
+}
+
+function isEventEnded(endsAt: string) {
+  if (!endsAt) return false
+  const time = new Date(endsAt).getTime()
+  return Number.isFinite(time) && time < Date.now()
 }
 
 function periodBadge(status: PeriodStatus) {
@@ -251,6 +265,9 @@ export function EventsManager() {
   const [activeTicketId, setActiveTicketId] = useState(0)
   const [ticketForm, setTicketForm] = useState<TicketForm>(emptyTicketForm)
   const [periodForm, setPeriodForm] = useState({ label: "Special Window", startsAt: "", endsAt: "", price: "100", currency: "USD" })
+  const [editingPeriod, setEditingPeriod] = useState<PricePeriod | null>(null)
+  const [editPeriodForm, setEditPeriodForm] = useState({ label: "", startsAt: "", endsAt: "", price: "", currency: "USD" })
+  const [savingPeriod, setSavingPeriod] = useState(false)
 
   const selectedTickets = useMemo(() => tickets.filter((ticket) => ticket.event_id === activeEventId), [activeEventId, tickets])
   const selectedTicket = tickets.find((ticket) => ticket.id === activeTicketId) || selectedTickets[0]
@@ -378,17 +395,22 @@ export function EventsManager() {
       setActiveTicketId(nextTicket.id)
 
       try {
-        const nextPeriods = await Promise.all(ticketForm.periods.map((period) => platformApi.createPricePeriod({
+      const nextPeriods = await Promise.all(ticketForm.periods.map((period) => {
+        const currency = (period.currency || "USD").toUpperCase()
+        const priceValue = Number(period.price) || 0
+        return platformApi.createPricePeriod({
           ticketTypeId: nextTicket.id,
           labelEn: period.label.trim(),
           labelAr: period.label.trim(),
-          price: Number(period.price) || 0,
-          priceEgp: period.currency === "EGP" ? Number(period.price) || 0 : Number(period.price) || 0,
-          priceUsd: period.currency === "USD" ? Number(period.price) || 0 : Number(period.price) || 0,
+          price: priceValue,
+          ...(currency === "EGP" ? { priceEgp: priceValue } : {}),
+          ...(currency === "USD" ? { priceUsd: priceValue } : {}),
+          currency,
           startsAt: period.startsAt,
           endsAt: period.endsAt,
           isActive: true,
-        })))
+        })
+      }))
         setPricePeriods((current) => [...nextPeriods.map((period) => normalizePeriod(period, eventId)), ...current])
       } catch (periodError) {
         toast.error(isAr ? "التيكت اتعمل بس الفترة متحفظتش" : "Ticket created, period failed", { description: periodError instanceof Error ? periodError.message : (isAr ? "عدّل الفترات من تحت." : "Fix the pricing periods below.") })
@@ -404,15 +426,30 @@ export function EventsManager() {
   }
 
   const addPricingPeriod = async () => {
-    if (!selectedTicket || !periodForm.startsAt || !periodForm.endsAt) return
+    const isAr = language === "ar"
+    if (!selectedTicket) {
+      toast.error(isAr ? "اختار تذكرة الأول" : "Select a ticket first", { description: isAr ? "اختار التذكرة من الكروت فوق." : "Pick a ticket from the cards above." })
+      return
+    }
+    if (!periodForm.startsAt || !periodForm.endsAt) {
+      toast.error(isAr ? "تواريخ الفترة ناقصة" : "Period dates are missing", { description: isAr ? "حدد تاريخ البداية والنهاية." : "Start and end date/time are required." })
+      return
+    }
+    if (periodForm.label.trim().length < 2) {
+      toast.error(isAr ? "اسم الفترة ناقص" : "Period label is missing", { description: isAr ? "اكتب اسم للفترة." : "Give the period a name." })
+      return
+    }
     try {
+      const currency = (periodForm.currency || "USD").toUpperCase()
+      const priceValue = Number(periodForm.price) || 0
       const saved = await platformApi.createPricePeriod({
         ticketTypeId: selectedTicket.id,
-        labelEn: periodForm.label,
-        labelAr: periodForm.label,
-        price: Number(periodForm.price) || 0,
-        priceEgp: Number(periodForm.price) || 0,
-        priceUsd: Number(periodForm.price) || 0,
+        labelEn: periodForm.label.trim(),
+        labelAr: periodForm.label.trim(),
+        price: priceValue,
+        ...(currency === "EGP" ? { priceEgp: priceValue } : {}),
+        ...(currency === "USD" ? { priceUsd: priceValue } : {}),
+        currency,
         startsAt: periodForm.startsAt,
         endsAt: periodForm.endsAt,
         isActive: true,
@@ -432,6 +469,55 @@ export function EventsManager() {
       toast.success("Pricing period disabled")
     } catch (error) {
       toast.error("Pricing update failed", { description: error instanceof Error ? error.message : "Could not disable this period." })
+    }
+  }
+
+  const openEditPeriod = (period: PricePeriod) => {
+    setEditingPeriod(period)
+    setEditPeriodForm({
+      label: period.label || "",
+      startsAt: String(period.starts_at || "").slice(0, 16),
+      endsAt: String(period.ends_at || "").slice(0, 16),
+      price: String(period.price ?? ""),
+      currency: period.currency || "USD",
+    })
+  }
+
+  const saveEditPeriod = async () => {
+    const isAr = language === "ar"
+    if (!editingPeriod) return
+    if (editPeriodForm.label.trim().length < 2) {
+      toast.error(isAr ? "اسم الفترة ناقص" : "Period label is missing", { description: isAr ? "اكتب اسم للفترة." : "Give the period a name." })
+      return
+    }
+    if (!editPeriodForm.startsAt || !editPeriodForm.endsAt) {
+      toast.error(isAr ? "تواريخ الفترة ناقصة" : "Period dates are missing", { description: isAr ? "حدد تاريخ البداية والنهاية." : "Start and end date/time are required." })
+      return
+    }
+    setSavingPeriod(true)
+    try {
+      const currency = (editPeriodForm.currency || "USD").toUpperCase()
+      const priceValue = Number(editPeriodForm.price) || 0
+      const saved = await platformApi.updatePricePeriod(editingPeriod.id, {
+        ticketTypeId: editingPeriod.ticket_id,
+        labelEn: editPeriodForm.label.trim(),
+        labelAr: editPeriodForm.label.trim(),
+        price: priceValue,
+        ...(currency === "EGP" ? { priceEgp: priceValue } : {}),
+        ...(currency === "USD" ? { priceUsd: priceValue } : {}),
+        currency,
+        startsAt: editPeriodForm.startsAt,
+        endsAt: editPeriodForm.endsAt,
+        isActive: true,
+      })
+      const next = normalizePeriod(saved, editingPeriod.event_id)
+      setPricePeriods((current) => current.map((period) => period.id === next.id ? next : period))
+      setEditingPeriod(null)
+      toast.success(isAr ? "تم حفظ الفترة" : "Pricing period updated", { description: next.label })
+    } catch (error) {
+      toast.error(isAr ? "فشل حفظ الفترة" : "Period update failed", { description: error instanceof Error ? error.message : "Could not update this period." })
+    } finally {
+      setSavingPeriod(false)
     }
   }
 
@@ -472,22 +558,12 @@ export function EventsManager() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <Badge className="mb-3 rounded-xl bg-[hsl(var(--primary))] text-white hover:bg-[hsl(var(--primary))]">{adminT(language, "events.management")}</Badge>
-          <h1 className="text-xl font-extrabold tracking-tight text-[#17172f] md:text-2xl">{adminT(language, "events.title")}</h1>
-          <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500">
-            {adminT(language, "events.subtitle")}
-          </p>
-        </div>
-
-        <Button asChild className="h-10 rounded-2xl bg-[hsl(var(--primary))] px-4 text-sm font-extrabold text-white hover:bg-[hsl(var(--primary)/0.9)]">
-          <Link href="/admin/events/create">
-            <Plus className="h-4 w-4" />
-            {adminT(language, "events.createEvent")}
-          </Link>
-        </Button>
-      </div>
+      <AdminPageHeader
+        eyebrow={adminT(language, "events.management")}
+        title={adminT(language, "events.title")}
+        description={adminT(language, "events.subtitle")}
+        action={{ label: adminT(language, "events.createEvent"), icon: Plus, href: "/admin/events/create" }}
+      />
 
       <Tabs defaultValue="events" className="space-y-5">
         <div className="grid gap-4 md:grid-cols-4">
@@ -696,11 +772,16 @@ export function EventsManager() {
                           <TableCell className="font-extrabold">{money(period.price, period.currency, currencySettings)}</TableCell>
                           <TableCell><Badge className={cn("rounded-xl capitalize", periodBadge(period.status))}>{period.status}</Badge></TableCell>
                           <TableCell className="text-center">
-                            <ConfirmAction title="Delete pricing period?" description="This price window will be removed from the ticket." confirmLabel="Delete" tone="danger" onConfirm={() => deletePricingPeriod(period.id)}>
-                              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-red-500">
-                                <Trash2 className="h-4 w-4" />
+                            <div className="flex items-center justify-center gap-1">
+                              <Button variant="ghost" size="icon" title={language === "ar" ? "تعديل" : "Edit"} onClick={() => openEditPeriod(period)} className="h-9 w-9 rounded-xl text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.08)]">
+                                <Pencil className="h-4 w-4" />
                               </Button>
-                            </ConfirmAction>
+                              <ConfirmAction title="Delete pricing period?" description="This price window will be removed from the ticket." confirmLabel="Delete" tone="danger" onConfirm={() => deletePricingPeriod(period.id)}>
+                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-red-500">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </ConfirmAction>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -750,23 +831,31 @@ export function EventsManager() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  )
-}
 
-function MetricCard({ label, value, icon: Icon }: { label: string; value: string | number; icon: LucideIcon }) {
-  return (
-    <Card className="rounded-[24px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.05)]">
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[hsl(var(--primary)/0.10)] text-[hsl(var(--primary))]">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">{label}</p>
-          <p className="text-lg font-extrabold text-[#17172f]">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
+      <Dialog open={Boolean(editingPeriod)} onOpenChange={(open) => { if (!open) setEditingPeriod(null) }}>
+        <DialogContent dir={language === "ar" ? "rtl" : "ltr"} className="max-w-[92vw] rounded-3xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === "ar" ? "تعديل الفترة السعرية" : "Edit pricing period"}</DialogTitle>
+            <DialogDescription>{language === "ar" ? "عدّل الاسم والتواريخ والسعر والعملة." : "Update the label, dates, price, and currency."}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <PeriodInput label="Label" value={editPeriodForm.label} onChange={(value) => setEditPeriodForm({ ...editPeriodForm, label: value })} placeholder="Early Bird" />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <PeriodInput label="Start date/time" type="datetime-local" value={editPeriodForm.startsAt} onChange={(value) => setEditPeriodForm({ ...editPeriodForm, startsAt: value })} />
+              <PeriodInput label="End date/time" type="datetime-local" value={editPeriodForm.endsAt} onChange={(value) => setEditPeriodForm({ ...editPeriodForm, endsAt: value })} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[1fr_120px]">
+              <PeriodInput label="Price" type="number" value={editPeriodForm.price} onChange={(value) => setEditPeriodForm({ ...editPeriodForm, price: value })} />
+              <CurrencySelect value={editPeriodForm.currency} currencies={enabledCurrencies} onChange={(value) => setEditPeriodForm({ ...editPeriodForm, currency: value })} />
+            </div>
+          </div>
+          <DialogFooter className="grid grid-cols-2 gap-3">
+            <Button variant="outline" className="h-10 rounded-xl font-extrabold" onClick={() => setEditingPeriod(null)} disabled={savingPeriod}>{language === "ar" ? "إغلاق" : "Close"}</Button>
+            <Button className="h-10 rounded-xl bg-[hsl(var(--primary))] font-extrabold text-white" onClick={saveEditPeriod} disabled={savingPeriod}>{savingPeriod ? (language === "ar" ? "جاري الحفظ..." : "Saving...") : (language === "ar" ? "حفظ" : "Save")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }
 
@@ -787,7 +876,7 @@ function EventsTable({
 }) {
   const [search, setSearch] = useState("")
   const router = useRouter()
-  const [pending, setPending] = useState<null | { type: "published" | "completed" | "draft" | "disabled" | "delete"; event: AdminEvent }>(null)
+  const [pending, setPending] = useState<null | { type: "published" | "draft" | "disabled" | "delete"; event: AdminEvent }>(null)
   const filteredEvents = useMemo(() => {
     const query = search.trim().toLowerCase()
     if (!query) return events
@@ -800,27 +889,23 @@ function EventsTable({
       ? (language === "ar" ? "حذف الفعالية؟" : "Delete event?")
       : pending.type === "draft"
         ? (language === "ar" ? "نقل للمسودات؟" : "Move to draft?")
-        : pending.type === "completed"
-          ? (language === "ar" ? "عرض في السابق؟" : "Display in Previous?")
-          : pending.type === "disabled"
-            ? (language === "ar" ? "تعطيل الفعالية؟" : "Disable event?")
-            : (language === "ar" ? "عرض في القادم؟" : "Display in Upcoming?"),
+        : pending.type === "disabled"
+          ? (language === "ar" ? "تعطيل الفعالية؟" : "Disable event?")
+          : (language === "ar" ? "نشر الفعالية؟" : "Publish event?"),
     description: pending.type === "delete"
       ? (language === "ar" ? "الفعالية هتتنقل للمحذوف وتقدر تسترجعها بعدين." : "This event will move to Deleted and can be restored later.")
       : pending.type === "draft"
         ? (language === "ar" ? "الفعالية هتتنقل للمسودات وتختفي من العام." : "This event will move to Drafts and be hidden.")
-        : pending.type === "completed"
-          ? (language === "ar" ? "الفعالية هتظهر في الفعاليات السابقة." : "Event will be shown in Previous Events.")
-          : pending.type === "disabled"
-            ? (language === "ar" ? "الفعالية هتتوقف عن استقبال العمليات." : "The event will stop accepting public operations.")
-            : (language === "ar" ? "الفعالية هتظهر في الفعاليات القادمة." : "Event will be shown in Upcoming Events."),
+        : pending.type === "disabled"
+          ? (language === "ar" ? "الفعالية هتتوقف عن استقبال العمليات." : "The event will stop accepting public operations.")
+          : (language === "ar" ? "الفعالية هتظهر في القادم لو لسه مخلصتش، وفي السابق تلقائيًا بعد ما تخلص." : "The event appears under Upcoming while it hasn't ended, and moves to Previous automatically after it ends."),
     confirm: pending.type === "delete"
       ? adminT(language, "common.delete")
       : pending.type === "draft"
         ? adminT(language, "common.moveToDraft")
         : pending.type === "disabled"
           ? adminT(language, "common.disable")
-          : (language === "ar" ? "تأكيد" : "Confirm"),
+          : (language === "ar" ? "نشر" : "Publish"),
     tone: (pending.type === "delete" || pending.type === "disabled" ? "danger" : "success") as "danger" | "success",
   } : null
 
@@ -840,8 +925,7 @@ function EventsTable({
           <p className="mt-1 text-sm font-medium text-slate-400">{adminT(language, "events.eventsTableCopy")}</p>
         </div>
         <div className="relative md:w-72">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-slate-300" />
-          <Input value={search} onChange={(event) => setSearch(event.target.value)} className="h-10 rounded-2xl bg-[#f8f5fb] pl-9" placeholder={language === "ar" ? "ابحث عن فعالية..." : "Search event..."} />
+          <TableSearch value={search} onChange={setSearch} placeholder={language === "ar" ? "ابحث عن فعالية..." : "Search event..."} />
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -897,7 +981,18 @@ function EventsTable({
                     </TableCell>
                     <TableCell><TableDateTime value={event.starts_at} /></TableCell>
                     <TableCell><TableDateTime value={event.ends_at} /></TableCell>
-                    <TableCell><Badge className={cn("rounded-xl capitalize", statusBadge(event.status))}>{adminStatusT(language, event.status)}</Badge></TableCell>
+                    <TableCell>
+                      <div className="flex flex-col items-start gap-1">
+                        <Badge className={cn("rounded-xl capitalize", statusBadge(event.status))}>{adminStatusT(language, event.status)}</Badge>
+                        {event.status === "published" && (
+                          <span className="text-[11px] font-bold text-slate-400">
+                            {isEventEnded(event.ends_at)
+                              ? (language === "ar" ? "يظهر في: السابق" : "Shows in: Previous")
+                              : (language === "ar" ? "يظهر في: القادم" : "Shows in: Upcoming")}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex justify-center">
                         <DropdownMenu>
@@ -925,13 +1020,7 @@ function EventsTable({
                               className="cursor-pointer rounded-xl px-3 py-2 font-semibold"
                               onSelect={(e) => { e.preventDefault(); setPending({ type: "published", event }) }}
                             >
-                              <PlayCircle className="h-4 w-4" />Upcoming
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold"
-                              onSelect={(e) => { e.preventDefault(); setPending({ type: "completed", event }) }}
-                            >
-                              <CheckCircle2 className="h-4 w-4" />Previous
+                              <PlayCircle className="h-4 w-4" />{language === "ar" ? "نشر" : "Publish"}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="cursor-pointer rounded-xl px-3 py-2 font-semibold"

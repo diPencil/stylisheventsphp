@@ -168,7 +168,7 @@ export default function CameraPerformancePage() {
                 </Button>
               </Link>
               <div>
-                <h1 className="text-3xl font-bold">Camera Performance</h1>
+                <h1 className="text-2xl font-bold">Camera Performance</h1>
                 <p className="text-muted-foreground">Monitor and analyze camera performance metrics</p>
               </div>
             </div>

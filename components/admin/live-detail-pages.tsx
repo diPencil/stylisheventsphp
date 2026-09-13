@@ -37,6 +37,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CatalogSelect } from "@/components/admin/catalog-select"
+import { CertificateArtwork, parseTemplateFields, resolveCertificateVisibility } from "@/components/certificates/certificate-artwork"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -161,7 +162,7 @@ function Hero({ badge, title, subtitle }: { badge: string; title: string; subtit
     <section className="overflow-hidden rounded-[30px] bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
       <div className="bg-[linear-gradient(135deg,hsl(var(--secondary)),hsl(var(--primary)),hsl(var(--brand-purple)))] p-6 text-white md:p-8">
         <Badge className="rounded-xl bg-white/20 text-white hover:bg-white/20">{badge}</Badge>
-        <h1 className="mt-5 text-2xl font-extrabold md:text-3xl">{title}</h1>
+        <h1 className="mt-5 text-2xl font-extrabold md:text-2xl">{title}</h1>
         <p className="mt-2 text-sm font-semibold text-white/75">{subtitle}</p>
       </div>
     </section>
@@ -318,7 +319,10 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
   const gallery = useMemo(() => String(form?.gallery || "").split("\n").map((item) => item.trim()).filter(Boolean), [form?.gallery])
 
   async function saveEvent() {
-    if (!form) return
+    if (!form) {
+      toast.error(language === "ar" ? "لا توجد بيانات للحفظ" : "Nothing to save", { description: language === "ar" ? "استنى تحميل الفعالية الأول." : "Wait for the event to load first." })
+      return
+    }
     try {
       await platformApi.updateEvent(id, {
         slug: form.slug,
@@ -393,7 +397,7 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
             <div className="grid lg:grid-cols-[1fr_360px]">
               <div className="p-6 md:p-8">
                 <Badge className="rounded-xl bg-[hsl(var(--primary)/0.10)] text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.10)]">{form.type}</Badge>
-                <h2 className="mt-5 text-2xl font-extrabold text-[#17172f] md:text-3xl">{language === "ar" ? form.titleAr : form.titleEn}</h2>
+                <h2 className="mt-5 text-2xl font-extrabold text-[#17172f] md:text-2xl">{language === "ar" ? form.titleAr : form.titleEn}</h2>
                 <p className="mt-2 text-sm font-semibold text-slate-400">{form.slug}</p>
                 <p className="mt-5 max-w-2xl text-sm font-medium leading-7 text-slate-600">{language === "ar" ? (form.descriptionAr || form.summaryAr) : (form.descriptionEn || form.summaryEn)}</p>
               </div>
@@ -486,7 +490,7 @@ export function LiveEventDetailPage({ id, initialMode }: { id: string; initialMo
                 <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-slate-50 font-bold"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="draft">Draft (Hidden)</SelectItem>
-                  <SelectItem value="published">Published (Upcoming/Previous)</SelectItem>
+                    <SelectItem value="published">{language === "ar" ? "منشور (القادم / السابق تلقائيًا حسب تاريخ النهاية)" : "Published (auto Upcoming / Previous by end date)"}</SelectItem>
                   <SelectItem value="disabled">Disabled</SelectItem>
                   <SelectItem value="sold_out">Sold out</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
@@ -804,7 +808,11 @@ export function LiveAttendeeDetailPage({ id }: { id: string }) {
           <CardContent className="space-y-3">
             {canCheckIn && <Button onClick={checkIn} className="h-10 w-full rounded-xl bg-[hsl(var(--primary))] font-bold text-white"><UserCheck className="h-4 w-4" /> {adminT(language, "attendees.checkin")}</Button>}
             {canManageCertificates && <Button onClick={issueCertificate} variant="outline" className="h-10 w-full rounded-xl font-bold"><BadgeCheck className="h-4 w-4" /> {adminT(language, "certificates.sendCertificate")}</Button>}
-            <Button variant="outline" className="h-10 w-full rounded-xl font-bold"><Mail className="h-4 w-4" /> {language === "ar" ? "إرسال بريد للحضور" : "Email attendee"}</Button>
+            {row.email ? (
+              <Button variant="outline" className="h-10 w-full rounded-xl font-bold" onClick={() => { window.location.href = `mailto:${row.email}` }}><Mail className="h-4 w-4" /> {language === "ar" ? "إرسال بريد للحضور" : "Email attendee"}</Button>
+            ) : (
+              <Button variant="outline" disabled className="h-10 w-full rounded-xl font-bold"><Mail className="h-4 w-4" /> {language === "ar" ? "لا يوجد بريد للحضور" : "No attendee email"}</Button>
+            )}
             {canManageCertificates && (
               <>
                  <Button
@@ -839,6 +847,7 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
   const [state, setState] = useState<DetailState<any>>(emptyState)
   const [cardTemplateImage, setCardTemplateImage] = useState("")
   const [certificateTemplateImage, setCertificateTemplateImage] = useState("")
+  const [templateFields, setTemplateFields] = useState<Record<string, any>>({})
 
   useEffect(() => {
     let active = true
@@ -847,17 +856,20 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
       platformApi.getCardTemplateSettings(),
       platformApi.listCertificateTemplates().catch(() => []),
     ])
-      .then(([rows, cardTemplate, templates]) => {
-        const record = rows.find((item: any) => String(item.attendee_id) === String(id) || String(item.certificate_id) === String(id) || String(item.card_id) === String(id))
-        if (active) {
-          setCardTemplateImage(cardTemplate?.imageUrl || "")
+        .then(([rows, cardTemplate, templates]) => {
+          const record = rows.find((item: any) => String(item.attendee_id) === String(id) || String(item.certificate_id) === String(id) || String(item.card_id) === String(id))
+          if (active) {
+            setCardTemplateImage(cardTemplate?.imageUrl || "")
 
-          let bg = ""
-          if (record) {
-             const tmpl = (templates || []).find((t: any) => Number(t.event_id) === Number(record.event_id))
-             bg = tmpl?.template_url || record.cover_image_url || ""
-          }
-          setCertificateTemplateImage(bg)
+            let bg = ""
+            let fields: Record<string, any> = {}
+            if (record) {
+              const tmpl = (templates || []).find((t: any) => Number(t.event_id) === Number(record.event_id))
+              bg = tmpl?.template_url || record.cover_image_url || ""
+              fields = parseTemplateFields(tmpl?.field_positions_json)
+            }
+            setCertificateTemplateImage(bg)
+            setTemplateFields(fields)
 
           setState({ loading: false, error: record ? "" : "Record not found", data: record || null })
         }
@@ -938,31 +950,28 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
       {kind === "certificate" ? (
         <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
           <CardContent className="p-4 md:p-6">
-            <div
-              id="asset-preview-container"
-              className="relative mx-auto aspect-[1.414/1] w-full max-w-5xl overflow-hidden rounded-[28px] border border-slate-100 bg-gradient-to-br from-[#eef6ff] via-white to-[#f8effb] shadow-inner"
-              style={
-                certificateTemplateImage
-                  ? {
-                      backgroundImage: `url(${apiAssetUrl(certificateTemplateImage)})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }
-                  : undefined
-              }
-            >
-              <div className="absolute left-[6%] top-[7%]"><img src="/logo.png" alt="Stylish Holidays" className="h-9 w-auto" /></div>
-              <div className="absolute right-[6%] top-[8%] rounded-full bg-white/80 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-[hsl(var(--primary))]">{language === "ar" ? "حضور موثق" : "Verified Attendance"}</div>
-              <div className="absolute inset-x-[9%] top-[25%] text-center">
-                <p className="text-xs font-extrabold uppercase tracking-[0.35em] text-slate-400">{adminT(language, "certificates.certificateOfAttendance")}</p>
-                <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-[#17172f] md:text-5xl">{row.full_name}</h2>
-                <p className="mx-auto mt-4 max-w-2xl text-sm font-semibold leading-6 text-slate-500">has successfully attended <span className="font-extrabold text-[#17172f]">{eventTitle(row)}</span></p>
-              </div>
-              <div className="absolute bottom-[17%] left-[9%] right-[9%] grid grid-cols-3 gap-3 text-center">
-                <DetailMini label={adminT(language, "attendees.checkin")} value={<TableDateTime value={row.checked_in_at} />} />
-                <DetailMini label={adminT(language, "certificates.certificateNo")} value={title} />
-                <DetailMini label={adminT(language, "common.status")} value={adminStatusT(language, status)} />
-              </div>
+            <div id="asset-preview-container">
+              <CertificateArtwork
+                backgroundUrl={certificateTemplateImage}
+                logoUrl="/logo.png"
+                visibility={resolveCertificateVisibility(templateFields)}
+                attendeeName={row.full_name}
+                eventTitle={eventTitle(row)}
+                dateText={(row.event_starts_at || row.starts_at) ? new Intl.DateTimeFormat(language === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" }).format(new Date(row.event_starts_at || row.starts_at)) : ""}
+                certificateNo={title}
+                signatoryText={templateFields.signatoryText || "Stylish Holidays"}
+                footerText={templateFields.footerText || "Verified by Stylish Holidays."}
+                labels={{
+                  heading: adminT(language, "certificates.certificateOfAttendance"),
+                  verified: language === "ar" ? "حضور موثق" : "Verified Attendance",
+                  attendedPrefix: "has successfully attended",
+                  date: adminT(language, "common.date"),
+                  certificateNo: adminT(language, "certificates.certificateNo"),
+                  signedBy: adminT(language, "certificates.signedBy"),
+                }}
+                className="max-w-5xl rounded-[28px]"
+                titleClassName="md:text-4xl"
+              />
             </div>
           </CardContent>
         </Card>
@@ -983,9 +992,17 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
                     : undefined
                 }
               >
-                <div className="flex items-center justify-between"><img src="/favicon.png" alt="Stylish Holidays" className="h-12 w-12 rounded-full bg-white p-1" /><Badge className="rounded-xl bg-white/20 text-white hover:bg-white/20">{status}</Badge></div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <img src="/favicon.png" alt="Stylish Holidays" className="h-12 w-12 rounded-full bg-white p-1" />
+                    {typeof templateFields.venueLogoUrl === "string" && templateFields.venueLogoUrl ? (
+                      <img src={apiAssetUrl(templateFields.venueLogoUrl)} alt="Venue" className="h-12 w-12 rounded-full bg-white object-cover p-1" />
+                    ) : null}
+                  </div>
+                  <Badge className="rounded-xl bg-white/20 text-white hover:bg-white/20">{status}</Badge>
+                </div>
                 <p className="mt-10 text-xs font-bold uppercase tracking-widest text-white/60">{language === "ar" ? "كارت دخول الفعالية" : "Event Access Card"}</p>
-                <h2 className="mt-3 text-3xl font-extrabold leading-tight">{row.full_name}</h2>
+                <h2 className="mt-3 text-2xl font-extrabold leading-tight">{row.full_name}</h2>
                 <p className="mt-3 text-sm font-semibold leading-6 text-white/70">{eventTitle(row)}</p>
                 <div className="mt-8 grid grid-cols-2 gap-4 text-sm font-semibold text-white/75">
                   <div><p className="text-white/45">{language === "ar" ? "رقم الكارت" : "Card No."}</p><p>{title}</p></div>
@@ -1054,7 +1071,7 @@ export function LiveReviewDetailPage({ id }: { id: string }) {
 
   async function updateStatus(status: "published" | "rejected" | "pending") {
     try {
-      await platformApi.updateReviewStatus(id, status)
+      await platformApi.updateReviewStatus(id, status === "published" ? "approved" : status)
       await load()
       toast.success(language === "ar" ? "تم تحديث المراجعة" : "Review updated", { description: language === "ar" ? `أصبحت المراجعة ${adminStatusT(language, status)}.` : `Review is now ${status}.` })
     } catch (error) {

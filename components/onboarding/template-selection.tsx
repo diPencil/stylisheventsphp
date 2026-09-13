@@ -75,7 +75,7 @@ export function TemplateSelection() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-      <h2 className="text-3xl font-bold mb-4 text-center">Select a Starting Template</h2>
+      <h2 className="text-2xl font-bold mb-4 text-center">Select a Starting Template</h2>
       <p className="text-muted-foreground mb-8 text-center">
         Let's get started by setting up your first video analysis project. Choose a template that best fits your use
         case, or start with a custom configuration.

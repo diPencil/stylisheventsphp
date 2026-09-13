@@ -140,7 +140,7 @@ export default function QueueLengthAnalysisPage() {
                 </Button>
               </Link>
               <div>
-                <h1 className="text-3xl font-bold">Queue Length Analysis</h1>
+                <h1 className="text-2xl font-bold">Queue Length Analysis</h1>
                 <p className="text-muted-foreground">Detailed analysis of queue lengths across all zones</p>
               </div>
             </div>

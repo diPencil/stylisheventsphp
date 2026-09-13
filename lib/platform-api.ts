@@ -152,8 +152,14 @@ export const platformApi = {
     request<any>("/api/auth/login", { method: "POST", body: JSON.stringify(data) }),
   register: (data: Record<string, unknown>) =>
     request<any>("/api/auth/register", { method: "POST", body: JSON.stringify(data) }),
+  verifyEmail: (data: { email: string; code: string }) =>
+    request<any>("/api/auth/verify-email", { method: "POST", body: JSON.stringify(data) }),
+  resendVerification: (email: string) =>
+    request<any>("/api/auth/resend-verification", { method: "POST", body: JSON.stringify({ email }) }),
   forgotPassword: (data: { login: string }) =>
     request<any>("/api/auth/forgot-password", { method: "POST", body: JSON.stringify(data) }),
+  resetPassword: (data: { email: string; token: string; password: string }) =>
+    request<any>("/api/auth/reset-password", { method: "POST", body: JSON.stringify(data) }),
   uploadAuthAvatar: (data: { fileName: string; dataUrl: string }) =>
     request<any>("/api/auth/avatar-upload", { method: "POST", body: JSON.stringify(data) }),
   uploadMyAvatar: (data: { fileName: string; dataUrl: string }) =>
@@ -280,6 +286,13 @@ export const platformApi = {
     clearPublicGetCache("/api/platform/settings/currency")
     return result
   },
+  getEmailSettings: () => request<any>("/api/platform/settings/email"),
+  updateEmailSettings: (data: Record<string, unknown>) =>
+    request<any>("/api/platform/settings/email", { method: "PUT", body: JSON.stringify(data) }),
+  testEmailSettings: (data: Record<string, unknown>) =>
+    request<any>("/api/platform/settings/email/test", { method: "POST", body: JSON.stringify(data) }),
+  testIncomingMail: (data: Record<string, unknown>) =>
+    request<any>("/api/platform/settings/email/test-incoming", { method: "POST", body: JSON.stringify(data) }),
   getCardTemplateSettings: () => cachedPublicRequest<any>("/api/platform/settings/card-template", 120_000),
   updateCardTemplateSettings: async (data: Record<string, unknown>) => {
     const result = await request<any>("/api/platform/settings/card-template", { method: "PUT", body: JSON.stringify(data) })

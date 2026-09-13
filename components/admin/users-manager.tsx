@@ -20,6 +20,16 @@ import {
   Users,
 } from "lucide-react"
 import { ConfirmAction } from "@/components/admin/confirm-action"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { Badge } from "@/components/ui/badge"
@@ -295,6 +305,7 @@ export function UsersManager() {
   const [saving, setSaving] = useState(false)
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
   const [changePasswordUser, setChangePasswordUser] = useState<AdminUser | null>(null)
+  const [rowPending, setRowPending] = useState<null | { type: "reset" | "active" | "inactive" | "blocked"; user: AdminUser }>(null)
   const [newPassword, setNewPassword] = useState("")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
@@ -526,6 +537,14 @@ export function UsersManager() {
     }
   }
 
+  async function runRowPending() {
+    if (!rowPending) return
+    const { type, user } = rowPending
+    setRowPending(null)
+    if (type === "reset") await resetPassword(user)
+    else await setUserStatus(user, type)
+  }
+
   async function saveRolePermissions(role: RoleOption) {
     try {
       const result = await platformApi.updateRolePermissions(role.code, rolePayload(role))
@@ -695,26 +714,18 @@ export function UsersManager() {
                               <DropdownMenuLabel className="text-xs font-extrabold text-slate-400">{adminT(language, "common.actions")}</DropdownMenuLabel>
                               <DropdownMenuItem onClick={() => setSelectedUser(user)} className="cursor-pointer rounded-2xl font-bold"><Eye className="h-4 w-4" /> {adminT(language, "common.viewDetails")}</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openEdit(user)} className="cursor-pointer rounded-2xl font-bold"><UserCog className="h-4 w-4" /> {adminT(language, "users.editUser")}</DropdownMenuItem>
-                              <ConfirmAction title={adminT(language, "users.resetPasswordConfirmTitle")} description={adminT(language, "users.resetPasswordConfirmDescription")} confirmLabel={adminT(language, "users.resetPassword")} onConfirm={() => resetPassword(user)}>
-                                <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-2xl font-bold"><KeyRound className="h-4 w-4" /> {adminT(language, "users.resetPassword")}</DropdownMenuItem>
-                              </ConfirmAction>
+                              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setRowPending({ type: "reset", user }) }} className="cursor-pointer rounded-2xl font-bold"><KeyRound className="h-4 w-4" /> {adminT(language, "users.resetPassword")}</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => setChangePasswordUser(user)} className="cursor-pointer rounded-2xl font-bold"><KeyRound className="h-4 w-4" /> {language === "ar" ? "تغيير كلمة المرور" : "Change password"}</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => impersonateUser(user)} className="cursor-pointer rounded-2xl font-bold"><LogIn className="h-4 w-4" /> {language === "ar" ? "تسجيل الدخول كالمستخدم" : "Login as user"}</DropdownMenuItem>
                               <DropdownMenuSeparator />
                               {user.status !== "active" && (
-                                <ConfirmAction title={adminT(language, "users.activateConfirmTitle")} description={adminT(language, "users.activateConfirmDescription")} confirmLabel={adminT(language, "users.activateUser")} tone="success" onConfirm={() => setUserStatus(user, "active")}>
-                                  <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-2xl font-bold text-emerald-700"><CheckCircle2 className="h-4 w-4" /> {adminT(language, "status.active")}</DropdownMenuItem>
-                                </ConfirmAction>
+                                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setRowPending({ type: "active", user }) }} className="cursor-pointer rounded-2xl font-bold text-emerald-700"><CheckCircle2 className="h-4 w-4" /> {adminT(language, "status.active")}</DropdownMenuItem>
                               )}
                               {user.status !== "inactive" && (
-                                <ConfirmAction title={adminT(language, "users.deactivateConfirmTitle")} description={adminT(language, "users.deactivateConfirmDescription")} confirmLabel={adminT(language, "users.deactivateUser")} onConfirm={() => setUserStatus(user, "inactive")}>
-                                  <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-2xl font-bold text-amber-700"><PauseCircle className="h-4 w-4" /> {adminT(language, "status.inactive")}</DropdownMenuItem>
-                                </ConfirmAction>
+                                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setRowPending({ type: "inactive", user }) }} className="cursor-pointer rounded-2xl font-bold text-amber-700"><PauseCircle className="h-4 w-4" /> {adminT(language, "status.inactive")}</DropdownMenuItem>
                               )}
                               {user.status !== "blocked" && (
-                                <ConfirmAction title={adminT(language, "users.blockConfirmTitle")} description={adminT(language, "users.blockConfirmDescription")} confirmLabel={adminT(language, "users.blockUser")} tone="danger" onConfirm={() => setUserStatus(user, "blocked")}>
-                                  <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-2xl font-bold text-red-600"><Ban className="h-4 w-4" /> {adminT(language, "users.blockUser")}</DropdownMenuItem>
-                                </ConfirmAction>
+                                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setRowPending({ type: "blocked", user }) }} className="cursor-pointer rounded-2xl font-bold text-red-600"><Ban className="h-4 w-4" /> {adminT(language, "users.blockUser")}</DropdownMenuItem>
                               )}
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -988,6 +999,29 @@ export function UsersManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Row confirm dialog lives outside the DropdownMenu so every row's menu works reliably. */}
+      <AlertDialog open={Boolean(rowPending)} onOpenChange={(open) => { if (!open) setRowPending(null) }}>
+        <AlertDialogContent dir={language === "ar" ? "rtl" : "ltr"} className="max-w-[92vw] rounded-2xl sm:max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {rowPending?.type === "reset" ? adminT(language, "users.resetPasswordConfirmTitle") : rowPending?.type === "active" ? adminT(language, "users.activateConfirmTitle") : rowPending?.type === "inactive" ? adminT(language, "users.deactivateConfirmTitle") : adminT(language, "users.blockConfirmTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {rowPending?.type === "reset" ? adminT(language, "users.resetPasswordConfirmDescription") : rowPending?.type === "active" ? adminT(language, "users.activateConfirmDescription") : rowPending?.type === "inactive" ? adminT(language, "users.deactivateConfirmDescription") : adminT(language, "users.blockConfirmDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="grid grid-cols-2 gap-3">
+            <AlertDialogCancel className="mt-0 h-10 rounded-xl font-extrabold">{adminT(language, "common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); runRowPending() }}
+              className={rowPending?.type === "blocked" ? "h-10 rounded-xl bg-red-600 font-extrabold text-white hover:bg-red-700" : "h-10 rounded-xl bg-[hsl(var(--primary))] font-extrabold text-white"}
+            >
+              {rowPending?.type === "reset" ? adminT(language, "users.resetPassword") : rowPending?.type === "active" ? adminT(language, "users.activateUser") : rowPending?.type === "inactive" ? adminT(language, "users.deactivateUser") : adminT(language, "users.blockUser")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

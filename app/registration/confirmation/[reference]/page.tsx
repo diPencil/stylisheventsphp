@@ -72,7 +72,7 @@ export default function RegistrationConfirmationPage() {
               <BadgeCheck className="h-8 w-8" />
             </div>
             <p className="mt-6 text-xs font-black uppercase text-primary">{isRtl ? "تم إنشاء التسجيل" : "Registration created"}</p>
-            <h1 className="mt-3 text-3xl font-black text-slate-950 md:text-5xl">
+            <h1 className="mt-3 text-2xl font-black text-slate-950 md:text-4xl">
               {error ? (isRtl ? "لم يتم العثور على التسجيل" : "Registration not found") : (isRtl ? "احتفظ برقم التسجيل" : "Save your registration reference")}
             </h1>
             <p className="mx-auto mt-4 max-w-2xl text-sm font-semibold leading-7 text-slate-500">

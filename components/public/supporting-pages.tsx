@@ -33,7 +33,7 @@ function SectionIntro({ eyebrow, title, description, align = "center" }: { eyebr
   return (
     <div className={cn("mb-10", align === "center" ? "mx-auto max-w-3xl text-center" : "max-w-3xl")}>
       <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-primary">{choose(isRtl, eyebrow.en, eyebrow.ar)}</p>
-      <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950 md:text-4xl lg:text-5xl">{choose(isRtl, title.en, title.ar)}</h2>
+      <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950 md:text-3xl lg:text-4xl">{choose(isRtl, title.en, title.ar)}</h2>
       {description ? <p className="mt-4 text-base font-medium leading-8 text-slate-600">{choose(isRtl, description.en, description.ar)}</p> : null}
     </div>
   )
@@ -117,7 +117,7 @@ function CtaPanel({ title, text, primary, secondary }: { title: Pair; text: Pair
       <div className="container mx-auto max-w-7xl">
         <div className="flex flex-col gap-6 rounded-[36px] bg-slate-950 p-7 text-white shadow-[0_24px_80px_rgba(15,23,42,0.12)] md:flex-row md:items-center md:justify-between md:p-10">
           <div className="max-w-3xl">
-            <h2 className="text-2xl font-black md:text-4xl lg:text-5xl">{choose(isRtl, title.en, title.ar)}</h2>
+            <h2 className="text-2xl font-black md:text-3xl lg:text-4xl">{choose(isRtl, title.en, title.ar)}</h2>
             <p className="mt-4 text-sm font-medium leading-7 text-white/70 md:text-base">{choose(isRtl, text.en, text.ar)}</p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-3">
