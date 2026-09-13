@@ -109,8 +109,8 @@ class AttendeeController extends Controller
         }
 
         $attendee = DB::table('attendees as a')
-            ->join('events as e', 'e.id', '=', 'a.event_id')
-            ->join('ticket_types as tt', 'tt.id', '=', 'a.ticket_type_id')
+            ->leftJoin('events as e', 'e.id', '=', 'a.event_id')
+            ->leftJoin('ticket_types as tt', 'tt.id', '=', 'a.ticket_type_id')
             ->leftJoin('generated_tickets as gt', 'gt.attendee_id', '=', 'a.id')
             ->leftJoin('certificates as c', 'c.attendee_id', '=', 'a.id')
             ->leftJoin('event_cards as ec', 'ec.attendee_id', '=', 'a.id')
@@ -131,7 +131,7 @@ class AttendeeController extends Controller
             return response()->json(['success' => false, 'message' => 'Attendee not found'], 404);
         }
 
-        if (!$request->user()->hasEventScope($attendee->event_id)) {
+        if ($attendee->event_id && !$request->user()->hasEventScope($attendee->event_id)) {
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
@@ -386,6 +386,72 @@ class AttendeeController extends Controller
             });
 
         return response()->json(['success' => true, 'data' => $rows]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        if (!$request->user()->hasPermission('attendees.manage')) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        $attendee = DB::table('attendees')->where('id', $id)->first(['id', 'event_id', 'qr_status', 'checked_in_at']);
+        if (!$attendee) {
+            return response()->json(['success' => false, 'message' => 'Attendee not found'], 404);
+        }
+
+        if (!$request->user()->hasEventScope($attendee->event_id)) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        $validated = $request->validate([
+            'fullName' => 'sometimes|string|min:2|max:255',
+            'email' => 'sometimes|email|max:255',
+            'phone' => 'sometimes|nullable|string|max:50',
+            'jobTitle' => 'sometimes|nullable|string|max:255',
+            'organization' => 'sometimes|nullable|string|max:255',
+            'status' => 'sometimes|in:registered,checked_in,cancelled',
+        ]);
+
+        $updates = [];
+        if (array_key_exists('fullName', $validated)) $updates['full_name'] = $validated['fullName'];
+        if (array_key_exists('email', $validated)) $updates['email'] = $validated['email'];
+        if (array_key_exists('phone', $validated)) $updates['phone'] = $validated['phone'];
+        if (array_key_exists('jobTitle', $validated)) $updates['job_title'] = $validated['jobTitle'];
+        if (array_key_exists('organization', $validated)) $updates['organization'] = $validated['organization'];
+
+        if (array_key_exists('status', $validated)) {
+            $status = $validated['status'];
+            if ($status === 'registered') {
+                $updates['checked_in_at'] = null;
+                $updates['qr_status'] = 'active';
+            } elseif ($status === 'checked_in') {
+                // Allow manual mark as checked-in even if QR was revoked: reactivate then use.
+                $updates['checked_in_at'] = $attendee->checked_in_at ?? now();
+                $updates['qr_status'] = 'used';
+            } elseif ($status === 'cancelled') {
+                $updates['qr_status'] = 'revoked';
+            }
+        }
+
+        if (!empty($updates)) {
+            $updates['updated_at'] = now();
+            DB::table('attendees')->where('id', $id)->update($updates);
+        }
+
+        $fresh = DB::table('attendees as a')
+            ->leftJoin('events as e', 'e.id', '=', 'a.event_id')
+            ->leftJoin('ticket_types as tt', 'tt.id', '=', 'a.ticket_type_id')
+            ->where('a.id', $id)
+            ->select([
+                'a.id', 'a.attendee_number', 'a.full_name', 'a.email', 'a.phone',
+                'a.job_title', 'a.organization', 'a.qr_token', 'a.qr_status',
+                'a.checked_in_at', 'a.certificate_issued_at', 'a.created_at',
+                'a.event_id', 'a.ticket_type_id', 'e.title_en as event_title_en',
+                'e.title_ar as event_title_ar', 'tt.name_en as ticket_name_en',
+                'tt.name_ar as ticket_name_ar',
+            ])->first();
+
+        return response()->json(['success' => true, 'message' => 'Attendee updated', 'data' => $fresh]);
     }
 
     public function updateQrStatus(Request $request, $id)

@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ConfirmAction } from "@/components/admin/confirm-action"
+import { CatalogSelect } from "@/components/admin/catalog-select"
 import { ImageGalleryDropzone, ImageUrlDropzone } from "@/components/admin/image-url-dropzone"
 import { apiAssetUrl, platformApi } from "@/lib/platform-api"
 import { enabledCurrencyRates, formatCurrencyAmount, readCurrencySettings, type CurrencyRate, type CurrencySettings } from "@/lib/currency-settings"
@@ -27,7 +28,7 @@ type CreateEventForm = {
   slug: string
   status: "draft" | "published" | "completed" | "disabled"
   type: string
-  category: string
+  catalogIds: string[]
   organizer: string
   city: string
   venue: string
@@ -64,8 +65,8 @@ const initialForm: CreateEventForm = {
   titleEn: "",
   slug: "",
   status: "draft",
-  type: "Conference",
-  category: "",
+  type: "conference",
+  catalogIds: [],
   organizer: "",
   city: "",
   venue: "",
@@ -165,6 +166,7 @@ export function EventCreatePage() {
         organizerId: null,
         targetAllSpecialties: form.targetAllSpecialties,
         specialtyIds: form.targetAllSpecialties ? [] : form.specialtyIds.map(Number),
+        catalogIds: form.catalogIds.map(Number),
       })
       setSaveState("saved")
       toast.success(language === "ar" ? "تم إنشاء الفعالية" : "Event created", { description: language === "ar" ? "تم حفظ الفعالية كمسودة." : "Event was saved." })
@@ -221,8 +223,10 @@ export function EventCreatePage() {
                 </Select>
               </div>
 
-              <SelectField label="Type" value={form.type} onChange={(value) => setField("type", value)} options={["Conference", "Exhibition", "Forum", "Workshop", "Festival"]} />
-              <Field label="Category" value={form.category} onChange={(value) => setField("category", value)} />
+              <SelectField label="Type" value={form.type} onChange={(value) => setField("type", value)} options={["conference", "exhibition", "forum", "workshop", "festival", "webinar", "other"]} />
+              <div className="md:col-span-2">
+                <CatalogSelect selectedIds={form.catalogIds} onChange={(catalogIds) => setField("catalogIds", catalogIds)} />
+              </div>
               <Field label="Organizer" value={form.organizer} onChange={(value) => setField("organizer", value)} className="md:col-span-2" />
             </div>
           </FormPanel>

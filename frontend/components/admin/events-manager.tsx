@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   BadgeDollarSign,
   CalendarDays,
@@ -40,6 +41,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { ConfirmAction } from "@/components/admin/confirm-action"
 import { PaginationControls, useTablePagination } from "@/components/admin/table-pagination"
 import { TableDateTime } from "@/components/admin/table-date-time"
@@ -64,6 +75,7 @@ type AdminEvent = {
   rating: number
   type: string
   category: string
+  catalogs: { id: number; name_en: string; name_ar?: string | null }[]
   status: EventStatus
   starts_at: string
   ends_at: string
@@ -128,7 +140,7 @@ const emptyTicketForm: TicketForm = {
   description: "",
   benefits: "",
   periods: [
-    { label: "", startsAt: "", endsAt: "", price: "", currency: "USD" },
+    { label: "Early Bird", startsAt: "", endsAt: "", price: "", currency: "USD" },
   ],
 }
 
@@ -192,6 +204,7 @@ function normalizeEvent(row: any): AdminEvent {
     revenue: "",
     hero_image: row.cover_image_url || "",
     organizer: row.organizer_name || "",
+    catalogs: Array.isArray(row.catalogs) ? row.catalogs : [],
   }
 }
 
@@ -320,16 +333,37 @@ export function EventsManager() {
   }
 
   const createTicket = async () => {
-    if (!ticketForm.nameAr || !ticketForm.nameEn || ticketForm.periods.length === 0) return
-
+    const isAr = language === "ar"
     const eventId = Number(ticketForm.eventId)
-    if (!eventId) return
+    if (!eventId) {
+      toast.error(isAr ? "اختار الإيفنت الأول" : "Select an event first", { description: isAr ? "لازم تحدد الإيفنت اللي التيكت هيتضاف عليه." : "Choose which event this ticket belongs to." })
+      return
+    }
+    if (!ticketForm.nameAr.trim() || !ticketForm.nameEn.trim()) {
+      toast.error(isAr ? "اسم التيكت ناقص" : "Ticket name is missing", { description: isAr ? "لازم تكتب الاسم بالعربي والإنجليزي." : "Both Arabic and English ticket names are required." })
+      return
+    }
+    if (ticketForm.periods.length === 0) {
+      toast.error(isAr ? "مفيش فترة سعرية" : "No pricing period", { description: isAr ? "ضيف فترة سعرية واحدة على الأقل (دوس Period)." : "Add at least one pricing period." })
+      return
+    }
+    for (let index = 0; index < ticketForm.periods.length; index++) {
+      const period = ticketForm.periods[index]
+      if (period.label.trim().length < 2) {
+        toast.error(isAr ? `الفترة ${index + 1}: الاسم ناقص` : `Period ${index + 1}: label is missing`, { description: isAr ? "اكتب اسم للفترة (مثال: Early Bird)." : "Give the period a name (e.g. Early Bird)." })
+        return
+      }
+      if (!period.startsAt || !period.endsAt) {
+        toast.error(isAr ? `الفترة ${index + 1}: التاريخ ناقص` : `Period ${index + 1}: dates are missing`, { description: isAr ? "لازم تحدد تاريخ البداية والنهاية." : "Start and end date/time are required." })
+        return
+      }
+    }
 
     try {
       const saved = await platformApi.createTicket({
         eventId,
-        nameEn: ticketForm.nameEn,
-        nameAr: ticketForm.nameAr,
+        nameEn: ticketForm.nameEn.trim(),
+        nameAr: ticketForm.nameAr.trim(),
         descriptionEn: ticketForm.description,
         descriptionAr: ticketForm.description,
         quota: Number(ticketForm.quota) || null,
@@ -337,27 +371,35 @@ export function EventsManager() {
         isActive: ticketForm.visibility !== "hidden",
       })
       const nextTicket = normalizeTicket(saved)
-      const nextPeriods = await Promise.all(ticketForm.periods.map((period) => platformApi.createPricePeriod({
-        ticketTypeId: nextTicket.id,
-        labelEn: period.label,
-        labelAr: period.label,
-        price: Number(period.price) || 0,
-        priceEgp: period.currency === "EGP" ? Number(period.price) || 0 : Number(period.price) || 0,
-        priceUsd: period.currency === "USD" ? Number(period.price) || 0 : Number(period.price) || 0,
-        startsAt: period.startsAt,
-        endsAt: period.endsAt,
-        isActive: true,
-      })))
-
-      setTickets((current) => [nextTicket, ...current])
-      setPricePeriods((current) => [...nextPeriods.map((period) => normalizePeriod(period, eventId)), ...current])
+      // Show the ticket immediately so it never "disappears" even if a pricing period fails.
+      setTickets((current) => (current.some((ticket) => ticket.id === nextTicket.id) ? current : [nextTicket, ...current]))
       setEvents((current) => current.map((event) => event.id === eventId ? { ...event, ticket_types_count: event.ticket_types_count + 1 } : event))
       setActiveEventId(eventId)
       setActiveTicketId(nextTicket.id)
+
+      try {
+        const nextPeriods = await Promise.all(ticketForm.periods.map((period) => platformApi.createPricePeriod({
+          ticketTypeId: nextTicket.id,
+          labelEn: period.label.trim(),
+          labelAr: period.label.trim(),
+          price: Number(period.price) || 0,
+          priceEgp: period.currency === "EGP" ? Number(period.price) || 0 : Number(period.price) || 0,
+          priceUsd: period.currency === "USD" ? Number(period.price) || 0 : Number(period.price) || 0,
+          startsAt: period.startsAt,
+          endsAt: period.endsAt,
+          isActive: true,
+        })))
+        setPricePeriods((current) => [...nextPeriods.map((period) => normalizePeriod(period, eventId)), ...current])
+      } catch (periodError) {
+        toast.error(isAr ? "التيكت اتعمل بس الفترة متحفظتش" : "Ticket created, period failed", { description: periodError instanceof Error ? periodError.message : (isAr ? "عدّل الفترات من تحت." : "Fix the pricing periods below.") })
+        setTicketForm({ ...emptyTicketForm, eventId: String(eventId) })
+        return
+      }
+
       setTicketForm({ ...emptyTicketForm, eventId: String(eventId) })
-      toast.success("Ticket created", { description: "Ticket type and pricing periods were saved." })
+      toast.success(isAr ? "تم إنشاء التيكت" : "Ticket created", { description: isAr ? "نوع التيكت وفترات السعر اتحفظوا." : "Ticket type and pricing periods were saved." })
     } catch (error) {
-      toast.error("Ticket creation failed", { description: error instanceof Error ? error.message : "Please check the ticket data." })
+      toast.error(isAr ? "فشل إنشاء التيكت" : "Ticket creation failed", { description: error instanceof Error ? error.message : (isAr ? "راجع بيانات التيكت." : "Please check the ticket data.") })
     }
   }
 
@@ -744,6 +786,8 @@ function EventsTable({
   deleteEvent: (id: number) => void
 }) {
   const [search, setSearch] = useState("")
+  const router = useRouter()
+  const [pending, setPending] = useState<null | { type: "published" | "completed" | "draft" | "disabled" | "delete"; event: AdminEvent }>(null)
   const filteredEvents = useMemo(() => {
     const query = search.trim().toLowerCase()
     if (!query) return events
@@ -751,7 +795,44 @@ function EventsTable({
   }, [events, search])
   const eventPagination = useTablePagination(filteredEvents, [search])
 
+  const pendingCopy = pending ? {
+    title: pending.type === "delete"
+      ? (language === "ar" ? "حذف الفعالية؟" : "Delete event?")
+      : pending.type === "draft"
+        ? (language === "ar" ? "نقل للمسودات؟" : "Move to draft?")
+        : pending.type === "completed"
+          ? (language === "ar" ? "عرض في السابق؟" : "Display in Previous?")
+          : pending.type === "disabled"
+            ? (language === "ar" ? "تعطيل الفعالية؟" : "Disable event?")
+            : (language === "ar" ? "عرض في القادم؟" : "Display in Upcoming?"),
+    description: pending.type === "delete"
+      ? (language === "ar" ? "الفعالية هتتنقل للمحذوف وتقدر تسترجعها بعدين." : "This event will move to Deleted and can be restored later.")
+      : pending.type === "draft"
+        ? (language === "ar" ? "الفعالية هتتنقل للمسودات وتختفي من العام." : "This event will move to Drafts and be hidden.")
+        : pending.type === "completed"
+          ? (language === "ar" ? "الفعالية هتظهر في الفعاليات السابقة." : "Event will be shown in Previous Events.")
+          : pending.type === "disabled"
+            ? (language === "ar" ? "الفعالية هتتوقف عن استقبال العمليات." : "The event will stop accepting public operations.")
+            : (language === "ar" ? "الفعالية هتظهر في الفعاليات القادمة." : "Event will be shown in Upcoming Events."),
+    confirm: pending.type === "delete"
+      ? adminT(language, "common.delete")
+      : pending.type === "draft"
+        ? adminT(language, "common.moveToDraft")
+        : pending.type === "disabled"
+          ? adminT(language, "common.disable")
+          : (language === "ar" ? "تأكيد" : "Confirm"),
+    tone: (pending.type === "delete" || pending.type === "disabled" ? "danger" : "success") as "danger" | "success",
+  } : null
+
+  function runPending() {
+    if (!pending) return
+    if (pending.type === "delete") deleteEvent(pending.event.id)
+    else updateStatus(pending.event.id, pending.type)
+    setPending(null)
+  }
+
   return (
+    <>
     <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
       <CardHeader className="flex flex-col gap-3 border-b border-slate-100 md:flex-row md:items-center md:justify-between">
         <div>
@@ -821,42 +902,66 @@ function EventsTable({
                       <div className="flex justify-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl bg-slate-50">
+                            <Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl bg-slate-50 hover:bg-slate-100">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48 rounded-2xl border-0 p-2 shadow-xl">
                             <DropdownMenuLabel className="text-xs text-slate-400">{adminT(language, "common.actions")}</DropdownMenuLabel>
-                            <DropdownMenuItem asChild className="cursor-pointer rounded-xl">
-                              <Link href={`/admin/events/${event.id}`}><Eye className="h-4 w-4" />{adminT(language, "common.viewDetails")}</Link>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold"
+                              onSelect={(e) => { e.preventDefault(); router.push(`/admin/events/${event.id}`) }}
+                            >
+                              <Eye className="h-4 w-4" />{adminT(language, "common.viewDetails")}
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild className="cursor-pointer rounded-xl">
-                              <Link href={`/admin/events/${event.id}/edit`}><Edit3 className="h-4 w-4" />{adminT(language, "events.editEvent")}</Link>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold"
+                              onSelect={(e) => { e.preventDefault(); router.push(`/admin/events/${event.id}/edit`) }}
+                            >
+                              <Edit3 className="h-4 w-4" />{adminT(language, "events.editEvent")}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <ConfirmAction title="Display in Upcoming?" description="Event will be shown in Upcoming Events." confirmLabel="Publish" onConfirm={() => updateStatus(event.id, "published")}>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl"><PlayCircle className="h-4 w-4" />Upcoming</DropdownMenuItem>
-                              </ConfirmAction>
-                              <ConfirmAction title="Display in Previous?" description="Event will be shown in Previous Events." confirmLabel="Move" onConfirm={() => updateStatus(event.id, "completed")}>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl"><CheckCircle2 className="h-4 w-4" />Previous</DropdownMenuItem>
-                              </ConfirmAction>
-                              <ConfirmAction title="Move to draft?" description="This event will move to Drafts and be hidden." confirmLabel="Draft" onConfirm={() => updateStatus(event.id, "draft")}>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl"><RotateCcw className="h-4 w-4" />{adminT(language, "common.moveToDraft")}</DropdownMenuItem>
-                              </ConfirmAction>
-                              <DropdownMenuSeparator />
-                              {event.status === "disabled" ? (
-                                <ConfirmAction title="Enable event?" description="The event will be visible again." confirmLabel="Enable" onConfirm={() => updateStatus(event.id, "published")}>
-                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl text-emerald-600"><PlayCircle className="h-4 w-4" />{language === "ar" ? "تفعيل" : "Enable"}</DropdownMenuItem>
-                                </ConfirmAction>
-                              ) : (
-                                <ConfirmAction title="Disable event?" description="The event will stop accepting public operations." confirmLabel="Disable" tone="danger" onConfirm={() => updateStatus(event.id, "disabled")}>
-                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl text-amber-600"><PauseCircle className="h-4 w-4" />{adminT(language, "common.disable")}</DropdownMenuItem>
-                                </ConfirmAction>
-                              )}
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold"
+                              onSelect={(e) => { e.preventDefault(); setPending({ type: "published", event }) }}
+                            >
+                              <PlayCircle className="h-4 w-4" />Upcoming
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold"
+                              onSelect={(e) => { e.preventDefault(); setPending({ type: "completed", event }) }}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />Previous
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold"
+                              onSelect={(e) => { e.preventDefault(); setPending({ type: "draft", event }) }}
+                            >
+                              <RotateCcw className="h-4 w-4" />{adminT(language, "common.moveToDraft")}
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <ConfirmAction title="Delete event?" description="This event will move to Deleted and can be restored later." confirmLabel="Delete" tone="danger" onConfirm={() => deleteEvent(event.id)}>
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer rounded-xl text-red-600"><Trash2 className="h-4 w-4" />{adminT(language, "common.delete")}</DropdownMenuItem>
-                            </ConfirmAction>
+                            {event.status === "disabled" ? (
+                              <DropdownMenuItem
+                                className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600"
+                                onSelect={(e) => { e.preventDefault(); setPending({ type: "published", event }) }}
+                              >
+                                <PlayCircle className="h-4 w-4" />{language === "ar" ? "تفعيل" : "Enable"}
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-amber-600"
+                                onSelect={(e) => { e.preventDefault(); setPending({ type: "disabled", event }) }}
+                              >
+                                <PauseCircle className="h-4 w-4" />{adminT(language, "common.disable")}
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600"
+                              onSelect={(e) => { e.preventDefault(); setPending({ type: "delete", event }) }}
+                            >
+                              <Trash2 className="h-4 w-4" />{adminT(language, "common.delete")}
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -877,6 +982,26 @@ function EventsTable({
         />
       </CardContent>
     </Card>
+
+      {/* Confirm dialog lives outside the DropdownMenu so every row's "..." menu works reliably. */}
+      <AlertDialog open={Boolean(pending)} onOpenChange={(open) => { if (!open) setPending(null) }}>
+        <AlertDialogContent dir={language === "ar" ? "rtl" : "ltr"} className="max-w-[92vw] rounded-2xl sm:max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingCopy?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{pendingCopy?.description}{pending ? ` (${pending.event.title_en})` : ""}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="grid grid-cols-2 gap-3">
+            <AlertDialogCancel className="mt-0 h-10 rounded-xl font-extrabold">{language === "ar" ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); runPending() }}
+              className={cn("h-10 rounded-xl font-extrabold text-white", pendingCopy?.tone === "danger" ? "bg-red-600 hover:bg-red-700" : "bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.9)]")}
+            >
+              {pendingCopy?.confirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 

@@ -366,6 +366,9 @@ class CertificateController extends Controller
                     'certificateNumber' => $nextCertificateNumber,
                 ];
             }
+            DB::table('attendees')->where('id', $attendee->id)->update([
+                'certificate_issued_at' => now(),
+            ]);
         });
 
         $registrationId = DB::table('generated_tickets as gt')

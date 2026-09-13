@@ -432,7 +432,7 @@ export function UsersManager() {
     }
 
     try {
-      const saved = form.id ? await platformApi.updateUser(form.id, payload as Record<string, unknown>) : await platformApi.createUser({ ...payload, password: form.password || "StylishHolidays@2026" })
+      const saved = form.id ? await platformApi.updateUser(form.id, payload as Record<string, unknown>) : await platformApi.createUser({ ...payload, password: (accountForm as any).password || form.password || "StylishHolidays@2026" })
       setUsers((current) => {
         const normalized = saved || {
           id: form.id || Date.now(),
@@ -450,8 +450,13 @@ export function UsersManager() {
         description: language === "ar" ? `تم حفظ ${form.name || "المستخدم"} بنجاح.` : `${form.name || "User"} was saved successfully.`,
       })
     } catch (error) {
+      const details = (error as any)?.details
+      const fieldErrors = details?.fieldErrors || details?.errors
+      const fieldText = fieldErrors && typeof fieldErrors === "object"
+        ? Object.entries(fieldErrors).map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(", ") : String(messages)}`).join(" | ")
+        : ""
       toast.error(form.id ? adminT(language, "users.updateFailed") : adminT(language, "users.createFailed"), {
-        description: error instanceof Error ? error.message : adminT(language, "users.checkBackend"),
+        description: fieldText || (error instanceof Error ? error.message : adminT(language, "users.checkBackend")),
       })
     } finally {
       setSaving(false)
@@ -831,7 +836,7 @@ export function UsersManager() {
                     preferredLanguage: updates.preferredLanguage ?? prev.preferredLanguage,
                     roleCode: updates.roleCode ?? prev.roleCode,
                     specialtyId: updates.specialtyId ?? prev.specialtyId,
-                    // password is kept in accountForm; admin form.password will be set from accountForm on save
+                    password: (updates as Partial<UserForm>).password ?? prev.password,
                   }))
                 }}
                 roles={roles.map((r) => ({ code: r.code, nameEn: r.nameEn }))}
@@ -899,7 +904,7 @@ export function UsersManager() {
           <DialogFooter className="border-t border-slate-100 px-6 py-5">
             <Button variant="outline" onClick={() => setFormOpen(false)} className="h-11 rounded-2xl px-6 font-extrabold">{adminT(language, "common.cancel")}</Button>
             <ConfirmAction title={form.id ? adminT(language, "users.saveUserConfirmTitle") : adminT(language, "users.createUserConfirmTitle")} description={adminT(language, "users.saveUserConfirmDescription")} confirmLabel={form.id ? adminT(language, "users.saveChanges") : adminT(language, "common.createUser")} tone="success" onConfirm={saveUser}>
-              <Button disabled={saving || !form.name || !form.email || (!form.id && form.password.length < 8)} className="h-11 rounded-2xl bg-[hsl(var(--primary))] px-6 font-extrabold text-white">
+              <Button disabled={saving || !form.name || !form.email || (!form.id && (((accountForm as any).password || "").length < 8 || (accountForm as any).password !== (accountForm as any).confirmPassword))} title={!form.id && ((accountForm as any).password || "").length < 8 ? (language === "ar" ? "كلمة المرور لازم 8 حروف على الأقل" : "Password must be at least 8 characters") : !(form.id) && (accountForm as any).password !== (accountForm as any).confirmPassword ? (language === "ar" ? "تأكيد كلمة المرور غير متطابق" : "Passwords do not match") : undefined} className="h-11 rounded-2xl bg-[hsl(var(--primary))] px-6 font-extrabold text-white disabled:opacity-50">
                 <Save className="h-4 w-4" /> {saving ? adminT(language, "common.saving") : adminT(language, "users.saveUser")}
               </Button>
             </ConfirmAction>
