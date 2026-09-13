@@ -12,6 +12,11 @@ import { toast } from "sonner"
 import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
 
+const A4_LANDSCAPE_MM = {
+  width: 297,
+  height: 210,
+}
+
 export default function CertificateDownloadPage() {
   const params = useParams<{ id: string }>()
   const id = params?.id
@@ -46,29 +51,23 @@ export default function CertificateDownloadPage() {
         backgroundColor: "#ffffff",
       } as any)
 
-      const imgData = canvas.toDataURL("image/png")
-      
-      // A4 landscape dimensions in mm
       const pdf = new jsPDF({
         orientation: "landscape",
         unit: "mm",
         format: "a4",
+        compress: true,
       })
 
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = pdf.internal.pageSize.getHeight()
-      
-      // Calculate aspect ratio to fit the canvas in A4
-      const imgWidth = canvas.width
-      const imgHeight = canvas.height
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight)
-      
-      const width = imgWidth * ratio
-      const height = imgHeight * ratio
-      const x = (pdfWidth - width) / 2
-      const y = (pdfHeight - height) / 2
-
-      pdf.addImage(imgData, "PNG", x, y, width, height)
+      pdf.addImage(
+        canvas.toDataURL("image/png"),
+        "PNG",
+        0,
+        0,
+        A4_LANDSCAPE_MM.width,
+        A4_LANDSCAPE_MM.height,
+        undefined,
+        "FAST",
+      )
       pdf.save(`Certificate_${data.certificate_number || "StylishHolidays"}.pdf`)
       
       toast.success(isRtl ? "تم تحميل الشهادة بنجاح" : "Certificate downloaded successfully")
@@ -115,7 +114,11 @@ export default function CertificateDownloadPage() {
       <div className="overflow-hidden rounded-[28px] border-0 bg-white p-6 shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
         {/* Fixed A4-landscape canvas so the PDF capture matches the preview exactly */}
         <div className="flex justify-center overflow-auto pb-4">
-          <div ref={certificateRef} style={{ width: "1122px", height: "793px" }} className="flex-shrink-0">
+          <div
+            ref={certificateRef}
+            style={{ width: `${A4_LANDSCAPE_MM.width}mm`, height: `${A4_LANDSCAPE_MM.height}mm` }}
+            className="flex-shrink-0 bg-white"
+          >
           <CertificateArtwork
             backgroundUrl={data.template_url}
             logoUrl="/logo.png"
