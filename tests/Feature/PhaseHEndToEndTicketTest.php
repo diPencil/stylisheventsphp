@@ -225,7 +225,12 @@ class PhaseHEndToEndTicketTest extends TestCase
         // 8. Re-check state after check-in
         $this->assertDatabaseHas('attendees', [
             'id' => $attendeeId,
-            'qr_status' => 'used'
+            'qr_status' => 'active'
+        ]);
+        $this->assertDatabaseHas('attendee_daily_checkins', [
+            'attendee_id' => $attendeeId,
+            'event_id' => $eventId,
+            'checkin_date' => now()->toDateString(),
         ]);
     }
 }

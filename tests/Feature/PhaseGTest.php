@@ -37,6 +37,10 @@ class PhaseGTest extends TestCase
             ['role_id' => $roleIdAdmin, 'permission_key' => 'website_content.manage'],
             ['allowed' => 1, 'created_at' => now(), 'updated_at' => now()]
         );
+        DB::table('role_permissions')->updateOrInsert(
+            ['role_id' => $roleIdAdmin, 'permission_key' => 'reports.view'],
+            ['allowed' => 1, 'created_at' => now(), 'updated_at' => now()]
+        );
 
         $roleIdEmployee = DB::table('roles')->where('code', 'employee')->value('id');
         $empId = DB::table('users')->insertGetId([
@@ -529,6 +533,84 @@ class PhaseGTest extends TestCase
         $response = $this->actingAs($this->admin, 'api')->getJson('/api/reports/summary');
         $response->assertStatus(200)
                  ->assertJsonStructure(['status', 'data' => ['registrations', 'payments', 'revenue', 'certificates']]);
+    }
+
+    public function test_reports_attendance_supports_daily_filter()
+    {
+        $eventId = DB::table('events')->insertGetId([
+            'slug' => 'report-attendance-' . uniqid(),
+            'title_en' => 'Report Attendance Event',
+            'status' => 'published',
+            'starts_at' => now()->addDay(),
+            'ends_at' => now()->addDays(2),
+            'max_attendees' => 50,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $checkedAttendeeId = DB::table('attendees')->insertGetId([
+            'event_id' => $eventId,
+            'full_name' => 'Checked Attendee',
+            'email' => 'checked-attendee@example.test',
+            'qr_status' => 'used',
+            'checked_in_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('attendees')->insert([
+            'event_id' => $eventId,
+            'full_name' => 'Waiting Attendee',
+            'email' => 'waiting-attendee@example.test',
+            'qr_status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('checkin_logs')->insert([
+            [
+                'attendee_id' => $checkedAttendeeId,
+                'event_id' => $eventId,
+                'scanned_by_user_id' => $this->admin->id,
+                'scan_result' => 'accepted',
+                'scanned_at' => now(),
+                'notes' => "source:manual",
+            ],
+            [
+                'attendee_id' => $checkedAttendeeId,
+                'event_id' => $eventId,
+                'scanned_by_user_id' => $this->admin->id,
+                'scan_result' => 'duplicate',
+                'scanned_at' => now()->subDay(),
+                'notes' => "source:scan",
+            ],
+        ]);
+        DB::table('attendee_daily_checkins')->insert([
+            'attendee_id' => $checkedAttendeeId,
+            'event_id' => $eventId,
+            'checkin_date' => now()->toDateString(),
+            'first_checked_in_at' => now(),
+            'last_checked_in_at' => now(),
+            'first_scanned_by_user_id' => $this->admin->id,
+            'last_scanned_by_user_id' => $this->admin->id,
+            'first_source' => 'manual',
+            'last_source' => 'manual',
+            'checkin_count' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->admin, 'api')
+            ->getJson('/api/reports/attendance?date=' . now()->toDateString());
+
+        $response->assertStatus(200)->assertJsonPath('status', 'success');
+        $row = collect($response->json('data'))->firstWhere('event_id', $eventId);
+        $this->assertNotNull($row);
+        $this->assertSame(2, (int) $row['total_attendees']);
+        $this->assertSame(1, (int) $row['total_checked_in']);
+        $this->assertSame(1, (int) $row['range_checked_in']);
+        $this->assertSame(1, (int) $row['attendance_days']);
+        $this->assertSame(1, (int) $row['accepted_scans']);
+        $this->assertSame(0, (int) $row['duplicate_scans']);
+        $this->assertSame(1, (int) $row['manual_scans']);
+        $this->assertSame(0, (int) $row['qr_scans']);
     }
 
     public function test_reports_registrations_include_readable_role()

@@ -41,6 +41,9 @@ class PlatformMailer
                 'protocol' => 'IMAP', 'host' => '', 'port' => 993, 'encryption' => 'SSL',
                 'username' => '', 'password' => '', 'folder' => 'INBOX',
             ],
+            'auth' => [
+                'emailVerificationEnabled' => true,
+            ],
         ];
 
         // .env mail config acts as the base layer; saved DB settings override it.

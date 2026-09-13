@@ -690,21 +690,13 @@ class MeController extends Controller
             ], 409)->header('Cache-Control', 'no-store');
         }
 
-        if ($row->checked_in_at || $row->qr_status === 'used') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Check-in completed',
-                'details' => ['state' => 'checked_in', 'checkedInAt' => $row->checked_in_at]
-            ], 409)->header('Cache-Control', 'no-store');
-        }
-
         return response()->json([
             'success' => true,
             'data' => [
                 'qrPayload' => $row->qr_token,
                 'ticketNumber' => $row->ticket_number,
                 'registrationNumber' => $row->registration_number,
-                'ticketStatus' => ($row->checked_in_at || $row->qr_status === 'used') ? 'checked_in' : 'ready',
+                'ticketStatus' => 'ready',
                 'checkedInAt' => $row->checked_in_at,
                 'holderName' => $row->full_name,
                 'eventTitleEn' => $row->event_title_en,
