@@ -156,13 +156,13 @@ class PhaseQCheckinTest extends TestCase
         $ticketId = DB::table('generated_tickets')->insertGetId([
             'registration_id' => $registrationId,
             'attendee_id' => $attendeeId,
-            'ticket_number' => 'TKT-Q-' . uniqid(),
+            'ticket_number' => $ticketNumber = 'TKT-Q-' . uniqid(),
             'qr_token' => $token,
             'generated_at' => now(),
             'created_at' => now(),
         ]);
 
-        return compact('customer', 'doctorId', 'orderId', 'registrationId', 'attendeeId', 'ticketId', 'ticketTypeId');
+        return compact('customer', 'doctorId', 'orderId', 'registrationId', 'attendeeId', 'ticketId', 'ticketTypeId', 'ticketNumber');
     }
 
     public function test_public_free_checkout_generates_unique_opaque_tokens_and_is_idempotent(): void
@@ -225,7 +225,7 @@ class PhaseQCheckinTest extends TestCase
         $token = str_repeat('a', 64);
         $ticket = $this->attendeeTicket($eventId, $token);
 
-        $accepted = $this->withHeaders($this->bearer($admin))->postJson('/api/attendees/checkin', ['qrToken' => $token, 'eventId' => $eventId]);
+        $accepted = $this->withHeaders($this->bearer($admin))->postJson('/api/attendees/checkin', ['qrToken' => $ticket['ticketNumber'], 'eventId' => $eventId]);
         $accepted->assertStatus(200)->assertJsonPath('success', true);
         $attendee = DB::table('attendees')->where('id', $ticket['attendeeId'])->first();
         $this->assertEquals('active', $attendee->qr_status);

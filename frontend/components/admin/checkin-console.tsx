@@ -364,10 +364,10 @@ export function CheckinConsole() {
 
             <div className="grid gap-3 md:grid-cols-[1fr_auto]">
               <div className="space-y-2">
-                <Label className="text-sm font-bold">{adminT(language, "checkin.token")}</Label>
-                <Input value={qrToken} onChange={(event) => setQrToken(event.target.value)} className="h-11 rounded-xl" placeholder={isArabic ? "الصق رمز QR" : "Paste QR token"} />
+                <Label className="text-sm font-bold">{isArabic ? "رمز QR أو رقم التذكرة" : "QR token or ticket number"}</Label>
+                <Input value={qrToken} onChange={(event) => setQrToken(event.target.value)} className="h-11 rounded-xl" placeholder={isArabic ? "الصق رمز QR أو رقم التذكرة" : "Paste QR token or ticket number"} />
               </div>
-              <ConfirmAction title="Confirm Check-in" description="The QR token will be validated against the live attendee database." confirmLabel="Check in" onConfirm={scanManual} tone="success">
+              <ConfirmAction title="Confirm Check-in" description="The QR token or ticket number will be validated against the live attendee database." confirmLabel="Check in" onConfirm={scanManual} tone="success">
                 <Button className="h-11 self-end rounded-xl bg-[hsl(var(--primary))] px-8 font-extrabold text-white">{adminT(language, "checkin.checkIn")}</Button>
               </ConfirmAction>
             </div>

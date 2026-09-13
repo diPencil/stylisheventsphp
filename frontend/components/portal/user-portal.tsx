@@ -789,7 +789,10 @@ function QrOverlay({ qrState, onClose }: { qrState: any; onClose: () => void }) 
             <h2 className="mt-4 text-lg font-black">{isRtl ? data.eventTitleAr || data.eventTitleEn : data.eventTitleEn || data.eventTitleAr}</h2>
             <p className="mt-2 text-sm font-bold text-slate-500">{isRtl ? "اعرض رمز QR هذا لموظف تسجيل الدخول." : "Present this QR code to the check-in staff."}</p>
             <div className="mt-4 grid gap-2 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-700">
+              <span className="text-xs uppercase tracking-[0.12em] text-slate-400">{isRtl ? "رقم التذكرة" : "Ticket number"}</span>
               <span dir="ltr">{data.ticketNumber}</span>
+              <span className="mt-2 text-xs uppercase tracking-[0.12em] text-slate-400">{isRtl ? "رمز تسجيل الدخول" : "Check-in token"}</span>
+              <span className="break-all text-xs" dir="ltr">{data.qrPayload}</span>
               <span>{data.holderName}</span>
               <span>{formatDate(data.startsAt)}</span>
             </div>

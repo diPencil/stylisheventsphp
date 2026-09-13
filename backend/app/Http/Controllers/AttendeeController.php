@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AttendeeController extends Controller
 {
@@ -136,24 +137,26 @@ class AttendeeController extends Controller
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
-        $attendee->attendance_history = DB::table('attendee_daily_checkins as adc')
-            ->leftJoin('users as first_user', 'first_user.id', '=', 'adc.first_scanned_by_user_id')
-            ->leftJoin('users as last_user', 'last_user.id', '=', 'adc.last_scanned_by_user_id')
-            ->where('adc.attendee_id', $attendee->id)
-            ->where('adc.event_id', $attendee->event_id)
-            ->orderBy('adc.checkin_date', 'desc')
-            ->select([
-                'adc.id',
-                'adc.checkin_date',
-                'adc.first_checked_in_at',
-                'adc.last_checked_in_at',
-                'adc.first_source',
-                'adc.last_source',
-                'adc.checkin_count',
-                'first_user.name as first_scanned_by_name',
-                'last_user.name as last_scanned_by_name',
-            ])
-            ->get();
+        $attendee->attendance_history = Schema::hasTable('attendee_daily_checkins')
+            ? DB::table('attendee_daily_checkins as adc')
+                ->leftJoin('users as first_user', 'first_user.id', '=', 'adc.first_scanned_by_user_id')
+                ->leftJoin('users as last_user', 'last_user.id', '=', 'adc.last_scanned_by_user_id')
+                ->where('adc.attendee_id', $attendee->id)
+                ->where('adc.event_id', $attendee->event_id)
+                ->orderBy('adc.checkin_date', 'desc')
+                ->select([
+                    'adc.id',
+                    'adc.checkin_date',
+                    'adc.first_checked_in_at',
+                    'adc.last_checked_in_at',
+                    'adc.first_source',
+                    'adc.last_source',
+                    'adc.checkin_count',
+                    'first_user.name as first_scanned_by_name',
+                    'last_user.name as last_scanned_by_name',
+                ])
+                ->get()
+            : collect();
         $attendee->days_attended = $attendee->attendance_history->count();
 
         return response()->json(['success' => true, 'data' => $attendee]);
@@ -215,16 +218,33 @@ class AttendeeController extends Controller
             return response()->json(['success' => false, 'message' => 'QR token is required'], 400);
         }
 
-        if (!preg_match('/^[A-Fa-f0-9]{64}$/', $token)) {
-            return response()->json(['success' => false, 'message' => 'Invalid QR code', 'details' => ['result' => 'invalid']], 404);
-        }
-
         $eventId = (int)$request->input('eventId', 0);
         if ($eventId && !$request->user()->hasEventScope($eventId)) {
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
-        $attendee = DB::table('attendees')->where('qr_token', $token)->first(['id', 'event_id', 'full_name', 'qr_status', 'checked_in_at']);
+        $attendeeQuery = DB::table('attendees as a')
+            ->leftJoin('generated_tickets as gt', 'gt.attendee_id', '=', 'a.id')
+            ->select([
+                'a.id',
+                'a.event_id',
+                'a.full_name',
+                'a.email',
+                'a.attendee_number',
+                'a.qr_status',
+                'a.checked_in_at',
+            ]);
+
+        if (preg_match('/^[A-Fa-f0-9]{64}$/', $token)) {
+            $attendeeQuery->where(function ($query) use ($token) {
+                $query->where('a.qr_token', $token)
+                    ->orWhere('gt.qr_token', $token);
+            });
+        } else {
+            $attendeeQuery->whereRaw('UPPER(gt.ticket_number) = ?', [strtoupper($token)]);
+        }
+
+        $attendee = $attendeeQuery->first();
         if (!$attendee) {
             return response()->json(['success' => false, 'message' => 'Invalid QR code', 'details' => ['result' => 'invalid']], 404);
         }
