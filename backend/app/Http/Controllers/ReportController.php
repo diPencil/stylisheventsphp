@@ -289,18 +289,40 @@ class ReportController extends Controller
             $logStats->where('scanned_at', '<=', $toDate);
         }
 
+        $dailyStats = DB::table('attendee_daily_checkins')
+            ->select(
+                'event_id',
+                DB::raw('COUNT(*) as attendance_days'),
+                DB::raw('COUNT(DISTINCT attendee_id) as range_checked_in'),
+                DB::raw('MIN(first_checked_in_at) as first_checkin_at'),
+                DB::raw('MAX(last_checked_in_at) as last_checkin_at')
+            )
+            ->groupBy('event_id');
+
+        if ($fromDate) {
+            $dailyStats->where('checkin_date', '>=', Carbon::parse($fromLabel)->toDateString());
+        }
+
+        if ($toDate) {
+            $dailyStats->where('checkin_date', '<=', Carbon::parse($toLabel)->toDateString());
+        }
+
         $query = DB::table('events as e')
             ->leftJoin('attendees as a', 'a.event_id', '=', 'e.id')
             ->leftJoinSub($logStats, 'ls', function ($join) {
                 $join->on('ls.event_id', '=', 'e.id');
+            })
+            ->leftJoinSub($dailyStats, 'ds', function ($join) {
+                $join->on('ds.event_id', '=', 'e.id');
             })
             ->select(
                 'e.id as event_id',
                 'e.title_en as event_title_en',
                 'e.title_ar as event_title_ar',
                 DB::raw('COUNT(a.id) as total_attendees'),
-                DB::raw("SUM(CASE WHEN a.checked_in_at IS NOT NULL OR a.qr_status = 'used' THEN 1 ELSE 0 END) as total_checked_in"),
-                DB::raw('COALESCE(ls.range_checked_in, 0) as range_checked_in'),
+                DB::raw("SUM(CASE WHEN a.checked_in_at IS NOT NULL THEN 1 ELSE 0 END) as total_checked_in"),
+                DB::raw('COALESCE(ds.range_checked_in, 0) as range_checked_in'),
+                DB::raw('COALESCE(ds.attendance_days, 0) as attendance_days'),
                 DB::raw('COALESCE(ls.total_scans, 0) as total_scans'),
                 DB::raw('COALESCE(ls.accepted_scans, 0) as accepted_scans'),
                 DB::raw('COALESCE(ls.duplicate_scans, 0) as duplicate_scans'),
@@ -308,14 +330,15 @@ class ReportController extends Controller
                 DB::raw('COALESCE(ls.revoked_scans, 0) as revoked_scans'),
                 DB::raw('COALESCE(ls.manual_scans, 0) as manual_scans'),
                 DB::raw('COALESCE(ls.qr_scans, 0) as qr_scans'),
-                DB::raw('ls.first_checkin_at as first_checkin_at'),
-                DB::raw('ls.last_checkin_at as last_checkin_at')
+                DB::raw('ds.first_checkin_at as first_checkin_at'),
+                DB::raw('ds.last_checkin_at as last_checkin_at')
             )
             ->groupBy(
                 'e.id',
                 'e.title_en',
                 'e.title_ar',
-                'ls.range_checked_in',
+                'ds.range_checked_in',
+                'ds.attendance_days',
                 'ls.total_scans',
                 'ls.accepted_scans',
                 'ls.duplicate_scans',
@@ -323,8 +346,8 @@ class ReportController extends Controller
                 'ls.revoked_scans',
                 'ls.manual_scans',
                 'ls.qr_scans',
-                'ls.first_checkin_at',
-                'ls.last_checkin_at'
+                'ds.first_checkin_at',
+                'ds.last_checkin_at'
             )
             ->orderBy('e.starts_at', 'desc');
 

@@ -549,7 +549,7 @@ function CustomerNextEventCard({ row, pending }: { row?: any; pending?: any }) {
   }
   const image = eventImage(item)
   const title = eventTitle(item, isRtl)
-  const canShowQr = Boolean(item.ticket_id && item.registration_status === "approved" && (item.qr_status || "active") === "active" && !item.checked_in_at)
+  const canShowQr = Boolean(item.ticket_id && item.registration_status === "approved" && (item.qr_status || "active") !== "revoked")
 
   return (
     <section className={cardClass("overflow-hidden")}>
@@ -583,7 +583,7 @@ function CustomerNextEventCard({ row, pending }: { row?: any; pending?: any }) {
                 <Link href={`/dashboard/tickets/${item.ticket_id}`}>{canShowQr ? (isRtl ? "عرض رمز الدخول" : "Show Check-in QR") : (isRtl ? "عرض التذكرة" : "View Ticket")}</Link>
               </Button>
             ) : null}
-            {!canShowQr ? <span className="inline-flex min-h-11 items-center rounded-2xl bg-slate-50 px-4 text-sm font-bold text-slate-500">{isRtl ? "QR متاح بعد الموافقة" : "QR available after approval"}</span> : null}
+            {!canShowQr ? <span className="inline-flex min-h-11 items-center rounded-2xl bg-slate-50 px-4 text-sm font-bold text-slate-500">{isRtl ? "QR متاح بعد الموافقة أو إعادة التفعيل" : "QR available after approval or reactivation"}</span> : null}
           </div>
         </div>
       </div>
@@ -738,7 +738,7 @@ function SecureTicketDetail({ id }: { id: string }) {
   if (!id || state.error) return <ErrorState />
   if (state.loading) return <SkeletonGrid />
   const row = state.data
-  const qrReady = row.registration_status === "approved" && (row.qr_status || "active") === "active" && !row.checked_in_at
+  const qrReady = row.registration_status === "approved" && (row.qr_status || "active") !== "revoked"
   return (
     <section className="space-y-4">
       <Button asChild variant="outline" className="h-10 rounded-2xl font-bold"><Link href="/dashboard/tickets">{isRtl ? "رجوع للتذاكر" : "Back to tickets"}</Link></Button>
@@ -759,7 +759,7 @@ function SecureTicketDetail({ id }: { id: string }) {
               <QrCode className="h-4 w-4" />
               {qrReady ? (isRtl ? "عرض رمز الدخول" : "Show Check-in QR") : (isRtl ? "QR متاح بعد الموافقة" : "QR available after approval")}
             </Button>
-            {!qrReady ? <p className="mt-3 text-xs font-bold leading-5 text-slate-500">{isRtl ? "سيصبح رمز QR متاحا بعد الموافقة على تسجيلك وإصدار التذكرة." : "Your QR code will be available once your registration is approved and your ticket is issued."}</p> : null}
+            {!qrReady ? <p className="mt-3 text-xs font-bold leading-5 text-slate-500">{isRtl ? "سيصبح رمز QR متاحا بعد الموافقة على تسجيلك وإصدار التذكرة، أو بعد إعادة تفعيلها إذا كانت ملغية." : "Your QR code will be available once your registration is approved and your ticket is issued, or after reactivation if cancelled."}</p> : null}
           </div>
         </div>
         <TicketInfo row={row} />

@@ -38,6 +38,7 @@ type CheckinHistoryRow = {
   ticket_name_en?: string
   ticket_name_ar?: string
   scanned_by_name?: string
+  days_attended?: number
   notes?: string
 }
 
@@ -451,6 +452,7 @@ export function CheckinConsole() {
                       <th className="px-4 py-3 text-start">{isArabic ? "الفعالية" : "Event"}</th>
                       <th className="px-4 py-3 text-start">{isArabic ? "الحاضر" : "Attendee"}</th>
                       <th className="px-4 py-3 text-start">{isArabic ? "التذكرة" : "Ticket"}</th>
+                      <th className="px-4 py-3 text-start">{isArabic ? "أيام الحضور" : "Days"}</th>
                       <th className="px-4 py-3 text-start">{isArabic ? "الطريقة" : "Method"}</th>
                       <th className="px-4 py-3 text-start">{isArabic ? "النتيجة" : "Result"}</th>
                     </tr>
@@ -465,6 +467,7 @@ export function CheckinConsole() {
                           <p className="mt-1 text-xs font-bold text-slate-400" dir="ltr">{row.email || row.attendee_number}</p>
                         </td>
                         <td className="px-4 py-3 font-bold text-slate-600">{isArabic ? row.ticket_name_ar || row.ticket_name_en : row.ticket_name_en || row.ticket_name_ar || "-"}</td>
+                        <td className="px-4 py-3 font-extrabold text-slate-900" dir="ltr">{Number(row.days_attended || 0).toLocaleString()}</td>
                         <td className="px-4 py-3"><Badge variant="outline" className="rounded-full">{sourceLabel(row.scan_source, isArabic)}</Badge></td>
                         <td className="px-4 py-3"><Badge variant={row.scan_result === "accepted" ? "default" : "secondary"} className="rounded-full">{statusLabel((row.scan_result || "invalid") as ScanStatus, isArabic)}</Badge></td>
                       </tr>
@@ -484,7 +487,7 @@ export function CheckinConsole() {
                     </div>
                     <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600">
                       <p>{isArabic ? row.event_title_ar || row.event_title_en : row.event_title_en || row.event_title_ar}</p>
-                      <p>{sourceLabel(row.scan_source, isArabic)}</p>
+                      <p>{sourceLabel(row.scan_source, isArabic)} · {isArabic ? "أيام الحضور" : "Days"}: <span dir="ltr">{Number(row.days_attended || 0).toLocaleString()}</span></p>
                     </div>
                   </article>
                 ))}

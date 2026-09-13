@@ -30,6 +30,7 @@ type ReportRow = {
   attendees: number
   checkedIn: number
   rangeCheckedIn: number
+  attendanceDays: number
   ticketsSold: number
   capacity: number
   topTicket: string
@@ -152,6 +153,7 @@ export function ReportsManager() {
               ? Number(attendance?.range_checked_in || 0)
               : eventAttendees.filter((attendee: any) => attendee.checked_in_at || attendee.qr_status === "used").length,
             rangeCheckedIn: Number(attendance?.range_checked_in || 0),
+            attendanceDays: Number(attendance?.attendance_days || 0),
             ticketsSold: eventPerformance.reduce((sum: number, item: any) => sum + Number(item.registrations || 0), 0),
             capacity: Number(event.max_attendees || event.venue_capacity || 0),
             topTicket: (language === "ar" ? topTicket?.ticket_name_ar || topTicket?.ticket_name_en : topTicket?.ticket_name_en || topTicket?.ticket_name_ar) || "-",
@@ -273,7 +275,7 @@ export function ReportsManager() {
                     {(mode === "revenue" || mode === "full") && <TableCell className="text-sm font-extrabold" dir="ltr">{displayRevenue(row)}</TableCell>}
                     {(mode === "revenue" || mode === "full") && <TableCell className="text-sm font-extrabold" dir="ltr">{row.bookings.toLocaleString()}</TableCell>}
                     {(mode === "attendance" || mode === "full") && <TableCell><p className="text-sm font-extrabold" dir="ltr">{row.attendees.toLocaleString()}</p><p className="text-xs font-bold text-slate-400">{adminT(language, "reports.capacity")} <span dir="ltr">{row.capacity.toLocaleString()}</span></p></TableCell>}
-                    {(mode === "attendance" || mode === "full") && <TableCell><div className="space-y-2"><p className="text-sm font-extrabold" dir="ltr">{checkInRate}%</p><ProgressLine value={checkInRate} /></div></TableCell>}
+                    {(mode === "attendance" || mode === "full") && <TableCell><div className="space-y-2"><p className="text-sm font-extrabold" dir="ltr">{checkInRate}%</p><p className="text-xs font-bold text-slate-400">{isRtl ? "أيام الحضور" : "Attendance days"} <span dir="ltr">{row.attendanceDays.toLocaleString()}</span></p><ProgressLine value={checkInRate} /></div></TableCell>}
                     {(mode === "tickets" || mode === "full") && <TableCell className="text-sm font-extrabold" dir="ltr">{row.ticketsSold.toLocaleString()}</TableCell>}
                     {(mode === "tickets" || mode === "full") && <TableCell><Badge className="gap-2 rounded-lg bg-[hsl(var(--primary)/0.08)] text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.08)]"><Ticket className="h-3.5 w-3.5" /> {row.topTicket}</Badge></TableCell>}
                     <TableCell><TableDateTime value={row.updatedAt} /></TableCell>

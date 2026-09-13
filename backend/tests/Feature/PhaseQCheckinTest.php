@@ -219,6 +219,7 @@ class PhaseQCheckinTest extends TestCase
     {
         $adminRole = $this->roleId('admin');
         $this->allow($adminRole, 'checkin.manage');
+        $this->allow($adminRole, 'attendees.manage');
         $admin = $this->user('admin', 'admin-phase-q@example.test');
         $eventId = $this->event('phase-q-checkin-' . uniqid());
         $token = str_repeat('a', 64);
@@ -227,9 +228,14 @@ class PhaseQCheckinTest extends TestCase
         $accepted = $this->withHeaders($this->bearer($admin))->postJson('/api/attendees/checkin', ['qrToken' => $token, 'eventId' => $eventId]);
         $accepted->assertStatus(200)->assertJsonPath('success', true);
         $attendee = DB::table('attendees')->where('id', $ticket['attendeeId'])->first();
-        $this->assertEquals('used', $attendee->qr_status);
+        $this->assertEquals('active', $attendee->qr_status);
         $this->assertNotNull($attendee->checked_in_at);
         $checkedInAt = $attendee->checked_in_at;
+        $this->assertDatabaseHas('attendee_daily_checkins', [
+            'attendee_id' => $ticket['attendeeId'],
+            'event_id' => $eventId,
+            'checkin_date' => now()->toDateString(),
+        ]);
 
         $duplicate = $this->withHeaders($this->bearer($admin))->postJson('/api/attendees/checkin', ['qrToken' => $token, 'eventId' => $eventId]);
         $duplicate->assertStatus(409)->assertJsonPath('details.result', 'duplicate');
@@ -237,6 +243,21 @@ class PhaseQCheckinTest extends TestCase
         $this->assertEquals(1, DB::table('checkin_logs')->where('attendee_id', $ticket['attendeeId'])->where('scan_result', 'accepted')->count());
         $this->assertEquals(1, DB::table('checkin_logs')->where('attendee_id', $ticket['attendeeId'])->where('scan_result', 'duplicate')->count());
         $this->assertTrue(DB::table('checkin_logs')->where('attendee_id', $ticket['attendeeId'])->where('scanned_by_user_id', $admin->id)->whereNotNull('scanned_at')->exists());
+
+        DB::table('attendee_daily_checkins')
+            ->where('attendee_id', $ticket['attendeeId'])
+            ->update(['checkin_date' => now()->subDay()->toDateString()]);
+
+        $nextDayAccepted = $this->withHeaders($this->bearer($admin))->postJson('/api/attendees/checkin', ['qrToken' => $token, 'eventId' => $eventId]);
+        $nextDayAccepted->assertStatus(200)
+            ->assertJsonPath('data.days_attended', 2)
+            ->assertJsonPath('data.qr_status', 'active');
+        $this->assertEquals($checkedInAt, DB::table('attendees')->where('id', $ticket['attendeeId'])->value('checked_in_at'));
+        $this->withHeaders($this->bearer($admin))
+            ->getJson('/api/attendees/' . $ticket['attendeeId'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.days_attended', 2)
+            ->assertJsonCount(2, 'data.attendance_history');
 
         DB::table('checkin_logs')
             ->where('attendee_id', $ticket['attendeeId'])
@@ -325,6 +346,7 @@ class PhaseQCheckinTest extends TestCase
         app('auth')->forgetGuards();
         $this->flushHeaders();
         $this->withHeaders($this->bearer($ticketA['customer']))->getJson('/api/me/tickets/' . $ticketA['ticketId'] . '/qr')
-            ->assertStatus(409);
+            ->assertStatus(200)
+            ->assertJsonPath('data.qrPayload', str_repeat('e', 64));
     }
 }

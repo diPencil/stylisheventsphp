@@ -136,6 +136,26 @@ class AttendeeController extends Controller
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
+        $attendee->attendance_history = DB::table('attendee_daily_checkins as adc')
+            ->leftJoin('users as first_user', 'first_user.id', '=', 'adc.first_scanned_by_user_id')
+            ->leftJoin('users as last_user', 'last_user.id', '=', 'adc.last_scanned_by_user_id')
+            ->where('adc.attendee_id', $attendee->id)
+            ->where('adc.event_id', $attendee->event_id)
+            ->orderBy('adc.checkin_date', 'desc')
+            ->select([
+                'adc.id',
+                'adc.checkin_date',
+                'adc.first_checked_in_at',
+                'adc.last_checked_in_at',
+                'adc.first_source',
+                'adc.last_source',
+                'adc.checkin_count',
+                'first_user.name as first_scanned_by_name',
+                'last_user.name as last_scanned_by_name',
+            ])
+            ->get();
+        $attendee->days_attended = $attendee->attendance_history->count();
+
         return response()->json(['success' => true, 'data' => $attendee]);
     }
 
@@ -229,23 +249,7 @@ class AttendeeController extends Controller
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
-        if ($attendee->checked_in_at || $attendee->qr_status === 'used') {
-            DB::table('checkin_logs')->insert([
-                'attendee_id' => $attendee->id,
-                'event_id' => $attendee->event_id,
-                'scanned_by_user_id' => $request->user()->id,
-                'scan_result' => 'duplicate',
-                'scanned_at' => now(),
-                'notes' => $this->checkinNote('Already checked in', $source)
-            ]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Attendee already checked in',
-                'details' => ['result' => 'duplicate', 'attendee' => $attendee]
-            ], 409);
-        }
-
-        if ($attendee->qr_status !== 'active') {
+        if ($attendee->qr_status === 'revoked') {
             DB::table('checkin_logs')->insert([
                 'attendee_id' => $attendee->id,
                 'event_id' => $attendee->event_id,
@@ -261,46 +265,88 @@ class AttendeeController extends Controller
             ], 409);
         }
 
-        $checkedIn = DB::transaction(function () use ($attendee, $request, $source) {
-            $updated = DB::table('attendees')
-                ->where('id', $attendee->id)
-                ->whereNull('checked_in_at')
-                ->where('qr_status', 'active')
-                ->update([
-                'checked_in_at' => now(),
-                'qr_status' => 'used'
+        $checkinDate = now()->toDateString();
+
+        if (DB::table('attendee_daily_checkins')
+            ->where('attendee_id', $attendee->id)
+            ->where('event_id', $attendee->event_id)
+            ->where('checkin_date', $checkinDate)
+            ->exists()
+        ) {
+            DB::table('checkin_logs')->insert([
+                'attendee_id' => $attendee->id,
+                'event_id' => $attendee->event_id,
+                'scanned_by_user_id' => $request->user()->id,
+                'scan_result' => 'duplicate',
+                'scanned_at' => now(),
+                'notes' => $this->checkinNote('Already checked in today', $source)
             ]);
 
-            if (!$updated) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Attendee already checked in today',
+                'details' => ['result' => 'duplicate', 'attendee' => $attendee, 'checkinDate' => $checkinDate]
+            ], 409);
+        }
+
+        $checkedIn = DB::transaction(function () use ($attendee, $request, $source, $checkinDate) {
+            $now = now();
+            $insertedDaily = DB::table('attendee_daily_checkins')->insertOrIgnore([
+                'attendee_id' => $attendee->id,
+                'event_id' => $attendee->event_id,
+                'checkin_date' => $checkinDate,
+                'first_checked_in_at' => $now,
+                'last_checked_in_at' => $now,
+                'first_scanned_by_user_id' => $request->user()->id,
+                'last_scanned_by_user_id' => $request->user()->id,
+                'first_source' => $source,
+                'last_source' => $source,
+                'checkin_count' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            if (!$insertedDaily) {
                 DB::table('checkin_logs')->insert([
                     'attendee_id' => $attendee->id,
                     'event_id' => $attendee->event_id,
                     'scanned_by_user_id' => $request->user()->id,
                     'scan_result' => 'duplicate',
-                    'scanned_at' => now(),
-                    'notes' => $this->checkinNote('Already checked in', $source)
+                    'scanned_at' => $now,
+                    'notes' => $this->checkinNote('Already checked in today', $source)
                 ]);
                 return null;
             }
+
+            DB::table('attendees')
+                ->where('id', $attendee->id)
+                ->whereNull('checked_in_at')
+                ->update(['checked_in_at' => $now]);
 
             DB::table('checkin_logs')->insert([
                 'attendee_id' => $attendee->id,
                 'event_id' => $attendee->event_id,
                 'scanned_by_user_id' => $request->user()->id,
-                'scanned_at' => now(),
+                'scanned_at' => $now,
                 'scan_result' => 'accepted',
                 'notes' => $this->checkinNote(null, $source)
             ]);
 
-            return DB::table('attendees')->where('id', $attendee->id)->first(['id', 'attendee_number', 'full_name', 'email', 'checked_in_at']);
+            $fresh = DB::table('attendees')->where('id', $attendee->id)->first(['id', 'attendee_number', 'full_name', 'email', 'checked_in_at', 'qr_status']);
+            $fresh->checkin_date = $checkinDate;
+            $fresh->days_attended = DB::table('attendee_daily_checkins')
+                ->where('attendee_id', $attendee->id)
+                ->where('event_id', $attendee->event_id)
+                ->count();
+            return $fresh;
         });
 
         if (!$checkedIn) {
             $duplicate = DB::table('attendees')->where('id', $attendee->id)->first(['id', 'event_id', 'full_name', 'qr_status', 'checked_in_at']);
             return response()->json([
                 'success' => false,
-                'message' => 'Attendee already checked in',
-                'details' => ['result' => 'duplicate', 'attendee' => $duplicate]
+                'message' => 'Attendee already checked in today',
+                'details' => ['result' => 'duplicate', 'attendee' => $duplicate, 'checkinDate' => $checkinDate]
             ], 409);
         }
 
@@ -338,6 +384,16 @@ class AttendeeController extends Controller
             ->leftJoin('events as e', 'e.id', '=', 'cl.event_id')
             ->leftJoin('ticket_types as tt', 'tt.id', '=', 'a.ticket_type_id')
             ->leftJoin('users as u', 'u.id', '=', 'cl.scanned_by_user_id')
+            ->leftJoinSub(
+                DB::table('attendee_daily_checkins')
+                    ->select('attendee_id', 'event_id', DB::raw('COUNT(*) as days_attended'))
+                    ->groupBy('attendee_id', 'event_id'),
+                'daily',
+                function ($join) {
+                    $join->on('daily.attendee_id', '=', 'cl.attendee_id')
+                        ->on('daily.event_id', '=', 'cl.event_id');
+                }
+            )
             ->select([
                 'cl.id',
                 'cl.attendee_id',
@@ -355,6 +411,7 @@ class AttendeeController extends Controller
                 'tt.name_en as ticket_name_en',
                 'tt.name_ar as ticket_name_ar',
                 'u.name as scanned_by_name',
+                DB::raw('COALESCE(daily.days_attended, 0) as days_attended'),
             ]);
 
         if ($eventId) {
@@ -441,9 +498,9 @@ class AttendeeController extends Controller
                 $updates['checked_in_at'] = null;
                 $updates['qr_status'] = 'active';
             } elseif ($status === 'checked_in') {
-                // Allow manual mark as checked-in even if QR was revoked: reactivate then use.
+                // Keep QR active for multi-day events; checked_in_at only records first attendance.
                 $updates['checked_in_at'] = $attendee->checked_in_at ?? now();
-                $updates['qr_status'] = 'used';
+                $updates['qr_status'] = 'active';
             } elseif ($status === 'cancelled') {
                 $updates['qr_status'] = 'revoked';
             }

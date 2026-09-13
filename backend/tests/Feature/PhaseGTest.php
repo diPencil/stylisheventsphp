@@ -582,6 +582,20 @@ class PhaseGTest extends TestCase
                 'notes' => "source:scan",
             ],
         ]);
+        DB::table('attendee_daily_checkins')->insert([
+            'attendee_id' => $checkedAttendeeId,
+            'event_id' => $eventId,
+            'checkin_date' => now()->toDateString(),
+            'first_checked_in_at' => now(),
+            'last_checked_in_at' => now(),
+            'first_scanned_by_user_id' => $this->admin->id,
+            'last_scanned_by_user_id' => $this->admin->id,
+            'first_source' => 'manual',
+            'last_source' => 'manual',
+            'checkin_count' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         $response = $this->actingAs($this->admin, 'api')
             ->getJson('/api/reports/attendance?date=' . now()->toDateString());
@@ -592,6 +606,7 @@ class PhaseGTest extends TestCase
         $this->assertSame(2, (int) $row['total_attendees']);
         $this->assertSame(1, (int) $row['total_checked_in']);
         $this->assertSame(1, (int) $row['range_checked_in']);
+        $this->assertSame(1, (int) $row['attendance_days']);
         $this->assertSame(1, (int) $row['accepted_scans']);
         $this->assertSame(0, (int) $row['duplicate_scans']);
         $this->assertSame(1, (int) $row['manual_scans']);
