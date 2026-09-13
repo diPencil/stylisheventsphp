@@ -33,6 +33,7 @@ export function PublicPageHero({
   backgroundPosition = "center",
   imageAlt,
   compactMobile = false,
+  hideDescription = false,
 }: {
   title: string
   description: string
@@ -40,6 +41,7 @@ export function PublicPageHero({
   backgroundPosition?: string
   imageAlt?: string
   compactMobile?: boolean
+  hideDescription?: boolean
 }) {
   const { isRtl } = useLanguage()
   const resolvedImage =
@@ -66,9 +68,11 @@ export function PublicPageHero({
         <h1 className="mb-3 md:mb-4 max-w-[16rem] sm:max-w-xl md:max-w-3xl text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-white text-balance drop-shadow-lg">
           {title}
         </h1>
-        <p className="mx-auto max-w-[20rem] sm:max-w-2xl px-2 text-sm sm:text-base md:text-xl font-medium leading-relaxed text-slate-100 drop-shadow-md">
-          {description}
-        </p>
+        {hideDescription ? null : (
+          <p className="mx-auto max-w-[20rem] sm:max-w-2xl px-2 text-sm sm:text-base md:text-xl font-medium leading-relaxed text-slate-100 drop-shadow-md">
+            {description}
+          </p>
+        )}
       </div>
     </section>
   )
@@ -213,7 +217,7 @@ export function EventCard({ event, previous = false }: { event: any; previous?: 
         </div>
       </div>
       <div className="space-y-4 md:space-y-5 p-4 md:p-6">
-        <p className="text-sm font-medium leading-7 text-slate-600 line-clamp-2 md:line-clamp-none">{isRtl ? event.summaryAr || event.outcomeAr : event.summaryEn || event.outcomeEn}</p>
+        <p className="text-sm font-medium leading-7 text-slate-600 line-clamp-2">{isRtl ? event.summaryAr || event.outcomeAr : event.summaryEn || event.outcomeEn}</p>
         <div className="flex flex-wrap gap-2 md:grid md:gap-3 md:grid-cols-3">
           <MiniMeta icon={MapPin} label={isRtl ? event.cityAr : event.cityEn} />
           <MiniMeta icon={previous ? Star : Users} label={previous ? event.satisfaction : event.seats} />
