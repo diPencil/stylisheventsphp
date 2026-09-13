@@ -46,7 +46,7 @@ class AuthController extends Controller
     {
         $user = Auth::guard('api')->user();
         DB::table('audit_logs')->insert([
-            'user_id' => $user ? $user->id : null,
+            'user_id' => $user ? $user->id : ($entityType === 'user' ? $entityId : null),
             'action' => $action,
             'entity_type' => $entityType,
             'entity_id' => $entityId ? (string) $entityId : null,
