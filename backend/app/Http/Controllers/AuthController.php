@@ -56,6 +56,12 @@ class AuthController extends Controller
         ]);
     }
 
+    protected function emailVerificationEnabled(): bool
+    {
+        $settings = \App\Services\PlatformMailer::settings();
+        return ($settings['auth']['emailVerificationEnabled'] ?? true) !== false;
+    }
+
     public function login(Request $request)
     {
         $validated = $request->validate([
@@ -76,7 +82,7 @@ class AuthController extends Controller
             return ApiResponse::fail('Invalid credentials', 401);
         }
 
-        if (!$user->email_verified_at) {
+        if ($this->emailVerificationEnabled() && !$user->email_verified_at) {
             return ApiResponse::fail('Email verification required', 403, ['code' => 'verification_required']);
         }
 
@@ -213,6 +219,20 @@ class AuthController extends Controller
         Auth::guard('api')->setUser($user);
         $this->auditLog($request, 'auth.register', 'user', $user->id);
 
+        if (!$this->emailVerificationEnabled()) {
+            $user->email_verified_at = $user->email_verified_at ?: now();
+            $user->save();
+
+            $token = Auth::guard('api')->createToken($user);
+
+            return ApiResponse::ok([
+                'user' => $this->formatUser($user),
+                'token' => $token,
+                'needsVerification' => false,
+                'mailSent' => false,
+            ], 'Account created successfully');
+        }
+
         // New public signups must verify their email before they can log in.
         $mailSent = $this->issueVerificationCode($user);
 
@@ -296,6 +316,15 @@ class AuthController extends Controller
 
         $user = User::where('email', $validated['email'])->first();
         // Generic response to avoid email enumeration.
+        if (!$this->emailVerificationEnabled()) {
+            if ($user && !$user->email_verified_at) {
+                $user->email_verified_at = now();
+                $user->save();
+            }
+
+            return ApiResponse::ok(['requested' => true], 'Email verification is disabled.');
+        }
+
         if ($user && !$user->email_verified_at) {
             $recent = DB::table('email_verification_codes')
                 ->where('user_id', $user->id)

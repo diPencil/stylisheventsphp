@@ -260,6 +260,7 @@ class PlatformSettingsController extends Controller
             'incoming.username' => 'nullable|string|max:180',
             'incoming.password' => 'nullable|string|max:500',
             'incoming.folder' => 'nullable|string|max:120',
+            'auth.emailVerificationEnabled' => 'nullable|boolean',
         ]);
 
         $current = $this->readProjectSetting('email_settings', []);

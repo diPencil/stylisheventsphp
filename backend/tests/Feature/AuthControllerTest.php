@@ -9,6 +9,7 @@ use App\Models\Role;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class AuthControllerTest extends TestCase
 {
@@ -291,6 +292,43 @@ class AuthControllerTest extends TestCase
         // Login works after verification.
         $this->postJson('/api/auth/login', ['login' => $email, 'password' => 'password123'])
             ->assertStatus(200)->assertJsonStructure(['success', 'message', 'data' => ['user', 'token']]);
+    }
+
+    public function test_register_can_skip_email_verification_when_admin_setting_is_disabled()
+    {
+        Cache::forget('project_settings:email_settings');
+        DB::table('project_settings')->updateOrInsert(
+            ['setting_key' => 'email_settings'],
+            [
+                'setting_value' => json_encode(['auth' => ['emailVerificationEnabled' => false]]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+
+        $email = 'verify_disabled_' . uniqid() . '@example.com';
+        $response = $this->postJson('/api/auth/register', [
+            'name' => 'No Verify User',
+            'email' => $email,
+            'password' => 'password123',
+            'countryCode' => 'EG',
+            'countryName' => 'Egypt',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.needsVerification', false)
+            ->assertJsonPath('data.mailSent', false)
+            ->assertJsonStructure(['success', 'message', 'data' => ['user', 'token']]);
+
+        $userId = DB::table('users')->where('email', $email)->value('id');
+        $this->assertNotNull(DB::table('users')->where('id', $userId)->value('email_verified_at'));
+        $this->assertDatabaseMissing('email_verification_codes', ['user_id' => $userId]);
+
+        $this->postJson('/api/auth/login', ['login' => $email, 'password' => 'password123'])
+            ->assertStatus(200)
+            ->assertJsonStructure(['success', 'message', 'data' => ['user', 'token']]);
+
+        Cache::forget('project_settings:email_settings');
     }
 
     public function test_profile_email_change_rejects_taken_email()
