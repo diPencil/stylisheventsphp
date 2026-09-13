@@ -32,7 +32,7 @@ type CreateEventForm = {
   organizer: string
   city: string
   venue: string
-  location: string
+  googleMapsUrl: string
   capacity: string
   startsAt: string
   endsAt: string
@@ -48,9 +48,14 @@ type CreateEventForm = {
   specialtyIds: string[]
   summaryAr: string
   summaryEn: string
-  agenda: string
-  checkInNotes: string
-  terms: string
+  descriptionAr: string
+  descriptionEn: string
+  agendaAr: string
+  agendaEn: string
+  checkInNotesAr: string
+  checkInNotesEn: string
+  termsAr: string
+  termsEn: string
   heroImage: string
   detailsImage: string
   eventPdfUrl: string
@@ -67,10 +72,10 @@ const initialForm: CreateEventForm = {
   status: "draft",
   type: "conference",
   catalogIds: [],
-  organizer: "",
+  organizer: "Stylish Holidays",
   city: "",
   venue: "",
-  location: "",
+  googleMapsUrl: "",
   capacity: "",
   startsAt: "",
   endsAt: "",
@@ -86,9 +91,14 @@ const initialForm: CreateEventForm = {
   specialtyIds: [],
   summaryAr: "",
   summaryEn: "",
-  agenda: "",
-  checkInNotes: "",
-  terms: "",
+  descriptionAr: "",
+  descriptionEn: "",
+  agendaAr: "",
+  agendaEn: "",
+  checkInNotesAr: "",
+  checkInNotesEn: "",
+  termsAr: "",
+  termsEn: "",
   heroImage: "",
   detailsImage: "",
   eventPdfUrl: "",
@@ -128,7 +138,7 @@ export function EventCreatePage() {
   }
 
   const saveDraft = async () => {
-    if (!form.titleEn.trim() || !form.location.trim()) {
+    if (!form.titleEn.trim()) {
       toast.error(language === "ar" ? "بيانات الفعالية غير مكتملة" : "Missing event data", { description: language === "ar" ? "العنوان العربي والإنجليزي والرابط وتاريخ البداية والنهاية مطلوبة." : "Arabic title, English title, slug, start date, and end date are required." })
       return
     }
@@ -140,8 +150,14 @@ export function EventCreatePage() {
         titleEn: form.titleEn.trim(),
         summaryAr: form.summaryAr || null,
         summaryEn: form.summaryEn || null,
-        descriptionAr: [form.summaryAr, form.agenda, form.checkInNotes, form.terms].filter(Boolean).join("\n\n") || null,
-        descriptionEn: [form.summaryEn, form.agenda, form.checkInNotes, form.terms].filter(Boolean).join("\n\n") || null,
+        descriptionAr: form.descriptionAr || null,
+        descriptionEn: form.descriptionEn || null,
+        agendaAr: form.agendaAr || null,
+        agendaEn: form.agendaEn || null,
+        checkInNotesAr: form.checkInNotesAr || null,
+        checkInNotesEn: form.checkInNotesEn || null,
+        termsAr: form.termsAr || null,
+        termsEn: form.termsEn || null,
         type: form.type.toLowerCase(),
         status: form.status,
         startsAt: form.startsAt || null,
@@ -161,9 +177,15 @@ export function EventCreatePage() {
         eventDetailsImageUrl: form.detailsImage || null,
         eventPdfUrl: form.eventPdfUrl || null,
         gallery: gallery,
-        googleMapsUrl: form.location || null,
+        googleMapsUrl: form.googleMapsUrl || null,
         venueId: null,
         organizerId: null,
+        organizerName: form.organizer.trim() || null,
+        cityName: form.city.trim() || null,
+        venueName: form.venue.trim() || null,
+        seoTitle: form.seoTitle.trim() || null,
+        seoDescription: form.seoDescription.trim() || null,
+        seoKeywords: form.seoKeywords.trim() || null,
         targetAllSpecialties: form.targetAllSpecialties,
         specialtyIds: form.targetAllSpecialties ? [] : form.specialtyIds.map(Number),
         catalogIds: form.catalogIds.map(Number),
@@ -205,29 +227,31 @@ export function EventCreatePage() {
         <div className="space-y-5">
           <FormPanel icon={FileText} title="Event Identity" description="Arabic and English naming, slug, organizer, type, and publish state.">
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Arabic title" value={form.titleAr} onChange={(value) => setField("titleAr", value)} />
-              <Field label="English title" value={form.titleEn} onChange={(value) => setField("titleEn", value)} />
-              <Field label="Slug" value={form.slug} onChange={(value) => setField("slug", value)} />
-
-              <div className="space-y-2">
-                <Label className="text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">Display Page</Label>
-                <Select value={form.status} onValueChange={(value) => setField("status", value as any)}>
-                  <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-slate-50 font-bold">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft (Hidden)</SelectItem>
-                    <SelectItem value="published">{language === "ar" ? "منشور (القادم / السابق تلقائيًا حسب تاريخ النهاية)" : "Published (auto Upcoming / Previous by end date)"}</SelectItem>
-                    <SelectItem value="disabled">Disabled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
+              <Field label="Arabic title" value={form.titleAr} dir="rtl" onChange={(value) => setField("titleAr", value)} />
+              <Field label="English title" value={form.titleEn} dir="ltr" onChange={(value) => setField("titleEn", value)} />
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <Field label="Slug" value={form.slug} dir="ltr" onChange={(value) => setField("slug", value)} />
               <SelectField label="Type" value={form.type} onChange={(value) => setField("type", value)} options={["conference", "exhibition", "forum", "workshop", "festival", "webinar", "other"]} />
-              <div className="md:col-span-2">
-                <CatalogSelect selectedIds={form.catalogIds} onChange={(catalogIds) => setField("catalogIds", catalogIds)} />
+              <Field label="Max attendees" value={form.capacity} onChange={(value) => setField("capacity", value)} type="number" />
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <CatalogSelect selectedIds={form.catalogIds} onChange={(catalogIds) => setField("catalogIds", catalogIds)} compact />
+              <div className="space-y-4">
+                <Field label="Organizer" value={form.organizer} onChange={(value) => setField("organizer", value)} />
+                <div>
+                  <Select value={form.status} onValueChange={(value) => setField("status", value as any)}>
+                    <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-slate-50 font-bold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft (Hidden)</SelectItem>
+                      <SelectItem value="published">{language === "ar" ? "منشور (القادم / السابق تلقائيًا حسب تاريخ النهاية)" : "Published (auto Upcoming / Previous by end date)"}</SelectItem>
+                      <SelectItem value="disabled">Disabled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <Field label="Organizer" value={form.organizer} onChange={(value) => setField("organizer", value)} className="md:col-span-2" />
             </div>
           </FormPanel>
 
@@ -258,8 +282,6 @@ export function EventCreatePage() {
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="City" value={form.city} onChange={(value) => setField("city", value)} />
               <Field label="Venue" value={form.venue} onChange={(value) => setField("venue", value)} />
-              <Field label="Full location" value={form.location} onChange={(value) => setField("location", value)} className="md:col-span-2" />
-              <Field label="Available seats" value={form.capacity} onChange={(value) => setField("capacity", value)} type="number" />
             </div>
           </FormPanel>
 
@@ -331,11 +353,17 @@ export function EventCreatePage() {
 
           <FormPanel icon={Settings2} title="Content & Operations" description="Public descriptions plus internal notes for support, check-in, and attendee rules.">
             <div className="grid gap-4 md:grid-cols-2">
-              <TextAreaField label="Arabic summary" value={form.summaryAr} onChange={(value) => setField("summaryAr", value)} />
-              <TextAreaField label="English summary" value={form.summaryEn} onChange={(value) => setField("summaryEn", value)} />
-              <TextAreaField label="Agenda" value={form.agenda} onChange={(value) => setField("agenda", value)} />
-              <TextAreaField label="Check-in notes" value={form.checkInNotes} onChange={(value) => setField("checkInNotes", value)} />
-              <TextAreaField label="Ticket terms" value={form.terms} onChange={(value) => setField("terms", value)} />
+              <TextAreaField label="Arabic summary" value={form.summaryAr} dir="rtl" onChange={(value) => setField("summaryAr", value)} />
+              <TextAreaField label="English summary" value={form.summaryEn} dir="ltr" onChange={(value) => setField("summaryEn", value)} />
+              <TextAreaField label="Arabic description" value={form.descriptionAr} dir="rtl" onChange={(value) => setField("descriptionAr", value)} />
+              <TextAreaField label="English description" value={form.descriptionEn} dir="ltr" onChange={(value) => setField("descriptionEn", value)} />
+              <Field label="Google maps URL" value={form.googleMapsUrl} dir="ltr" onChange={(value) => setField("googleMapsUrl", value)} className="md:col-span-2" />
+              <TextAreaField label="Arabic agenda" value={form.agendaAr} dir="rtl" onChange={(value) => setField("agendaAr", value)} />
+              <TextAreaField label="English agenda" value={form.agendaEn} dir="ltr" onChange={(value) => setField("agendaEn", value)} />
+              <TextAreaField label="Arabic check-in notes" value={form.checkInNotesAr} dir="rtl" onChange={(value) => setField("checkInNotesAr", value)} />
+              <TextAreaField label="English check-in notes" value={form.checkInNotesEn} dir="ltr" onChange={(value) => setField("checkInNotesEn", value)} />
+              <TextAreaField label="Arabic ticket terms" value={form.termsAr} dir="rtl" onChange={(value) => setField("termsAr", value)} />
+              <TextAreaField label="English ticket terms" value={form.termsEn} dir="ltr" onChange={(value) => setField("termsEn", value)} />
             </div>
           </FormPanel>
 
@@ -398,20 +426,32 @@ function FormPanel({ icon: Icon, title, description, children }: { icon: LucideI
   )
 }
 
-function Field({ label, value, onChange, type = "text", className, disabled }: { label: string; value: string; onChange: (value: string) => void; type?: string; className?: string; disabled?: boolean }) {
+function Field({ label, value, onChange, type = "text", className, disabled, dir }: { label: string; value: string; onChange: (value: string) => void; type?: string; className?: string; disabled?: boolean; dir?: "ltr" | "rtl" }) {
   return (
     <div className={cn("space-y-2", className)}>
       <Label className="text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">{label}</Label>
-      <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} className="h-11 rounded-2xl border-slate-200 bg-slate-50 font-bold disabled:opacity-70" />
+      <Input
+        type={type}
+        value={value}
+        dir={dir}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        className={cn("h-11 rounded-2xl border-slate-200 bg-slate-50 font-bold disabled:opacity-70", dir === "rtl" && "text-right")}
+      />
     </div>
   )
 }
 
-function TextAreaField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function TextAreaField({ label, value, onChange, dir }: { label: string; value: string; onChange: (value: string) => void; dir?: "ltr" | "rtl" }) {
   return (
-    <div className="space-y-2 md:col-span-2">
+    <div className="space-y-2">
       <Label className="text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">{label}</Label>
-      <Textarea value={value} onChange={(event) => onChange(event.target.value)} className="min-h-[112px] rounded-2xl border-slate-200 bg-slate-50 font-semibold leading-6" />
+      <Textarea
+        value={value}
+        dir={dir}
+        onChange={(event) => onChange(event.target.value)}
+        className={cn("min-h-[112px] rounded-2xl border-slate-200 bg-slate-50 font-semibold leading-6", dir === "rtl" && "text-right")}
+      />
     </div>
   )
 }

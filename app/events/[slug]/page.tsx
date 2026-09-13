@@ -86,6 +86,13 @@ export default function PublicEventPage() {
   const registrationAuthLoading = canRegister && isLoginRequired && authSession.status === "loading"
   const registrationNeedsLogin = canRegister && isLoginRequired && authSession.status === "guest"
   const registerHref = registrationNeedsLogin ? `/login?next=${encodeURIComponent(`/events/${event.slug}/register`)}` : `/events/${event.slug}/register`
+  const customLocation = [event.custom_venue_name, event.city_name].filter(Boolean).join(", ")
+  const locationLabel = customLocation || (isRtl ? event.venue_name_ar || event.venue_city_ar : event.venue_name_en || event.venue_city_en) || "Online"
+  const contentSections = [
+    { title: isRtl ? "جدول الفعالية" : "Agenda", body: isRtl ? event.agenda_ar : event.agenda_en },
+    { title: isRtl ? "ملاحظات تسجيل الحضور" : "Check-in notes", body: isRtl ? event.checkin_notes_ar : event.checkin_notes_en },
+    { title: isRtl ? "شروط التذاكر" : "Ticket terms", body: isRtl ? event.ticket_terms_ar : event.ticket_terms_en },
+  ].filter((section) => String(section.body || "").trim())
   const registerLabel = !canRegister
     ? (isRtl ? "التسجيل غير متاح" : "Registration unavailable")
     : registrationAuthLoading
@@ -136,10 +143,24 @@ export default function PublicEventPage() {
               ) : null}
             </div>
 
+            {contentSections.length ? (
+              <div className="grid gap-4 md:grid-cols-3">
+                {contentSections.map((section) => (
+                  <div key={section.title} className="rounded-[24px] bg-white p-5 shadow-[0_18px_55px_rgba(15,23,42,0.07)]">
+                    <h3 className="text-lg font-black text-slate-950">{section.title}</h3>
+                    <p className="mt-3 whitespace-pre-line text-sm font-semibold leading-7 text-slate-600">{section.body}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-3">
               <Info icon={CalendarDays} label={isRtl ? "الموعد" : "Date"} value={formatDate(event.starts_at, locale)} />
-              <Info icon={MapPin} label={isRtl ? "المكان" : "Location"} value={isRtl ? event.venue_name_ar || event.venue_city_ar || "Online" : event.venue_name_en || event.venue_city_en || "Online"} />
-              <Info icon={Users} label={isRtl ? "السعة" : "Capacity"} value={event.max_attendees ? Number(event.max_attendees).toLocaleString(locale) : (isRtl ? "حسب التوفر" : "Subject to availability")} className="col-span-2 md:col-span-1" />
+              <Info icon={MapPin} label={isRtl ? "المكان" : "Location"} value={locationLabel} />
+              <Info icon={Users} label={isRtl ? "السعة" : "Capacity"} value={event.max_attendees ? Number(event.max_attendees).toLocaleString(locale) : (isRtl ? "حسب التوفر" : "Subject to availability")} />
+              {event.organizer_name ? (
+                <Info icon={Users} label={isRtl ? "المنظم" : "Organizer"} value={event.organizer_name} className="col-span-2 md:col-span-3" />
+              ) : null}
             </div>
 
             {data.sessions?.length ? (
