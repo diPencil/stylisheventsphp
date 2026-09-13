@@ -51,6 +51,41 @@ class RegistrationController extends Controller
                str_contains($normalized, 'مصري');
     }
 
+    private function currencyRates(): array
+    {
+        $defaults = ['USD' => 1.0, 'EGP' => 48.25];
+        try {
+            $row = DB::table('project_settings')->where('setting_key', 'currency')->first();
+            if ($row && !empty($row->setting_value)) {
+                $decoded = json_decode((string) $row->setting_value, true);
+                $rates = is_array($decoded) ? ($decoded['rates'] ?? null) : null;
+                if (is_array($rates)) {
+                    foreach ($rates as $rate) {
+                        $code = strtoupper(trim((string) ($rate['code'] ?? '')));
+                        $value = (float) ($rate['rate'] ?? 0);
+                        if ($code !== '' && $value > 0) $defaults[$code] = $value;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fall back to built-in defaults.
+        }
+        return $defaults;
+    }
+
+    private function convertPrice($amount, $fromCurrency, $toCurrency): float
+    {
+        $from = strtoupper(trim((string) $fromCurrency)) ?: 'USD';
+        $to = strtoupper(trim((string) $toCurrency)) ?: 'USD';
+        $amount = (float) $amount;
+        if ($from === $to) return round($amount, 2);
+        $rates = $this->currencyRates();
+        $fromRate = $rates[$from] ?? null;
+        $toRate = $rates[$to] ?? null;
+        if (!$fromRate || !$toRate) return round($amount, 2);
+        return round(($amount / $fromRate) * $toRate, 2);
+    }
+
     private function currentPricePeriod($ticketTypeId, $currency)
     {
         $row = DB::table('ticket_price_periods')
@@ -63,9 +98,22 @@ class RegistrationController extends Controller
 
         if (!$row) return null;
 
-        $selectedPrice = $currency === 'EGP'
-            ? (float)($row->price_egp ?? $row->price)
-            : (float)($row->price_usd ?? $row->price);
+        $currency = strtoupper(trim((string) $currency)) ?: 'USD';
+        $periodCurrency = strtoupper(trim((string) ($row->currency ?? 'USD'))) ?: 'USD';
+        $basePrice = (float) ($row->price ?? 0);
+
+        // A stored price of 0/empty means "not priced in this currency" -> convert.
+        if ($currency === 'EGP') {
+            $stored = (float) ($row->price_egp ?? 0);
+            $selectedPrice = $stored > 0
+                ? $stored
+                : $this->convertPrice($basePrice > 0 ? $basePrice : (float) ($row->price_usd ?? 0), $periodCurrency, 'EGP');
+        } else {
+            $stored = (float) ($row->price_usd ?? 0);
+            $selectedPrice = $stored > 0
+                ? $stored
+                : $this->convertPrice($basePrice > 0 ? $basePrice : (float) ($row->price_egp ?? 0), $periodCurrency, 'USD');
+        }
 
         return array_merge((array)$row, [
             'selected_price' => $selectedPrice,

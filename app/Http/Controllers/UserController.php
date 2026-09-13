@@ -184,6 +184,8 @@ class UserController extends Controller
         $user->preferred_language = $validated['preferredLanguage'] ?? 'en';
         $user->avatar_url = $validated['avatarUrl'] ?? null;
         $user->notes = $validated['notes'] ?? null;
+        // Admin-created accounts are verified by the admin.
+        $user->email_verified_at = now();
         $user->save();
 
         if ($role->code === 'doctor') {
@@ -366,6 +368,10 @@ class UserController extends Controller
 
         if ($current->status !== 'active') {
             return ApiResponse::fail('Cannot impersonate inactive or blocked users', 400);
+        }
+
+        if (($current->role->code ?? null) === 'admin') {
+            return ApiResponse::fail('Admin accounts cannot be impersonated', 403);
         }
 
         $token = Auth::guard('api')->createToken($current);

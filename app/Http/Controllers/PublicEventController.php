@@ -311,7 +311,7 @@ class PublicEventController extends Controller
               tpp.price,
               tpp.price_egp,
               tpp.price_usd,
-              'EGP' AS currency,
+              COALESCE(tpp.currency, 'USD') AS currency,
               tpp.starts_at AS price_starts_at,
               tpp.ends_at AS price_ends_at
             FROM ticket_types tt

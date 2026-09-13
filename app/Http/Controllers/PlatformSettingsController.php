@@ -222,6 +222,192 @@ class PlatformSettingsController extends Controller
         ]);
     }
 
+    public function getEmail(Request $request)
+    {
+        $user = auth('api')->user();
+        if (!$user || !$user->hasPermission('settings.manage')) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'OK',
+            'data' => \App\Services\PlatformMailer::masked(),
+        ]);
+    }
+
+    public function updateEmail(Request $request)
+    {
+        $user = auth('api')->user();
+        if (!$user || !$user->hasPermission('settings.manage')) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        $validated = $request->validate([
+            'sender.fromName' => 'nullable|string|max:120',
+            'sender.fromEmail' => 'nullable|email|max:180',
+            'smtp.host' => 'nullable|string|max:180',
+            'smtp.port' => 'nullable|integer|min:1|max:65535',
+            'smtp.encryption' => 'nullable|in:SSL,TLS,STARTTLS,None,none,ssl,tls,starttls',
+            'smtp.username' => 'nullable|string|max:180',
+            'smtp.password' => 'nullable|string|max:500',
+            'smtp.timeout' => 'nullable|integer|min:5|max:120',
+            'smtp.auth' => 'nullable|boolean',
+            'incoming.protocol' => 'nullable|in:IMAP,POP3,imap,pop3',
+            'incoming.host' => 'nullable|string|max:180',
+            'incoming.port' => 'nullable|integer|min:1|max:65535',
+            'incoming.encryption' => 'nullable|in:SSL,TLS,STARTTLS,None,none,ssl,tls,starttls',
+            'incoming.username' => 'nullable|string|max:180',
+            'incoming.password' => 'nullable|string|max:500',
+            'incoming.folder' => 'nullable|string|max:120',
+        ]);
+
+        $current = $this->readProjectSetting('email_settings', []);
+        if (!is_array($current)) $current = [];
+        $merged = $this->mergeSettingPayload($current, $this->settingArray($validated));
+
+        // Passwords: blank means "keep existing" (they are never returned to the client).
+        // If neither the form nor the DB has a secret, drop the key so .env can fall through.
+        $currentSmtpPassword = $current['smtp']['password'] ?? '';
+        $currentIncomingPassword = $current['incoming']['password'] ?? '';
+        if (trim((string) ($validated['smtp']['password'] ?? '')) === '') {
+            if (trim((string) $currentSmtpPassword) !== '') {
+                $merged['smtp']['password'] = $currentSmtpPassword;
+            } else {
+                unset($merged['smtp']['password']);
+            }
+        }
+        if (trim((string) ($validated['incoming']['password'] ?? '')) === '') {
+            if (trim((string) $currentIncomingPassword) !== '') {
+                $merged['incoming']['password'] = $currentIncomingPassword;
+            } else {
+                unset($merged['incoming']['password']);
+            }
+        }
+
+        $this->writeProjectSetting('email_settings', $merged);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Email settings saved',
+            'data' => \App\Services\PlatformMailer::masked(),
+        ]);
+    }
+
+    public function testEmail(Request $request)
+    {
+        $user = auth('api')->user();
+        if (!$user || !$user->hasPermission('settings.manage')) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        $validated = $request->validate([
+            'to' => 'required|email|max:180',
+            'sender.fromName' => 'nullable|string|max:120',
+            'sender.fromEmail' => 'nullable|email|max:180',
+            'smtp.host' => 'nullable|string|max:180',
+            'smtp.port' => 'nullable|integer|min:1|max:65535',
+            'smtp.encryption' => 'nullable|string|max:20',
+            'smtp.username' => 'nullable|string|max:180',
+            'smtp.password' => 'nullable|string|max:500',
+            'smtp.timeout' => 'nullable|integer|min:5|max:120',
+            'smtp.auth' => 'nullable|boolean',
+        ]);
+
+        // Start from saved settings, overlay the (possibly unsaved) form values.
+        // Blank password fields keep the saved secret.
+        $saved = \App\Services\PlatformMailer::settings();
+        $effective = array_replace_recursive($saved, $this->settingArray($validated));
+        if (trim((string) ($validated['smtp']['password'] ?? '')) === '') {
+            $effective['smtp']['password'] = $saved['smtp']['password'] ?? '';
+        }
+        if (trim((string) ($validated['sender']['fromEmail'] ?? '')) === '') {
+            $effective['sender']['fromEmail'] = $saved['sender']['fromEmail'] ?? '';
+        }
+
+        if (!\App\Services\PlatformMailer::isSmtpConfigured($effective)) {
+            return response()->json(['success' => false, 'message' => 'SMTP host is not configured'], 400);
+        }
+
+        try {
+            \App\Services\PlatformMailer::sendTest($validated['to'], $effective);
+        } catch (\Throwable $error) {
+            report($error);
+            return response()->json([
+                'success' => false,
+                'message' => 'Test email failed: ' . $error->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Test email sent',
+            'data' => ['to' => $validated['to']],
+        ]);
+    }
+
+    public function testIncoming(Request $request)
+    {
+        $user = auth('api')->user();
+        if (!$user || !$user->hasPermission('settings.manage')) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        $validated = $request->validate([
+            'incoming.protocol' => 'nullable|string|max:10',
+            'incoming.host' => 'nullable|string|max:180',
+            'incoming.port' => 'nullable|integer|min:1|max:65535',
+            'incoming.encryption' => 'nullable|string|max:20',
+            'incoming.username' => 'nullable|string|max:180',
+            'incoming.password' => 'nullable|string|max:500',
+            'incoming.folder' => 'nullable|string|max:120',
+        ]);
+
+        $saved = \App\Services\PlatformMailer::settings();
+        $incoming = array_replace_recursive($saved['incoming'] ?? [], $this->settingArray($validated['incoming'] ?? []));
+        if (trim((string) ($validated['incoming']['password'] ?? '')) === '') {
+            $incoming['password'] = $saved['incoming']['password'] ?? '';
+        }
+
+        if (trim((string) ($incoming['host'] ?? '')) === '' || trim((string) ($incoming['username'] ?? '')) === '') {
+            return response()->json(['success' => false, 'message' => 'Incoming host and username are required'], 400);
+        }
+
+        if (!function_exists('imap_open')) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Incoming mailbox saved. Live IMAP check is unavailable on this server (php-imap missing), please verify credentials in your mail client.',
+                'data' => ['liveCheck' => false],
+            ]);
+        }
+
+        $protocol = strtoupper(trim((string) ($incoming['protocol'] ?? 'IMAP')));
+        $encryption = strtoupper(trim((string) ($incoming['encryption'] ?? 'SSL')));
+        $port = (int) ($incoming['port'] ?? ($protocol === 'POP3' ? 995 : 993));
+        $folder = trim((string) ($incoming['folder'] ?? 'INBOX')) ?: 'INBOX';
+        $flags = $protocol === 'POP3' ? '/pop3' : '';
+        if ($encryption === 'SSL') $flags .= '/ssl';
+        elseif (in_array($encryption, ['TLS', 'STARTTLS'], true)) $flags .= '/tls';
+        $mailbox = sprintf('{%s:%d%s}%s', $incoming['host'], $port, $flags, $folder);
+
+        try {
+            $connection = @imap_open($mailbox, (string) $incoming['username'], (string) ($incoming['password'] ?? ''), 0, 1, ['DISABLE_AUTHENTICATOR' => 'GSSAPI']);
+            if (!$connection) {
+                throw new \Exception(trim((string) imap_last_error()) ?: 'Could not connect to mailbox');
+            }
+            $count = imap_num_msg($connection);
+            imap_close($connection);
+        } catch (\Throwable $error) {
+            return response()->json(['success' => false, 'message' => 'Incoming mailbox check failed: ' . $error->getMessage()], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Incoming mailbox is reachable',
+            'data' => ['liveCheck' => true, 'messages' => (int) $count],
+        ]);
+    }
+
     public function getCardTemplate()
     {
         return response()->json([

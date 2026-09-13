@@ -34,6 +34,7 @@ class PhaseCWriteParityTest extends TestCase
             'email'      => 'phase-c-test-admin-' . uniqid() . '@test.local',
             'password_hash' => $hash,
             'status'     => 'active',
+            'email_verified_at' => now(),
             'gender'     => 'not_specified',
             'preferred_language' => 'en',
             'created_at' => now(),

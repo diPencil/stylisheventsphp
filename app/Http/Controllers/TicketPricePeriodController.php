@@ -47,6 +47,7 @@ class TicketPricePeriodController extends Controller
               price,
               price_egp,
               price_usd,
+              currency,
               starts_at,
               ends_at,
               is_active
@@ -68,6 +69,7 @@ class TicketPricePeriodController extends Controller
                 'price' => $r->price !== null ? number_format((float)$r->price, 2, '.', '') : null,
                 'price_egp' => $r->price_egp !== null ? number_format((float)$r->price_egp, 2, '.', '') : null,
                 'price_usd' => $r->price_usd !== null ? number_format((float)$r->price_usd, 2, '.', '') : null,
+                'currency' => $r->currency ?? 'USD',
                 'starts_at' => $formatDate($r->starts_at),
                 'ends_at' => $formatDate($r->ends_at),
                 'is_active' => (int)$r->is_active,
@@ -90,6 +92,7 @@ class TicketPricePeriodController extends Controller
             'price' => 'nullable|numeric|min:0',
             'priceEgp' => 'nullable|numeric|min:0',
             'priceUsd' => 'nullable|numeric|min:0',
+            'currency' => 'nullable|string|size:3',
             'startsAt' => 'required|string|min:1',
             'endsAt' => 'required|string|min:1',
             'isActive' => 'nullable|boolean'
@@ -116,12 +119,23 @@ class TicketPricePeriodController extends Controller
         }
 
         $basePrice = $validated['price'] ?? $validated['priceEgp'] ?? $validated['priceUsd'] ?? 0;
+        $currency = strtoupper(trim((string) ($validated['currency'] ?? ''))) ?: null;
+        if (!$currency) {
+            if (array_key_exists('priceEgp', $validated) && $validated['priceEgp'] !== null && $validated['priceEgp'] !== '') {
+                $currency = 'EGP';
+            } elseif (array_key_exists('priceUsd', $validated) && $validated['priceUsd'] !== null && $validated['priceUsd'] !== '') {
+                $currency = 'USD';
+            } else {
+                $currency = 'USD';
+            }
+        }
 
         $period = [
             'ticket_type_id' => $validated['ticketTypeId'],
             'label_en' => $validated['labelEn'],
             'label_ar' => $validated['labelAr'],
             'price' => $basePrice,
+            'currency' => $currency,
             'starts_at' => $validated['startsAt'],
             'ends_at' => $validated['endsAt'],
             'is_active' => $validated['isActive'] ?? true,
@@ -153,6 +167,7 @@ class TicketPricePeriodController extends Controller
             'price' => 'nullable|numeric|min:0',
             'priceEgp' => 'nullable|numeric|min:0',
             'priceUsd' => 'nullable|numeric|min:0',
+            'currency' => 'nullable|string|size:3',
             'startsAt' => 'required|string|min:1',
             'endsAt' => 'required|string|min:1',
             'isActive' => 'nullable|boolean'
@@ -181,12 +196,23 @@ class TicketPricePeriodController extends Controller
         }
 
         $basePrice = $validated['price'] ?? $validated['priceEgp'] ?? $validated['priceUsd'] ?? 0;
+        $currency = strtoupper(trim((string) ($validated['currency'] ?? ''))) ?: ($existing->currency ?? null);
+        if (!$currency) {
+            if (array_key_exists('priceEgp', $validated) && $validated['priceEgp'] !== null && $validated['priceEgp'] !== '') {
+                $currency = 'EGP';
+            } elseif (array_key_exists('priceUsd', $validated) && $validated['priceUsd'] !== null && $validated['priceUsd'] !== '') {
+                $currency = 'USD';
+            } else {
+                $currency = 'USD';
+            }
+        }
 
         $period = [
             'ticket_type_id' => $validated['ticketTypeId'],
             'label_en' => $validated['labelEn'],
             'label_ar' => $validated['labelAr'],
             'price' => $basePrice,
+            'currency' => $currency,
             'starts_at' => $validated['startsAt'],
             'ends_at' => $validated['endsAt'],
             'is_active' => $validated['isActive'] ?? true,
