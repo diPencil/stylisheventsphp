@@ -86,6 +86,24 @@ export function EmailSettingsPanel() {
     setSettings((current) => ({ ...current, incoming: { ...current.incoming, [key]: value } }))
   const setAuth = (key: keyof EmailSettings["auth"], value: boolean) =>
     setSettings((current) => ({ ...current, auth: { ...current.auth, [key]: value } }))
+  const saveAuthToggle = async (enabled: boolean) => {
+    const previous = settings.auth.emailVerificationEnabled
+    setAuth("emailVerificationEnabled", enabled)
+    try {
+      const saved = await platformApi.updateEmailSettings({
+        auth: { emailVerificationEnabled: enabled },
+      })
+      if (saved) setSettings(normalizeSettings(saved))
+      toast.success(isAr ? "تم تحديث تسجيل الحسابات" : "Account registration updated", {
+        description: enabled
+          ? (isAr ? "التحقق بالبريد مفعل الآن." : "Email verification is now required.")
+          : (isAr ? "الحسابات الجديدة ستدخل بدون كود بريد." : "New accounts can sign in without an email code."),
+      })
+    } catch (error) {
+      setAuth("emailVerificationEnabled", previous)
+      toast.error(isAr ? "فشل تحديث تسجيل الحسابات" : "Account registration update failed", { description: error instanceof Error ? error.message : "" })
+    }
+  }
 
   const payload = () => ({
     sender: { fromName: settings.sender.fromName.trim(), fromEmail: settings.sender.fromEmail.trim() },
@@ -195,7 +213,7 @@ export function EmailSettingsPanel() {
           <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
             <Checkbox
               checked={settings.auth.emailVerificationEnabled}
-              onCheckedChange={(checked) => setAuth("emailVerificationEnabled", Boolean(checked))}
+              onCheckedChange={(checked) => saveAuthToggle(checked === true)}
               className="mt-1"
             />
             <span className="grid gap-1">

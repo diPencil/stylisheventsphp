@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Mail\CertificateDeliveryMail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Cache;
 
 class PhaseGTest extends TestCase
 {
@@ -39,6 +40,10 @@ class PhaseGTest extends TestCase
         );
         DB::table('role_permissions')->updateOrInsert(
             ['role_id' => $roleIdAdmin, 'permission_key' => 'reports.view'],
+            ['allowed' => 1, 'created_at' => now(), 'updated_at' => now()]
+        );
+        DB::table('role_permissions')->updateOrInsert(
+            ['role_id' => $roleIdAdmin, 'permission_key' => 'settings.manage'],
             ['allowed' => 1, 'created_at' => now(), 'updated_at' => now()]
         );
 
@@ -163,6 +168,26 @@ class PhaseGTest extends TestCase
 
         $ref = $response->json('referenceNumber');
         $this->assertDatabaseHas('event_brief_requests', ['reference_number' => $ref]);
+    }
+
+    public function test_email_settings_can_disable_signup_verification()
+    {
+        Cache::forget('project_settings:email_settings');
+
+        $this->actingAs($this->admin, 'api')
+            ->putJson('/api/platform/settings/email', [
+                'auth' => ['emailVerificationEnabled' => false],
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.auth.emailVerificationEnabled', false);
+
+        $this->actingAs($this->admin, 'api')
+            ->getJson('/api/platform/settings/email')
+            ->assertStatus(200)
+            ->assertJsonPath('data.auth.emailVerificationEnabled', false);
+
+        $this->assertDatabaseHas('project_settings', ['setting_key' => 'email_settings']);
+        Cache::forget('project_settings:email_settings');
     }
 
     public function test_certificates_templates()
