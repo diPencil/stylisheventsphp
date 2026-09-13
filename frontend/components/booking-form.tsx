@@ -193,7 +193,7 @@ export function BookingForm({ requestSetupSettings }: { requestSetupSettings?: P
                 {isRtl ? content.eyebrowAr : content.eyebrowEn}
               </span>
             </div>
-            <h2 className="text-3xl md:text-4xl xl:text-5xl font-extrabold leading-tight mt-4 mb-6">
+            <h2 className="text-2xl md:text-3xl xl:text-4xl font-extrabold leading-tight mt-4 mb-6">
               {isRtl ? content.titleAr : content.titleEn}
             </h2>
             <p className="text-white/80 text-base leading-relaxed mb-10">

@@ -23,7 +23,7 @@ export function ConfigureAnalysis() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-      <h2 className="text-3xl font-bold mb-4 text-center">Configure Analysis Metrics</h2>
+      <h2 className="text-2xl font-bold mb-4 text-center">Configure Analysis Metrics</h2>
       <p className="text-muted-foreground mb-8 text-center">
         Select the metrics you want to track. Options may be pre-selected based on your chosen template. Adjust
         parameters as needed.

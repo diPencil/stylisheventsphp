@@ -119,7 +119,7 @@ export default function WaitTimeAnalysisPage() {
                 </Button>
               </Link>
               <div>
-                <h1 className="text-3xl font-bold">Wait Time Analysis</h1>
+                <h1 className="text-2xl font-bold">Wait Time Analysis</h1>
                 <p className="text-muted-foreground">Detailed analysis of customer wait times</p>
               </div>
             </div>

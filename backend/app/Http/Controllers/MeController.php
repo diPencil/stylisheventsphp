@@ -25,7 +25,6 @@ class MeController extends Controller
         if ($perPage < 1 || $perPage > 50) $perPage = 10;
 
         $userId = $request->user()->id;
-        $userEmail = strtolower(trim((string) $request->user()->email));
 
         $query = DB::table('registrations as r')
             ->leftJoin('doctors as d', 'd.id', '=', 'r.doctor_id')
@@ -39,12 +38,7 @@ class MeController extends Controller
             ->leftJoin('attendees as ra', 'ra.registration_id', '=', 'r.id')
             ->leftJoin('certificates as rc', 'rc.attendee_id', '=', 'ra.id')
             ->leftJoin('event_cards as ec', 'ec.attendee_id', '=', 'a.id')
-            ->where(function ($q) use ($userId, $userEmail) {
-                $q->where('d.user_id', $userId);
-                if ($userEmail !== '') {
-                    $q->orWhereRaw('LOWER(r.customer_email) = ?', [$userEmail]);
-                }
-            });
+            ->where('d.user_id', $userId);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -87,9 +81,29 @@ class MeController extends Controller
             $query->whereNotNull('ec.id');
         }
 
-        $total = $query->count();
+        // One registration can fan out to many joined rows (tickets, attendees,
+        // certificates, cards). Paginate distinct registration ids so rows and
+        // totals never duplicate.
+        $total = (clone $query)->distinct()->count('r.id');
 
-        $rows = $query->select([
+        $ids = (clone $query)->select('r.id')->distinct()
+            ->orderBy('r.created_at', 'desc')
+            ->orderBy('r.id', 'desc')
+            ->limit($perPage)
+            ->offset(($page - 1) * $perPage)
+            ->pluck('r.id')
+            ->all();
+
+        if (empty($ids)) {
+            return [
+                'rows' => collect(),
+                'total' => (int) $total,
+                'page' => $page,
+                'perPage' => $perPage
+            ];
+        }
+
+        $rows = $query->whereIn('r.id', $ids)->select([
                 'r.id',
                 'r.registration_number',
                 'r.registration_status',
@@ -151,8 +165,6 @@ class MeController extends Controller
             ])
             ->orderBy('r.created_at', 'desc')
             ->orderBy('r.id', 'desc')
-            ->limit($perPage)
-            ->offset(($page - 1) * $perPage)
             ->get();
 
         return [
@@ -184,10 +196,10 @@ class MeController extends Controller
             ->leftJoin('certificates as c', 'c.attendee_id', '=', 'a.id')
             ->where('d.user_id', $userId)
             ->selectRaw("
-                COUNT(*) as total_registrations,
-                SUM(CASE WHEN e.starts_at >= NOW() AND r.registration_status IN ('approved','pending_payment','pending_verification','pending_review') THEN 1 ELSE 0 END) as upcoming_registrations,
-                SUM(CASE WHEN gt.id IS NOT NULL AND COALESCE(a.qr_status, 'active') = 'active' THEN 1 ELSE 0 END) as active_tickets,
-                SUM(CASE WHEN c.id IS NOT NULL AND c.status = 'issued' THEN 1 ELSE 0 END) as available_certificates
+                COUNT(DISTINCT r.id) as total_registrations,
+                COUNT(DISTINCT CASE WHEN e.starts_at >= NOW() AND r.registration_status IN ('approved','pending_payment','pending_verification','pending_review') THEN r.id END) as upcoming_registrations,
+                COUNT(DISTINCT CASE WHEN gt.id IS NOT NULL AND COALESCE(a.qr_status, 'active') = 'active' THEN r.id END) as active_tickets,
+                COUNT(DISTINCT CASE WHEN c.id IS NOT NULL AND c.status = 'issued' THEN r.id END) as available_certificates
             ")
             ->first();
 
@@ -312,7 +324,6 @@ class MeController extends Controller
         }
 
         $userId = $request->user()->id;
-        $userEmail = strtolower(trim((string) $request->user()->email));
 
         $row = DB::table('registrations as r')
             ->leftJoin('doctors as d', 'd.id', '=', 'r.doctor_id')
@@ -327,12 +338,7 @@ class MeController extends Controller
             ->leftJoin('certificates as rc', 'rc.attendee_id', '=', 'ra.id')
             ->leftJoin('event_cards as ec', 'ec.attendee_id', '=', 'a.id')
             ->where('r.id', $id)
-            ->where(function ($q) use ($userId, $userEmail) {
-                $q->where('d.user_id', $userId);
-                if ($userEmail !== '') {
-                    $q->orWhereRaw('LOWER(r.customer_email) = ?', [$userEmail]);
-                }
-            })
+            ->where('d.user_id', $userId)
             ->select([
                 'r.id',
                 'r.registration_number',
@@ -387,6 +393,7 @@ class MeController extends Controller
                 'gt.pdf_url as ticket_pdf_url',
                 'a.qr_status',
                 'a.checked_in_at',
+                'c.id as certificate_id',
                 'c.certificate_number',
                 'c.status as certificate_status',
                 'c.file_url as certificate_file_url',
@@ -436,7 +443,6 @@ class MeController extends Controller
         }
 
         $userId = $request->user()->id;
-        $userEmail = strtolower(trim((string) $request->user()->email));
 
         $row = DB::table('generated_tickets as gt')
             ->leftJoin('registrations as r', 'r.id', '=', 'gt.registration_id')
@@ -447,13 +453,7 @@ class MeController extends Controller
             ->leftJoin('attendees as a', 'a.id', '=', 'gt.attendee_id')
             ->leftJoin('event_cards as ec', 'ec.attendee_id', '=', 'a.id')
             ->where('gt.id', $id)
-            ->where(function ($q) use ($userId, $userEmail) {
-                $q->where('d.user_id', $userId);
-                if ($userEmail !== '') {
-                    $q->orWhereRaw('LOWER(r.customer_email) = ?', [$userEmail])
-                        ->orWhereRaw('LOWER(a.email) = ?', [$userEmail]);
-                }
-            })
+            ->where('d.user_id', $userId)
             ->select([
                 'gt.id',
                 'gt.ticket_number',
@@ -512,7 +512,6 @@ class MeController extends Controller
         }
 
         $userId = $request->user()->id;
-        $userEmail = strtolower(trim((string) $request->user()->email));
 
         $row = DB::table('certificates as c')
             ->leftJoin('attendees as a', 'a.id', '=', 'c.attendee_id')
@@ -521,13 +520,8 @@ class MeController extends Controller
             ->leftJoin('doctors as d', 'd.id', '=', 'r.doctor_id')
             ->leftJoin('certificate_templates as ct', 'ct.event_id', '=', 'c.event_id')
             ->where('c.id', $id)
-            ->where(function ($q) use ($userId, $userEmail) {
-                $q->where('d.user_id', $userId);
-                if ($userEmail !== '') {
-                    $q->orWhereRaw('LOWER(a.email) = ?', [$userEmail])
-                        ->orWhereRaw('LOWER(r.customer_email) = ?', [$userEmail]);
-                }
-            })
+            ->where('c.status', 'issued')
+            ->where('d.user_id', $userId)
             ->select([
                 'c.id as certificate_id',
                 'c.certificate_number',
@@ -586,7 +580,6 @@ class MeController extends Controller
         }
 
         $userId = $request->user()->id;
-        $userEmail = strtolower(trim((string) $request->user()->email));
 
         $row = DB::table('event_cards as ec')
             ->leftJoin('attendees as a', 'a.id', '=', 'ec.attendee_id')
@@ -597,18 +590,13 @@ class MeController extends Controller
             ->leftJoin('ticket_types as tt', 'tt.id', '=', 'r.ticket_type_id')
             ->leftJoin('venues as v', 'v.id', '=', 'e.venue_id')
             ->where('ec.id', $id)
-            ->where(function ($q) use ($userId, $userEmail) {
-                $q->where('d.user_id', $userId);
-                if ($userEmail !== '') {
-                    $q->orWhereRaw('LOWER(a.email) = ?', [$userEmail])
-                        ->orWhereRaw('LOWER(r.customer_email) = ?', [$userEmail]);
-                }
-            })
+            ->where('d.user_id', $userId)
             ->select([
                 'ec.id as card_id',
                 'ec.card_number',
                 'ec.file_url as card_file_url',
                 'ec.created_at as card_sent_at',
+                DB::raw("(SELECT ct.field_positions_json FROM certificate_templates ct WHERE ct.event_id = e.id ORDER BY ct.is_default DESC, ct.updated_at DESC LIMIT 1) as template_fields_json"),
                 'gt.id as ticket_id',
                 'gt.ticket_number',
                 DB::raw('COALESCE(gt.qr_token, a.qr_token) as qr_token'),
@@ -655,7 +643,6 @@ class MeController extends Controller
         }
 
         $userId = $request->user()->id;
-        $userEmail = strtolower(trim((string) $request->user()->email));
 
         $row = DB::table('generated_tickets as gt')
             ->leftJoin('registrations as r', 'r.id', '=', 'gt.registration_id')
@@ -664,13 +651,7 @@ class MeController extends Controller
             ->leftJoin('ticket_types as tt', 'tt.id', '=', 'r.ticket_type_id')
             ->leftJoin('attendees as a', 'a.id', '=', 'gt.attendee_id')
             ->where('gt.id', $id)
-            ->where(function ($q) use ($userId, $userEmail) {
-                $q->where('d.user_id', $userId);
-                if ($userEmail !== '') {
-                    $q->orWhereRaw('LOWER(r.customer_email) = ?', [$userEmail])
-                        ->orWhereRaw('LOWER(a.email) = ?', [$userEmail]);
-                }
-            })
+            ->where('d.user_id', $userId)
             ->select([
                 'gt.id',
                 'gt.ticket_number',

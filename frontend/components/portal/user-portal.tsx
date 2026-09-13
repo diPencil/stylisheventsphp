@@ -424,14 +424,11 @@ export function UserPortal({ view, recordId }: { view: PortalView; recordId?: st
           <Button asChild variant="outline" className="mt-3 h-10 w-full rounded-2xl border-[hsl(var(--primary)/0.25)] font-extrabold text-[hsl(var(--primary))]">
             <Link href="/contact">{isRtl ? "تواصل معنا" : "Contact support"}</Link>
           </Button>
+          <Button variant="outline" className="mt-2 h-10 w-full rounded-2xl border-red-200 font-extrabold text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => { setDrawerOpen(false); clearSession(); router.replace("/login") }}>
+            <LogOut className="h-4 w-4" />
+            {isRtl ? "تسجيل الخروج" : "Logout"}
+          </Button>
         </div>
-        <Button asChild variant="ghost" className="h-11 w-full justify-start gap-2 rounded-2xl font-extrabold text-[#667792] hover:bg-white hover:text-[hsl(var(--primary))]">
-          <Link href="/"><ExternalLink className="h-4 w-4" />{isRtl ? "الموقع الرئيسي" : "Public site"}</Link>
-        </Button>
-        <Button variant="ghost" className="h-11 w-full justify-start gap-2 rounded-2xl font-extrabold text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => { clearSession(); router.replace("/login") }}>
-          <LogOut className="h-4 w-4" />
-          {isRtl ? "تسجيل الخروج" : "Logout"}
-        </Button>
       </div>
     </aside>
   )
@@ -518,7 +515,7 @@ function Overview({ user }: { user: any }) {
     <div className="space-y-5">
       <section className={cardClass("p-5 sm:p-6")}>
         <p className="text-sm font-extrabold text-[hsl(var(--primary))]">{isRtl ? "مرحبا بعودتك،" : "Welcome back,"}</p>
-        <h2 className="mt-1 text-2xl font-black text-[#17172f] sm:text-3xl">{displayName(user)}</h2>
+        <h2 className="mt-1 text-2xl font-black text-[#17172f] sm:text-2xl">{displayName(user)}</h2>
         <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#667792]">{isRtl ? "تابع تسجيلاتك وتذاكرك وشهاداتك من مساحة واحدة مرتبطة بمنصة Stylish Holidays." : "Track your registrations, tickets, and certificates from one space connected to Stylish Holidays."}</p>
       </section>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -594,58 +591,26 @@ function CustomerNextEventCard({ row, pending }: { row?: any; pending?: any }) {
   )
 }
 
-function NextEventCard({ row, pending }: { row?: any; pending?: any }) {
-  const { isRtl } = useLanguage()
-  const item = row || pending
-  const isPending = !row && Boolean(pending)
-  if (!item) {
-    return <EmptyState message={isRtl ? "لا يوجد حدث قادم بعد." : "No upcoming event yet."} />
-  }
-  const image = apiAssetUrl(item.cover_image_url)
-  return (
-    <section className={cardClass("overflow-hidden")}>
-      <div className="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
-        <div className="relative min-h-[260px] bg-[#17172f] p-6 text-white">
-          {image ? <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" /> : null}
-          <div className="relative z-10 flex min-h-[220px] flex-col justify-end">
-            <Badge className="mb-4 w-fit rounded-full bg-white/90 text-[hsl(var(--primary))] hover:bg-white/90">{isPending ? (isRtl ? "تسجيل قيد المراجعة" : "Under review") : (isRtl ? "الحدث القادم" : "Next Event")}</Badge>
-            <h3 className="max-w-3xl text-2xl font-black sm:text-3xl">{isRtl ? item.event_title_ar : item.event_title_en}</h3>
-            <p className="mt-3 text-sm font-bold text-white/80">{formatDate(item.starts_at)} · {formatTime(item.starts_at)}</p>
-          </div>
-        </div>
-        <div className="p-6">
-          {isPending ? <p className="mb-4 rounded-2xl bg-blue-50 p-4 text-sm font-black text-blue-700">{isRtl ? "تسجيلك قيد المراجعة" : "Your registration is under review"}</p> : null}
-          <div className="grid gap-3">
-            <DetailItem label={isRtl ? "الموقع" : "Location"} value={isRtl ? item.venue_name_ar || item.city_ar || "أونلاين" : item.venue_name_en || item.city_en || "Online"} />
-            <DetailItem label={isRtl ? "رقم التسجيل" : "Reference"} value={item.registration_number} ltr />
-            <DetailItem label={isRtl ? "حالة التسجيل" : "Registration status"} value={statusLabel(item.registration_status, isRtl)} />
-            <DetailItem label={isRtl ? "حالة التذكرة" : "Ticket status"} value={item.ticket_id ? statusLabel(item.qr_status || "active", isRtl) : (isRtl ? "غير متاحة بعد" : "Not available yet")} />
-          </div>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Button asChild className="h-11 rounded-2xl bg-[hsl(var(--primary))] font-black text-white"><Link href={`/dashboard/registrations/${item.id}`}>{isRtl ? "عرض التسجيل" : "View Registration"}</Link></Button>
-            {item.ticket_id ? <Button asChild variant="outline" className="h-11 rounded-2xl font-black"><Link href={`/dashboard/tickets/${item.ticket_id}`}>{isRtl ? "عرض التذكرة" : "View Ticket"}</Link></Button> : null}
-          </div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
 function RecordList({ kind }: { kind: "registrations" | "tickets" | "certificates" | "event-cards" }) {
   const { isRtl } = useLanguage()
   const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [status, setStatus] = useState("all")
   const [period, setPeriod] = useState("all")
   const [page, setPage] = useState(1)
   const [state, setState] = useState<any>({ loading: true, rows: [], pagination: { total: 0, page: 1, perPage: 10 } })
   const title = kind === "tickets" ? (isRtl ? "تذاكري" : "My Tickets") : kind === "certificates" ? (isRtl ? "شهاداتي" : "My Certificates") : kind === "event-cards" ? (isRtl ? "كروت الفعالية" : "Event Cards") : (isRtl ? "تسجيلاتي" : "My Registrations")
-  useEffect(() => { setPage(1) }, [search, status, period])
+  useEffect(() => { setPage(1) }, [debouncedSearch, status, period])
   useEffect(() => {
-    const params = { search, status: status === "all" ? "" : status, period, page, perPage: 10 }
+    const timer = setTimeout(() => setDebouncedSearch(search), 400)
+    return () => clearTimeout(timer)
+  }, [search])
+  useEffect(() => {
+    const params = { search: debouncedSearch, status: status === "all" ? "" : status, period, page, perPage: 10 }
     const loader = kind === "tickets" ? platformApi.listMyTickets(params) : kind === "certificates" ? platformApi.listMyCertificates(params) : kind === "event-cards" ? platformApi.listMyEventCards(params) : platformApi.listMyRegistrations(params)
     setState((current: any) => ({ ...current, loading: true }))
     loader.then((data: any) => setState({ loading: false, rows: data.data || [], pagination: data.pagination || {} })).catch((error: any) => setState({ loading: false, error, rows: [] }))
-  }, [kind, page, period, search, status])
+  }, [kind, page, period, debouncedSearch, status])
   return (
     <section className="space-y-4">
       <div className={cardClass("p-5")}>
@@ -653,7 +618,7 @@ function RecordList({ kind }: { kind: "registrations" | "tickets" | "certificate
           <div><h2 className="text-2xl font-black">{title}</h2><p className="text-sm font-bold text-slate-500">{isRtl ? "القوائم مفلترة من الخادم حسب حسابك." : "Lists are server-filtered to your account."}</p></div>
           <div className="grid gap-2 sm:grid-cols-3">
             <div className="relative"><Search className="absolute top-3 h-4 w-4 text-slate-400 ltr:left-3 rtl:right-3" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={isRtl ? "بحث..." : "Search..."} className="h-11 rounded-2xl border-slate-200 bg-[#f8f5fb] ltr:pl-9 rtl:pr-9" /></div>
-            <Select value={status} onValueChange={setStatus}><SelectTrigger className="h-11 rounded-2xl bg-[#f8f5fb]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{isRtl ? "كل الحالات" : "All statuses"}</SelectItem><SelectItem value="approved">{isRtl ? "معتمد" : "Approved"}</SelectItem><SelectItem value="pending_verification">{isRtl ? "قيد المراجعة" : "Pending review"}</SelectItem><SelectItem value="cancelled">{isRtl ? "ملغي" : "Cancelled"}</SelectItem></SelectContent></Select>
+            <Select value={status} onValueChange={setStatus}><SelectTrigger className="h-11 rounded-2xl bg-[#f8f5fb]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{isRtl ? "كل الحالات" : "All statuses"}</SelectItem><SelectItem value="approved">{isRtl ? "معتمد" : "Approved"}</SelectItem><SelectItem value="pending_payment">{isRtl ? "بانتظار الدفع" : "Pending payment"}</SelectItem><SelectItem value="pending_verification">{isRtl ? "قيد المراجعة" : "Pending review"}</SelectItem><SelectItem value="rejected">{isRtl ? "مرفوض" : "Rejected"}</SelectItem><SelectItem value="cancelled">{isRtl ? "ملغي" : "Cancelled"}</SelectItem></SelectContent></Select>
             {kind === "registrations" ? <Select value={period} onValueChange={setPeriod}><SelectTrigger className="h-11 rounded-2xl bg-[#f8f5fb]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{isRtl ? "كل المواعيد" : "All dates"}</SelectItem><SelectItem value="upcoming">{isRtl ? "القادمة" : "Upcoming"}</SelectItem><SelectItem value="past">{isRtl ? "السابقة" : "Past"}</SelectItem></SelectContent></Select> : null}
           </div>
         </div>
@@ -672,9 +637,31 @@ function RecordList({ kind }: { kind: "registrations" | "tickets" | "certificate
   )
 }
 
-function Records({ rows, empty }: { rows: any[]; empty: string }) {
+function Records({ rows, empty, kind }: { rows: any[]; empty: string; kind?: "records" | "reviews" }) {
   const { isRtl } = useLanguage()
   if (!rows.length) return <EmptyState message={empty} />
+  if (kind === "reviews") {
+    return (
+      <div className="grid gap-3">
+        {rows.map((row) => (
+          <article key={row.id} className="rounded-2xl border border-slate-100 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="truncate text-base font-black">{isRtl ? row.event_title_ar : row.event_title_en}</p>
+              <StatusBadge value={row.status} />
+            </div>
+            <div className="mt-2 flex gap-1" dir="ltr">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star key={star} className={cn("h-4 w-4", star <= Number(row.rating || 0) ? "fill-amber-400 text-amber-400" : "text-slate-200")} />
+              ))}
+            </div>
+            {row.title ? <p className="mt-2 text-sm font-black text-slate-900">{row.title}</p> : null}
+            {row.comment ? <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{row.comment}</p> : null}
+            <p className="mt-2 text-xs font-bold text-slate-400">{formatDate(row.created_at)}</p>
+          </article>
+        ))}
+      </div>
+    )
+  }
   return (
     <div className="grid gap-3">
       {rows.map((row) => (
@@ -714,7 +701,7 @@ function RichRegistrationDetail({ id }: { id: string }) {
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/25 to-transparent" />
           <div className="relative z-10 flex min-h-[230px] flex-col justify-end">
             <p className="text-sm font-black text-white/80" dir="ltr">{row.registration_number}</p>
-            <h2 className="mt-2 max-w-4xl text-3xl font-black">{title}</h2>
+            <h2 className="mt-2 max-w-4xl text-2xl font-black">{title}</h2>
             <p className="mt-3 text-sm font-bold text-white/85">{formatDate(row.starts_at)} · {formatTime(row.starts_at)} - {formatTime(row.ends_at)} · {eventLocation(row, isRtl)}</p>
           </div>
         </div>
@@ -733,6 +720,7 @@ function RichRegistrationDetail({ id }: { id: string }) {
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
             {row.ticket_id ? <Button asChild className="h-11 rounded-2xl bg-[hsl(var(--primary))] font-black text-white"><Link href={`/dashboard/tickets/${row.ticket_id}`}>{isRtl ? "عرض التذكرة" : "View Ticket"}</Link></Button> : null}
+            {row.certificate_id ? <Button asChild variant="outline" className="h-11 rounded-2xl border-[hsl(var(--primary))] font-black text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.05)]"><Link href={`/dashboard/certificates/${row.certificate_id}`}>{isRtl ? "عرض الشهادة" : "View Certificate"}</Link></Button> : null}
             {row.card_id ? <Button asChild variant="outline" className="h-11 rounded-2xl font-black"><Link href={`/dashboard/event-cards/${row.card_id}`}>{isRtl ? "عرض كارت الفعالية" : "View Event Card"}</Link></Button> : null}
             {row.google_maps_url ? <Button asChild variant="outline" className="h-11 rounded-2xl font-black"><Link href={row.google_maps_url} target="_blank">{isRtl ? "الموقع على الخريطة" : "Open map"}</Link></Button> : null}
           </div>
@@ -740,16 +728,6 @@ function RichRegistrationDetail({ id }: { id: string }) {
       </div>
     </section>
   )
-}
-
-function RegistrationDetail({ id }: { id: string }) {
-  const { isRtl } = useLanguage()
-  const [state, setState] = useState<any>({ loading: true })
-  useEffect(() => { if (id) platformApi.getMyRegistration(id).then((data) => setState({ loading: false, data })).catch((error) => setState({ loading: false, error })) }, [id])
-  if (!id || state.error) return <ErrorState />
-  if (state.loading) return <SkeletonGrid />
-  const row = state.data
-  return <DetailPage back="/dashboard/registrations" row={row} title={isRtl ? row.event_title_ar : row.event_title_en} reference={row.registration_number} />
 }
 
 function SecureTicketDetail({ id }: { id: string }) {
@@ -777,7 +755,7 @@ function SecureTicketDetail({ id }: { id: string }) {
           <div className="p-4">
             <StatusBadge value={row.checked_in_at ? "used" : row.qr_status || "active"} />
             <p className="mt-3 text-sm font-black" dir="ltr">{row.ticket_number}</p>
-            <Button className="mt-4 h-11 w-full rounded-2xl bg-[hsl(var(--primary))] font-black text-white" disabled={!qrReady || qrState.loading} onClick={async () => { setQrState({ open: true, loading: true }); try { const qr = await platformApi.getMyTicketQr(id); setQrState({ open: true, loading: false, data: qr }) } catch (error) { setQrState({ open: true, loading: false, error: error instanceof Error ? error.message : "QR unavailable" }) } }}>
+            <Button className="mt-4 h-11 w-full rounded-2xl bg-[hsl(var(--primary))] font-black text-white" disabled={qrState.loading} onClick={async () => { setQrState({ open: true, loading: true }); try { const qr = await platformApi.getMyTicketQr(id); setQrState({ open: true, loading: false, data: qr }) } catch (error) { setQrState({ open: true, loading: false, error: error instanceof Error ? error.message : "QR unavailable" }) } }}>
               <QrCode className="h-4 w-4" />
               {qrReady ? (isRtl ? "عرض رمز الدخول" : "Show Check-in QR") : (isRtl ? "QR متاح بعد الموافقة" : "QR available after approval")}
             </Button>
@@ -801,7 +779,9 @@ function QrOverlay({ qrState, onClose }: { qrState: any; onClose: () => void }) 
           <p className="text-sm font-black text-[hsl(var(--primary))]">{isRtl ? "رمز الدخول" : "Check-in QR"}</p>
           <Button variant="ghost" className="h-10 rounded-xl" onClick={onClose}>{isRtl ? "إغلاق" : "Close"}</Button>
         </div>
-        {qrState.loading ? <SkeletonGrid /> : qrState.error ? <ErrorState /> : (
+        {qrState.loading ? <SkeletonGrid /> : qrState.error ? <ErrorState /> : !data.qrPayload ? (
+          <div className="mt-4 rounded-2xl bg-amber-50 p-5 text-sm font-bold text-amber-700">{isRtl ? "رمز QR غير متاح بعد. تأكد من الموافقة على تسجيلك وإصدار التذكرة." : "QR code is not available yet. Make sure your registration is approved and your ticket is issued."}</div>
+        ) : (
           <div className="mt-4">
             <div className="mx-auto inline-block rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm" dir="ltr">
               <QRCodeSVG value={data.qrPayload || ""} size={260} level="H" />
@@ -820,32 +800,9 @@ function QrOverlay({ qrState, onClose }: { qrState: any; onClose: () => void }) 
   )
 }
 
-function TicketDetail({ id }: { id: string }) {
-  const { isRtl } = useLanguage()
-  const [state, setState] = useState<any>({ loading: true })
-  useEffect(() => { if (id) platformApi.getMyTicket(id).then((data) => setState({ loading: false, data })).catch((error) => setState({ loading: false, error })) }, [id])
-  if (!id || state.error) return <ErrorState />
-  if (state.loading) return <SkeletonGrid />
-  const row = state.data
-  return (
-    <section className="space-y-4">
-      <Button asChild variant="outline" className="h-10 rounded-2xl font-bold"><Link href="/dashboard/tickets">{isRtl ? "رجوع للتذاكر" : "Back to tickets"}</Link></Button>
-      <div className={cardClass("grid gap-4 p-5 lg:grid-cols-[280px_1fr]")}>
-        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5 text-center" dir="ltr">{row.qr_token ? <div className="inline-block rounded-2xl bg-white p-4 shadow-sm"><QRCodeSVG value={row.qr_token} size={180} level="H" /></div> : <EmptyState message={isRtl ? "رمز QR غير متاح بعد." : "QR code is not available yet."} />}<p className="mt-4 text-sm font-black text-slate-900">{row.ticket_number}</p><StatusBadge value={row.qr_status || "active"} /></div>
-        <TicketInfo row={row} />
-      </div>
-    </section>
-  )
-}
-
 function TicketInfo({ row }: { row: any }) {
   const { isRtl } = useLanguage()
   return <div><p className="text-sm font-black text-[hsl(var(--primary))]" dir="ltr">{row.registration_number}</p><h2 className="mt-2 text-xl font-black">{isRtl ? row.event_title_ar : row.event_title_en}</h2><div className="mt-6 grid gap-3 md:grid-cols-2"><DetailItem label={isRtl ? "حامل التذكرة" : "Ticket holder"} value={row.full_name} /><DetailItem label={isRtl ? "البريد الإلكتروني" : "Email"} value={row.email} ltr /><DetailItem label={isRtl ? "نوع التذكرة" : "Ticket type"} value={isRtl ? row.ticket_name_ar : row.ticket_name_en} /><DetailItem label={isRtl ? "تاريخ الفعالية" : "Event date"} value={formatDate(row.starts_at)} /></div><div className="mt-6 flex flex-wrap gap-3">{row.pdf_url ? <Button asChild className="h-11 rounded-xl bg-[hsl(var(--primary))] font-black"><Link href={apiAssetUrl(row.pdf_url)}>{isRtl ? "تحميل التذكرة" : "Download Ticket"}</Link></Button> : null}{row.card_id ? <Button asChild variant="outline" className="h-11 rounded-xl font-black"><Link href={`/dashboard/event-cards/${row.card_id}`}>{isRtl ? "كارت الفعالية" : "Event Card"}</Link></Button> : null}</div></div>
-}
-
-function DetailPage({ back, row, title, reference }: { back: string; row: any; title: string; reference?: string }) {
-  const { isRtl } = useLanguage()
-  return <section className="space-y-4"><Button asChild variant="outline" className="h-10 rounded-2xl font-bold"><Link href={back}>{isRtl ? "رجوع" : "Back"}</Link></Button><div className={cardClass("p-5")}><div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"><div><p className="text-sm font-black text-[hsl(var(--primary))]" dir="ltr">{reference}</p><h2 className="mt-2 text-xl font-black">{title}</h2><p className="mt-2 text-sm font-bold text-slate-500">{formatDate(row.starts_at)} · {isRtl ? row.venue_name_ar || row.city_ar : row.venue_name_en || row.city_en || "Online"}</p></div><StatusBadge value={row.registration_status} /></div><div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3"><DetailItem label={isRtl ? "حامل التسجيل" : "Registration holder"} value={row.full_name} /><DetailItem label={isRtl ? "البريد الإلكتروني" : "Email"} value={row.email} ltr /><DetailItem label={isRtl ? "نوع التذكرة" : "Ticket type"} value={isRtl ? row.ticket_name_ar : row.ticket_name_en} /><DetailItem label={isRtl ? "حالة الدفع" : "Payment status"} value={statusLabel(row.payment_status, isRtl)} /><DetailItem label={isRtl ? "المبلغ" : "Amount"} value={`${row.selected_currency || ""} ${Number(row.selected_price || 0).toLocaleString()}`} ltr /><DetailItem label={isRtl ? "تاريخ الإنشاء" : "Created"} value={formatDate(row.created_at)} /></div><div className="mt-6 flex flex-wrap gap-3">{row.ticket_id ? <Button asChild className="h-11 rounded-2xl bg-[hsl(var(--primary))] font-black text-white"><Link href={`/dashboard/tickets/${row.ticket_id}`}>{isRtl ? "عرض التذكرة" : "View Ticket"}</Link></Button> : null}</div></div></section>
 }
 
 function DetailItem({ label, value, ltr = false }: { label: string; value?: string | number | null; ltr?: boolean }) {
@@ -933,6 +890,16 @@ function ProfileWithPhoto({ user, onUserUpdate }: { user: any; onUserUpdate: (us
           <Field label={isRtl ? "الاسم الكامل" : "Full name"} value={form.name} onChange={(name) => setForm({ ...form, name })} />
           <div className="grid gap-2 text-sm font-extrabold text-slate-700">{isRtl ? "البريد الإلكتروني" : "Email"}<Input value={user?.email || ""} readOnly dir="ltr" className="h-11 rounded-2xl border-slate-200 bg-[#f8f5fb] text-slate-500" /><p className="text-xs font-bold text-slate-400">{isRtl ? "تغيير البريد يحتاج تواصل مع الدعم حاليا." : "Email changes currently require support verification."}</p></div>
           <Field label={isRtl ? "الهاتف" : "Phone"} value={form.phone} onChange={(phone) => setForm({ ...form, phone })} />
+          <label className="grid gap-2 text-sm font-extrabold text-slate-700">
+            {isRtl ? "اللغة" : "Language"}
+            <Select value={form.preferredLanguage} onValueChange={(preferredLanguage) => setForm({ ...form, preferredLanguage })}>
+              <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-[#f8f5fb]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">{isRtl ? "الإنجليزية" : "English"}</SelectItem>
+                <SelectItem value="ar">{isRtl ? "العربية" : "Arabic"}</SelectItem>
+              </SelectContent>
+            </Select>
+          </label>
           {isDoctor ? (
             <label className="grid gap-2 text-sm font-extrabold text-slate-700">
               {isRtl ? "التخصص" : "Specialty"}
@@ -967,20 +934,12 @@ function ProfileWithPhoto({ user, onUserUpdate }: { user: any; onUserUpdate: (us
   )
 }
 
-function Profile({ user, onUserUpdate }: { user: any; onUserUpdate: (user: any) => void }) {
-  const { isRtl } = useLanguage()
-  const [form, setForm] = useState({ name: displayName(user, ""), phone: user?.phone || "", preferredLanguage: user?.preferred_language || "en" })
-  const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState("")
-  return <section className={cardClass("p-5")}><h2 className="text-2xl font-black">{isRtl ? "الملف الشخصي" : "Profile"}</h2><div className="mt-5 grid gap-4 md:grid-cols-2"><Field label={isRtl ? "الاسم الكامل" : "Full name"} value={form.name} onChange={(name) => setForm({ ...form, name })} /><div className="grid gap-2 text-sm font-extrabold text-slate-700">{isRtl ? "البريد الإلكتروني" : "Email"}<Input value={user?.email || ""} readOnly dir="ltr" className="h-11 rounded-2xl border-slate-200 bg-[#f8f5fb] text-slate-500" /><p className="text-xs font-bold text-slate-400">{isRtl ? "تغيير البريد يحتاج تواصل مع الدعم حاليا." : "Email changes currently require support verification."}</p></div><Field label={isRtl ? "الهاتف" : "Phone"} value={form.phone} onChange={(phone) => setForm({ ...form, phone })} /></div>{message ? <p className="mt-4 text-sm font-bold text-slate-600">{message}</p> : null}<Button className="mt-5 h-11 rounded-2xl bg-[hsl(var(--primary))] font-black text-white" disabled={saving} onClick={async () => { setSaving(true); setMessage(""); try { const updated = await platformApi.updateMe(form); window.localStorage.setItem("stylish-holidays-admin-user", JSON.stringify(updated)); onUserUpdate((current: any) => ({ ...current, ...updated, customer_full_name: updated.customer_full_name || updated.name || current?.customer_full_name })); setMessage(isRtl ? "تم حفظ الملف الشخصي." : "Profile saved.") } catch (error) { setMessage(error instanceof Error ? error.message : "Save failed") } finally { setSaving(false) } }}>{saving ? (isRtl ? "جاري الحفظ..." : "Saving...") : (isRtl ? "حفظ" : "Save")}</Button></section>
-}
-
 function Security() {
   const { isRtl } = useLanguage()
   const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirm: "" })
   const [message, setMessage] = useState("")
   const [saving, setSaving] = useState(false)
-  return <section className={cardClass("p-5")}><h2 className="text-2xl font-black">{isRtl ? "الأمان" : "Security"}</h2><div className="mt-5 grid gap-4 md:grid-cols-2"><Field label={isRtl ? "كلمة المرور الحالية" : "Current password"} type="password" value={form.currentPassword} onChange={(currentPassword) => setForm({ ...form, currentPassword })} /><Field label={isRtl ? "كلمة المرور الجديدة" : "New password"} type="password" value={form.newPassword} onChange={(newPassword) => setForm({ ...form, newPassword })} /><Field label={isRtl ? "تأكيد كلمة المرور" : "Confirm password"} type="password" value={form.confirm} onChange={(confirm) => setForm({ ...form, confirm })} /></div>{message ? <p className="mt-4 text-sm font-bold text-slate-600">{message}</p> : null}<Button className="mt-5 h-11 rounded-2xl bg-[hsl(var(--primary))] font-black text-white" disabled={saving} onClick={async () => { if (form.newPassword !== form.confirm) return setMessage(isRtl ? "كلمة المرور غير متطابقة." : "Passwords do not match."); setSaving(true); try { await platformApi.updateMyPassword({ currentPassword: form.currentPassword, newPassword: form.newPassword }); setForm({ currentPassword: "", newPassword: "", confirm: "" }); setMessage(isRtl ? "تم تحديث كلمة المرور." : "Password updated.") } catch (error) { setMessage(error instanceof Error ? error.message : "Update failed") } finally { setSaving(false) } }}>{saving ? (isRtl ? "جاري التحديث..." : "Updating...") : (isRtl ? "تحديث كلمة المرور" : "Update password")}</Button></section>
+  return <section className={cardClass("p-5")}><h2 className="text-2xl font-black">{isRtl ? "الأمان" : "Security"}</h2><div className="mt-5 grid gap-4 md:grid-cols-2"><Field label={isRtl ? "كلمة المرور الحالية" : "Current password"} type="password" value={form.currentPassword} onChange={(currentPassword) => setForm({ ...form, currentPassword })} /><Field label={isRtl ? "كلمة المرور الجديدة" : "New password"} type="password" value={form.newPassword} onChange={(newPassword) => setForm({ ...form, newPassword })} /><Field label={isRtl ? "تأكيد كلمة المرور" : "Confirm password"} type="password" value={form.confirm} onChange={(confirm) => setForm({ ...form, confirm })} /></div>{message ? <p className="mt-4 text-sm font-bold text-slate-600">{message}</p> : null}<Button className="mt-5 h-11 rounded-2xl bg-[hsl(var(--primary))] font-black text-white" disabled={saving} onClick={async () => { if (form.newPassword !== form.confirm) return setMessage(isRtl ? "كلمة المرور غير متطابقة." : "Passwords do not match."); if (form.newPassword.length < 8) return setMessage(isRtl ? "كلمة المرور الجديدة قصيرة (الحد الأدنى 8 أحرف)." : "New password is too short (min 8 characters)."); setSaving(true); try { await platformApi.updateMyPassword({ currentPassword: form.currentPassword, newPassword: form.newPassword }); setForm({ currentPassword: "", newPassword: "", confirm: "" }); setMessage(isRtl ? "تم تحديث كلمة المرور." : "Password updated.") } catch (error) { setMessage(error instanceof Error ? error.message : "Update failed") } finally { setSaving(false) } }}>{saving ? (isRtl ? "جاري التحديث..." : "Updating...") : (isRtl ? "تحديث كلمة المرور" : "Update password")}</Button></section>
 }
 
 function Reviews() {
@@ -989,7 +948,7 @@ function Reviews() {
   useEffect(() => { platformApi.listMyReviews().then((data: any) => setState({ loading: false, rows: data.data || [] })).catch((error: any) => setState({ loading: false, error })) }, [])
   if (state.loading) return <SkeletonGrid />
   if (state.error) return <ErrorState />
-  return <Records rows={state.rows} empty={isRtl ? "لا توجد تقييمات مرتبطة بحسابك." : "No reviews linked to your account."} />
+  return <Records kind="reviews" rows={state.rows} empty={isRtl ? "لا توجد تقييمات مرتبطة بحسابك." : "No reviews linked to your account."} />
 }
 
 function Support() {

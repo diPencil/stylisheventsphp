@@ -171,7 +171,7 @@ export default function AdminOverviewPage() {
           <Badge className="mb-3 rounded-xl bg-[hsl(var(--primary))] px-3 py-1 text-white hover:bg-[hsl(var(--primary))]">
             {adminT(language, "overview.eyebrow") || "Dashboard"}
           </Badge>
-          <h1 className="text-3xl font-extrabold tracking-tight text-[#17172f] md:text-4xl">
+          <h1 className="text-xl font-extrabold tracking-tight text-[#17172f] md:text-2xl">
             {adminT(language, "overview.title") || "Dashboard"}
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500 md:text-base">
@@ -670,7 +670,7 @@ function BusinessOverviewCard({ eyebrow, title, copy, indicators }: { eyebrow: s
       <div className="grid min-h-[160px] gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(420px,0.9fr)] lg:items-center">
         <div className="min-w-0">
           <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-white/70">{eyebrow}</p>
-          <h2 className="mt-3 text-3xl font-extrabold tracking-tight md:text-[32px]">{title}</h2>
+          <h2 className="mt-3 text-2xl font-extrabold tracking-tight md:text-[32px]">{title}</h2>
           <p className="mt-3 max-w-3xl text-base font-semibold leading-7 text-white/80">{copy}</p>
         </div>
         <div className="grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-4">

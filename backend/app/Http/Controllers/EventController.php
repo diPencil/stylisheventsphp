@@ -447,7 +447,22 @@ class EventController extends Controller
             $scopeClause = $this->getEventScopeClause($user, 'e');
             $row = DB::selectOne($this->eventSelect() . " WHERE e.id = ? AND ($scopeClause) LIMIT 1", [$id]);
             if (!$row) return response()->json(['success' => false, 'message' => 'Event not found'], 404);
-            return response()->json(['success' => true, 'message' => 'OK', 'data' => $this->normalizeEventJsonFields($row)]);
+            $data = $this->normalizeEventJsonFields($row);
+            $data['tickets'] = DB::table('ticket_types')
+                ->where('event_id', $id)
+                ->orderBy('id')
+                ->get(['id', 'event_id', 'name_en', 'name_ar', 'quota', 'per_order_limit', 'is_active'])
+                ->map(fn($ticket) => [
+                    'id' => (int) $ticket->id,
+                    'event_id' => (int) $ticket->event_id,
+                    'name_en' => $ticket->name_en,
+                    'name_ar' => $ticket->name_ar,
+                    'quota' => $ticket->quota !== null ? (int) $ticket->quota : null,
+                    'per_order_limit' => $ticket->per_order_limit !== null ? (int) $ticket->per_order_limit : null,
+                    'is_active' => (int) $ticket->is_active,
+                ])
+                ->values();
+            return response()->json(['success' => true, 'message' => 'OK', 'data' => $data]);
         }
         return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
     }

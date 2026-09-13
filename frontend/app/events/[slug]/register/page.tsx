@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { useLanguage } from "@/contexts/language-context"
 import { useAuthSession } from "@/lib/auth-session"
 import { apiAssetUrl, platformApi } from "@/lib/platform-api"
+import { pricingCurrencyForCountry, ticketPriceForCurrency } from "@/lib/currency-settings"
 import { applyAccountRegistrationPrefill } from "@/lib/registration-prefill"
 import { cn } from "@/lib/utils"
 
@@ -79,14 +80,14 @@ export default function EventRegisterPage() {
   const tickets = data?.tickets || []
   const selectedTicket = useMemo(() => tickets.find((ticket: any) => String(ticket.id) === ticketTypeId), [tickets, ticketTypeId])
   const policy = event?.registration_policy || {}
-  const currency = form.countryCode.toUpperCase() === "EG" ? "EGP" : "USD"
-  const price = selectedTicket ? Number(currency === "EGP" ? selectedTicket.price_egp ?? selectedTicket.price : selectedTicket.price_usd ?? selectedTicket.price) : 0
+  const currency = pricingCurrencyForCountry(form.countryCode, "EGP")
+  const price = selectedTicket ? ticketPriceForCurrency(selectedTicket, currency) : 0
   const paymentMethods = useMemo(() => (data?.paymentMethods || []).filter((method: any) => String(method.currency || "").toUpperCase() === currency), [data, currency])
   const registrationUnavailable = policy.publicRegistrationEnabled === false || event?.state !== "open"
   const authRequiredLoading = policy.access === "login_required" && authSession.status === "loading"
   const loginRequired = policy.access === "login_required" && authSession.status === "guest"
   const manualPaymentUnavailable = price > 0 && (policy.manualPaymentEnabled === false || paymentMethods.length === 0)
-  const submitDisabled = submitting || accountPrefillLoading || authRequiredLoading || !selectedTicket || registrationUnavailable || loginRequired || manualPaymentUnavailable || (price > 0 && !form.paymentReference.trim())
+  const submitDisabled = submitting || accountPrefillLoading || authRequiredLoading || !selectedTicket || registrationUnavailable || loginRequired || manualPaymentUnavailable
 
   const update = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }))
 
@@ -169,7 +170,7 @@ export default function EventRegisterPage() {
           <form onSubmit={submit} className="rounded-[24px] md:rounded-[32px] bg-white p-4 shadow-[0_22px_70px_rgba(15,23,42,0.08)] md:p-8 lg:col-start-1 lg:row-start-1">
             <div className="mb-7">
               <p className="text-xs font-black uppercase text-primary">{isRtl ? "بيانات التسجيل" : "Registration details"}</p>
-              <h1 className="mt-2 text-3xl font-black text-slate-950">{isRtl ? "أكمل بياناتك لتأكيد الحجز" : "Complete your booking details"}</h1>
+              <h1 className="mt-2 text-2xl font-black text-slate-950">{isRtl ? "أكمل بياناتك لتأكيد الحجز" : "Complete your booking details"}</h1>
               <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
                 {isRtl ? "سننشئ التسجيل من الخادم ونؤكد السعة والسعر قبل عرض رقم التسجيل." : "The server confirms capacity and pricing before returning your registration reference."}
               </p>

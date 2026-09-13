@@ -123,7 +123,7 @@ export function EventShowcaseSection({ siteContent: remoteSiteContent }: { siteC
             <Badge className="mb-4 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-[13px] font-bold text-slate-600 shadow-sm hover:bg-white">
               {isRtl ? "الفعاليات المتاحة" : "Available Events"}
             </Badge>
-            <h2 className="max-w-3xl text-2xl font-black tracking-tight text-slate-950 md:text-4xl lg:text-5xl">
+            <h2 className="max-w-3xl text-2xl font-black tracking-tight text-slate-950 md:text-3xl lg:text-4xl">
               {isRtl
                 ? siteContent?.homepage?.showcaseTitleAr || "اكتشف فعاليات جاهزة للحجز والمتابعة"
                 : siteContent?.homepage?.showcaseTitleEn || "Discover events ready for booking and operations"}

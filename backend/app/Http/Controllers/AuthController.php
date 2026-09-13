@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\File;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
@@ -73,6 +74,10 @@ class AuthController extends Controller
 
         if (! Hash::check($validated['password'], $user->password_hash)) {
             return ApiResponse::fail('Invalid credentials', 401);
+        }
+
+        if (!$user->email_verified_at) {
+            return ApiResponse::fail('Email verification required', 403, ['code' => 'verification_required']);
         }
 
         $user->last_login_at = now();
@@ -178,6 +183,13 @@ class AuthController extends Controller
         $user->notes = !empty($validated['company']) ? 'Company: ' . $validated['company'] : null;
         $user->save();
 
+        // Claim guest history: link previously unclaimed profile rows that used
+        // this email so past registrations show up in the new account's portal.
+        DB::table('doctors')
+            ->whereNull('user_id')
+            ->whereRaw('LOWER(email) = ?', [strtolower(trim((string) $user->email))])
+            ->update(['user_id' => $user->id, 'updated_at' => now()]);
+
         if ($role->code === 'doctor') {
             DB::table('doctors')->insert([
                 'user_id' => $user->id,
@@ -201,12 +213,101 @@ class AuthController extends Controller
         Auth::guard('api')->setUser($user);
         $this->auditLog($request, 'auth.register', 'user', $user->id);
 
+        // New public signups must verify their email before they can log in.
+        $mailSent = $this->issueVerificationCode($user);
+
+        return ApiResponse::ok([
+            'user' => $this->formatUser($user),
+            'needsVerification' => true,
+            'mailSent' => $mailSent,
+        ], 'Account created. Please verify your email.');
+    }
+
+    protected function issueVerificationCode($user): bool
+    {
+        $code = (string) random_int(100000, 999999);
+
+        DB::table('email_verification_codes')
+            ->where('user_id', $user->id)
+            ->whereNull('consumed_at')
+            ->update(['consumed_at' => now()]);
+
+        DB::table('email_verification_codes')->insert([
+            'user_id' => $user->id,
+            'code_hash' => Hash::make($code),
+            'expires_at' => now()->addMinutes(30),
+            'created_at' => now(),
+        ]);
+
+        try {
+            \App\Services\PlatformMailer::send(
+                $user->email,
+                new \App\Mail\VerificationCodeMail($code, $user->name)
+            );
+            return true;
+        } catch (\Throwable $error) {
+            report($error);
+            return false;
+        }
+    }
+
+    public function verifyEmail(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'code' => 'required|string|min:4|max:12',
+        ]);
+
+        $user = User::where('email', $validated['email'])->first();
+        if (!$user) {
+            return ApiResponse::fail('Invalid verification code', 422);
+        }
+
+        $record = DB::table('email_verification_codes')
+            ->where('user_id', $user->id)
+            ->whereNull('consumed_at')
+            ->where('expires_at', '>', now())
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if (!$record || !Hash::check(trim($validated['code']), $record->code_hash)) {
+            return ApiResponse::fail('Invalid verification code', 422);
+        }
+
+        DB::table('email_verification_codes')->where('id', $record->id)->update(['consumed_at' => now()]);
+        $user->email_verified_at = now();
+        $user->save();
+
+        Auth::guard('api')->setUser($user);
+        $this->auditLog($request, 'auth.email_verified', 'user', $user->id);
         $token = Auth::guard('api')->createToken($user);
 
         return ApiResponse::ok([
             'user' => $this->formatUser($user),
             'token' => $token,
-        ], 'Account created successfully');
+        ], 'Email verified successfully');
+    }
+
+    public function resendVerification(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $user = User::where('email', $validated['email'])->first();
+        // Generic response to avoid email enumeration.
+        if ($user && !$user->email_verified_at) {
+            $recent = DB::table('email_verification_codes')
+                ->where('user_id', $user->id)
+                ->where('created_at', '>', now()->subMinute())
+                ->exists();
+            if (!$recent) {
+                $this->issueVerificationCode($user);
+            }
+            $this->auditLog($request, 'auth.verification_resent', 'user', $user->id);
+        }
+
+        return ApiResponse::ok(['requested' => true], 'If this account exists and is unverified, a new code was sent.');
     }
 
     public function forgotPassword(Request $request)
@@ -219,12 +320,63 @@ class AuthController extends Controller
             ->orWhere('username', $validated['login'])
             ->first();
 
-        if ($user) {
+        if ($user && $user->email) {
             Auth::guard('api')->setUser($user);
             $this->auditLog($request, 'auth.password_reset_requested', 'user', $user->id);
+
+            $token = bin2hex(random_bytes(32));
+            DB::table('password_reset_tokens')->updateOrInsert(
+                ['email' => $user->email],
+                ['token' => Hash::make($token), 'created_at' => now()]
+            );
+
+            $resetUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/')
+                . '/reset-password?token=' . $token . '&email=' . urlencode($user->email);
+
+            try {
+                \App\Services\PlatformMailer::send(
+                    $user->email,
+                    new \App\Mail\PasswordResetMail($resetUrl, $user->name)
+                );
+            } catch (\Throwable $error) {
+                report($error);
+            }
         }
 
         return ApiResponse::ok(['requested' => true], 'If this account exists, reset instructions will be sent.');
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'token' => 'required|string|min:16',
+            'password' => 'required|string|min:8',
+        ]);
+
+        $record = DB::table('password_reset_tokens')->where('email', $validated['email'])->first();
+        if (!$record || !$record->created_at || now()->diffInMinutes($record->created_at) > 60) {
+            if ($record) DB::table('password_reset_tokens')->where('email', $validated['email'])->delete();
+            return ApiResponse::fail('Reset link is invalid or expired', 422);
+        }
+
+        if (!Hash::check($validated['token'], $record->token)) {
+            return ApiResponse::fail('Reset link is invalid or expired', 422);
+        }
+
+        $user = User::where('email', $validated['email'])->first();
+        if (!$user || $user->status !== 'active') {
+            DB::table('password_reset_tokens')->where('email', $validated['email'])->delete();
+            return ApiResponse::fail('Reset link is invalid or expired', 422);
+        }
+
+        $user->password_hash = Hash::make($validated['password']);
+        $user->save();
+        DB::table('password_reset_tokens')->where('email', $validated['email'])->delete();
+
+        $this->auditLog($request, 'auth.password_reset_completed', 'user', $user->id);
+
+        return ApiResponse::ok(['reset' => true], 'Password has been reset. You can log in now.');
     }
 
     public function me(Request $request)
@@ -261,11 +413,13 @@ class AuthController extends Controller
 
     public function patchMe(Request $request)
     {
+        $current = Auth::guard('api')->user();
+
         $validated = $request->validate([
             'name' => 'nullable|string|min:2',
-            'email' => 'nullable|email',
+            'email' => ['nullable', 'email', Rule::unique('users', 'email')->ignore($current->id)],
             'phone' => 'nullable|string',
-            'username' => 'nullable|string|min:3',
+            'username' => ['nullable', 'string', 'min:3', Rule::unique('users', 'username')->ignore($current->id)],
             'countryCode' => 'nullable|string|size:2',
             'countryName' => 'nullable|string|max:120',
             'gender' => 'nullable|in:male,female,not_specified',
@@ -273,8 +427,6 @@ class AuthController extends Controller
             'avatarUrl' => 'nullable|string|max:500',
             'specialtyId' => 'nullable|integer|exists:specialties,id',
         ]);
-
-        $current = Auth::guard('api')->user();
 
         DB::transaction(function () use ($validated, $current) {
             if (isset($validated['name'])) $current->name = $validated['name'];

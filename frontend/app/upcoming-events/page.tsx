@@ -114,7 +114,7 @@ export default function UpcomingEventsPage() {
                   )}
                 </div>
                 <div className="w-full lg:w-1/2 space-y-6">
-                  <h2 className="text-2xl font-extrabold leading-tight text-slate-900 md:text-4xl lg:text-5xl">{title}</h2>
+                  <h2 className="text-2xl font-extrabold leading-tight text-slate-900 md:text-3xl lg:text-4xl">{title}</h2>
                   <p className="text-lg text-slate-600 leading-relaxed font-medium">{desc}</p>
                   <ul className="space-y-4 mt-8">
                     {bullets.filter(Boolean).slice(0,6).map((item:any) => (

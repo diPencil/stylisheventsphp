@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use App\Mail\CertificateDeliveryMail;
+use App\Services\PlatformMailer;
 use App\Services\UserNotificationService;
 
 class CertificateController extends Controller
@@ -124,8 +125,8 @@ class CertificateController extends Controller
         }
 
         $query = DB::table('attendees as a')
-            ->join('events as e', 'e.id', '=', 'a.event_id')
-            ->join('ticket_types as tt', 'tt.id', '=', 'a.ticket_type_id')
+            ->leftJoin('events as e', 'e.id', '=', 'a.event_id')
+            ->leftJoin('ticket_types as tt', 'tt.id', '=', 'a.ticket_type_id')
             ->leftJoin('certificates as c', 'c.attendee_id', '=', 'a.id')
             ->leftJoin('event_cards as ec', 'ec.attendee_id', '=', 'a.id')
             ->select(
@@ -139,6 +140,7 @@ class CertificateController extends Controller
                 'e.id AS event_id',
                 'e.title_en AS event_title_en',
                 'e.title_ar AS event_title_ar',
+                'e.starts_at AS event_starts_at',
                 'tt.name_en AS ticket_name_en',
                 'tt.name_ar AS ticket_name_ar',
                 'c.id AS certificate_id',
@@ -613,7 +615,7 @@ class CertificateController extends Controller
                 ];
 
                 try {
-                    Mail::to($email)->send(new CertificateDeliveryMail($payload));
+                    PlatformMailer::send($email, new CertificateDeliveryMail($payload));
 
                     $results[] = [
                         'certificateId' => (int) $row->certificate_id,

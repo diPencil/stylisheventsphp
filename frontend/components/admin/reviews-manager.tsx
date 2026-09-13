@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { BadgeCheck, Eye, MessageSquare, MoreHorizontal, Star, ThumbsDown, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -18,7 +18,16 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AdminPageHeader, MetricCard, TableSearch } from "@/components/admin/admin-primitives"
-import { ConfirmAction } from "@/components/admin/confirm-action"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { PaginationControls } from "@/components/admin/table-pagination"
 import { useAdminPermissions } from "@/components/admin/admin-shell"
 import { TableDateTime } from "@/components/admin/table-date-time"
@@ -74,8 +83,11 @@ function Stars({ value }: { value: number }) {
 
 export function ReviewsManager() {
   const { language } = useLanguage()
+  const router = useRouter()
+  const isAr = language === "ar"
   const { can } = useAdminPermissions()
   const canManageReviews = can("reviews.manage")
+  const [pending, setPending] = useState<null | { type: "published" | "rejected" | "delete"; review: Review }>(null)
   const [reviews, setReviews] = useState<Review[]>([])
   const [search, setSearch] = useState("")
   const [activeStatus, setActiveStatus] = useState<"all" | ReviewStatus>("all")
@@ -141,6 +153,13 @@ export function ReviewsManager() {
     }
   }
 
+  async function runPending() {
+    if (!pending) return
+    if (pending.type === "delete") await deleteReview(pending.review.id)
+    else await setStatus(pending.review.id, pending.type)
+    setPending(null)
+  }
+
   const renderTable = () => {
     return (
       <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
@@ -190,33 +209,37 @@ export function ReviewsManager() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-52 rounded-2xl border-0 p-2 shadow-xl">
                           <DropdownMenuLabel className="text-xs text-slate-400">{adminT(language, "common.actions")}</DropdownMenuLabel>
-                          <DropdownMenuItem asChild className="cursor-pointer rounded-xl px-3 py-2 font-semibold">
-                            <Link href={`/admin/reviews/${review.id}`}>
-                              <Eye className="h-4 w-4" />
-                              {adminT(language, "common.viewDetails")}
-                            </Link>
+                          <DropdownMenuItem
+                            className="cursor-pointer rounded-xl px-3 py-2 font-semibold"
+                            onSelect={(e) => { e.preventDefault(); router.push(`/admin/reviews/${review.id}`) }}
+                          >
+                            <Eye className="h-4 w-4" />
+                            {adminT(language, "common.viewDetails")}
                           </DropdownMenuItem>
                           {canManageReviews && (
                             <>
-                              <ConfirmAction title="Publish review?" description="This customer review will become visible in event ratings." confirmLabel="Publish" tone="success" onConfirm={() => setStatus(review.id, "published")}>
-                                <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600 focus:bg-emerald-50 focus:text-emerald-700">
-                                  <BadgeCheck className="h-4 w-4" />
-                                  {adminT(language, "reviews.published")}
-                                </DropdownMenuItem>
-                              </ConfirmAction>
-                              <ConfirmAction title="Reject review?" description="This review will be hidden from public event ratings." confirmLabel="Reject" tone="danger" onConfirm={() => setStatus(review.id, "rejected")}>
-                                <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600 focus:bg-red-50 focus:text-red-700">
-                                  <ThumbsDown className="h-4 w-4" />
-                                  {adminT(language, "reviews.rejected")}
-                                </DropdownMenuItem>
-                              </ConfirmAction>
+                              <DropdownMenuItem
+                                className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600 focus:bg-emerald-50 focus:text-emerald-700"
+                                onSelect={(e) => { e.preventDefault(); setPending({ type: "published", review }) }}
+                              >
+                                <BadgeCheck className="h-4 w-4" />
+                                {adminT(language, "reviews.published")}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600 focus:bg-red-50 focus:text-red-700"
+                                onSelect={(e) => { e.preventDefault(); setPending({ type: "rejected", review }) }}
+                              >
+                                <ThumbsDown className="h-4 w-4" />
+                                {adminT(language, "reviews.rejected")}
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <ConfirmAction title="Delete review?" description="This review will be removed from the moderation queue." confirmLabel="Delete" tone="danger" onConfirm={() => deleteReview(review.id)}>
-                                <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600 focus:bg-red-50 focus:text-red-700">
-                                  <Trash2 className="h-4 w-4" />
-                                  {adminT(language, "common.delete")}
-                                </DropdownMenuItem>
-                              </ConfirmAction>
+                              <DropdownMenuItem
+                                className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-red-600 focus:bg-red-50 focus:text-red-700"
+                                onSelect={(e) => { e.preventDefault(); setPending({ type: "delete", review }) }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                {adminT(language, "common.delete")}
+                              </DropdownMenuItem>
                             </>
                           )}
                         </DropdownMenuContent>
@@ -274,6 +297,33 @@ export function ReviewsManager() {
           <TabsContent key={status} value={status}>{renderTable()}</TabsContent>
         ))}
       </Tabs>
+
+      {/* Confirm dialog lives outside the DropdownMenu so every row's menu works reliably. */}
+      <AlertDialog open={Boolean(pending)} onOpenChange={(open) => { if (!open) setPending(null) }}>
+        <AlertDialogContent dir={isAr ? "rtl" : "ltr"} className="max-w-[92vw] rounded-2xl sm:max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pending?.type === "published" ? (isAr ? "نشر المراجعة؟" : "Publish review?") : pending?.type === "rejected" ? (isAr ? "رفض المراجعة؟" : "Reject review?") : (isAr ? "حذف المراجعة؟" : "Delete review?")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pending?.type === "published"
+                ? (isAr ? "المراجعة هتظهر في تقييمات الإيفنت." : "This customer review will become visible in event ratings.")
+                : pending?.type === "rejected"
+                  ? (isAr ? "المراجعة هتتخفي من التقييمات." : "This review will be hidden from public event ratings.")
+                  : (isAr ? "المراجعة هتتمسح نهائيًا." : "This review will be removed from the moderation queue.")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="grid grid-cols-2 gap-3">
+            <AlertDialogCancel className="mt-0 h-10 rounded-xl font-extrabold">{isAr ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); runPending() }}
+              className={pending?.type === "published" ? "h-10 rounded-xl bg-[hsl(var(--primary))] font-extrabold text-white" : "h-10 rounded-xl bg-red-600 font-extrabold text-white hover:bg-red-700"}
+            >
+              {pending?.type === "published" ? (isAr ? "نشر" : "Publish") : pending?.type === "rejected" ? (isAr ? "رفض" : "Reject") : adminT(language, "common.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

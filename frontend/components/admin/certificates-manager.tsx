@@ -1,11 +1,13 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import {
   BadgeCheck,
   Download,
   Eye,
+  EyeOff,
   FileText,
   IdCard,
   Mail,
@@ -35,7 +37,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { ImageUrlDropzone } from "@/components/admin/image-url-dropzone"
+import { CERTIFICATE_VISIBILITY_KEYS, CertificateArtwork, defaultCertificateVisibility, parseTemplateFields, resolveCertificateVisibility, type CertificateVisibility } from "@/components/certificates/certificate-artwork"
+import { AdminPageHeader, MetricCard } from "@/components/admin/admin-primitives"
 import { ConfirmAction } from "@/components/admin/confirm-action"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { PaginationControls } from "@/components/admin/table-pagination"
 import { useAdminPermissions } from "@/components/admin/admin-shell"
 import { TableDateTime } from "@/components/admin/table-date-time"
@@ -53,11 +67,11 @@ type CertificateEvent = {
   date: string
   venue: string
   templateName: string
-  cardName: string
   background: string
-  issueRule: string
   footer: string
   signatory: string
+  visibility: CertificateVisibility
+  venueLogoUrl: string
 }
 
 type CustomerAsset = {
@@ -140,18 +154,21 @@ function normalizeDeliveryEvent(row: any): CertificateEvent {
     date: row.starts_at || "",
     venue: row.venue_name_en || row.venue_city_en || "",
     templateName: "Certificate template",
-    cardName: "Event card template",
     background: row.cover_image_url || "",
-    issueRule: "Issue after check-in",
     footer: "Verified by Stylish Holidays.",
     signatory: row.organizer_name || "Stylish Holidays",
+    visibility: { ...defaultCertificateVisibility },
+    venueLogoUrl: "",
   }
 }
 
 export function CertificatesManager() {
   const { language } = useLanguage()
+  const router = useRouter()
+  const isAr = language === "ar"
   const { can } = useAdminPermissions()
   const canManageCertificates = can("certificates.manage")
+  const [pending, setPending] = useState<null | { type: "certificate" | "card" | "email"; asset: CustomerAsset }>(null)
   const [assets, setAssets] = useState<CustomerAsset[]>([])
   const [events, setEvents] = useState<CertificateEvent[]>([])
   const [eventFilter, setEventFilter] = useState("all")
@@ -296,6 +313,16 @@ export function CertificatesManager() {
     }
   }
 
+  async function runPending() {
+    if (!pending) return
+    const { type, asset } = pending
+    setPending(null)
+    if (type === "certificate") await sendCertificate(asset)
+    else if (type === "card") await sendCard(asset)
+    else if (asset.certificateId) await sendCertificateEmails([asset.certificateId])
+    else toast.error(isAr ? "لا توجد شهادة للإرسال" : "No certificate to email", { description: isAr ? "أصدر الشهادة أولاً." : "Issue the certificate first." })
+  }
+
   const toggleCertificate = (certificateId: string, checked: boolean) => {
     if (!certificateId) return
     setSelectedCertificateIds((current) => {
@@ -354,54 +381,21 @@ export function CertificatesManager() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <Badge className="mb-3 rounded-xl bg-[hsl(var(--primary))] text-white hover:bg-[hsl(var(--primary))]">
-            {language === "ar" ? "عمليات الشهادات" : "Certificates Operations"}
-          </Badge>
-          <h1 className="text-xl font-extrabold tracking-tight text-[#17172f] md:text-2xl">{adminT(language, "certificates.title")}</h1>
-          <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500">
-            {language === "ar" ? "تابع كل شهادة وكارت فعالية تم إرسالهما للعملاء مع حالة التسليم والفعالية المرتبطة وإجراءات إعادة الإرسال." : "Track every certificate and event card sent to customers, with delivery status, event relation, and resend actions."}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canManageCertificates && (
-            <Button asChild variant="outline" className="h-10 rounded-2xl bg-white px-4 text-sm font-extrabold">
-              <Link href="/admin/certificates/builder">
-                <Sparkles className="h-4 w-4" />
-                {adminT(language, "certificates.builder")}
-              </Link>
-            </Button>
-          )}
-          <Button onClick={exportLog} className="h-10 rounded-2xl bg-[hsl(var(--primary))] px-4 text-sm font-extrabold text-white hover:bg-[hsl(var(--primary)/0.9)]">
-            <Download className="h-4 w-4" />
-            {language === "ar" ? "تصدير السجل" : "Export Log"}
-          </Button>
-        </div>
-      </div>
+      <AdminPageHeader
+        eyebrow={language === "ar" ? "عمليات الشهادات" : "Certificates Operations"}
+        title={adminT(language, "certificates.title")}
+        description={language === "ar" ? "تابع كل شهادة وكارت فعالية تم إرسالهما للعملاء مع حالة التسليم والفعالية المرتبطة وإجراءات إعادة الإرسال." : "Track every certificate and event card sent to customers, with delivery status, event relation, and resend actions."}
+        actions={[
+          ...(canManageCertificates ? [{ label: adminT(language, "certificates.builder"), icon: Sparkles, href: "/admin/certificates/builder", variant: "outline" as const }] : []),
+          { label: language === "ar" ? "تصدير السجل" : "Export Log", icon: Download, onClick: exportLog },
+        ]}
+      />
 
       <div className="grid gap-4 md:grid-cols-4">
-        {[
-          { label: language === "ar" ? "العملاء" : "Customers", value: totals.customers, icon: UserCheck },
-          { label: language === "ar" ? "شهادات مرسلة" : "Certificates Sent", value: totals.certificatesSent, icon: BadgeCheck },
-          { label: language === "ar" ? "كروت مرسلة" : "Event Cards Sent", value: totals.cardsSent, icon: IdCard },
-          { label: language === "ar" ? "بانتظار الحضور" : "Waiting Check-in", value: totals.waiting, icon: FileText },
-        ].map((item) => {
-          const Icon = item.icon
-          return (
-            <Card key={item.label} className="rounded-[24px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.05)]">
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[hsl(var(--primary)/0.10)] text-[hsl(var(--primary))]">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">{item.label}</p>
-                  <p className="text-lg font-extrabold text-[#17172f]">{item.value}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
+        <MetricCard label={language === "ar" ? "العملاء" : "Customers"} value={totals.customers} icon={UserCheck} />
+        <MetricCard label={language === "ar" ? "شهادات مرسلة" : "Certificates Sent"} value={totals.certificatesSent} icon={BadgeCheck} />
+        <MetricCard label={language === "ar" ? "كروت مرسلة" : "Event Cards Sent"} value={totals.cardsSent} icon={IdCard} />
+        <MetricCard label={language === "ar" ? "بانتظار الحضور" : "Waiting Check-in"} value={totals.waiting} icon={FileText} />
       </div>
 
       <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
@@ -571,78 +565,67 @@ export function CertificatesManager() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-56 rounded-2xl border-0 p-2 shadow-xl">
                             <DropdownMenuLabel className="text-xs text-slate-400">{language === "ar" ? "ملفات العميل" : "Customer Assets"}</DropdownMenuLabel>
-                            <DropdownMenuItem asChild className="cursor-pointer rounded-xl px-3 py-2 font-semibold">
-                              <Link href={`/admin/certificates/${asset.id}`}>
-                                <Eye className="h-4 w-4" />
-                                {language === "ar" ? "معاينة الشهادة" : "Preview certificate"}
-                              </Link>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold"
+                              onSelect={(e) => { e.preventDefault(); router.push(`/admin/certificates/${asset.id}`) }}
+                            >
+                              <Eye className="h-4 w-4" />
+                              {language === "ar" ? "معاينة الشهادة" : "Preview certificate"}
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild className="cursor-pointer rounded-xl px-3 py-2 font-semibold">
-                              <Link href={`/admin/certificates/cards/${asset.id}`}>
-                                <IdCard className="h-4 w-4" />
-                                Preview event card
-                              </Link>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-xl px-3 py-2 font-semibold"
+                              onSelect={(e) => { e.preventDefault(); router.push(`/admin/certificates/cards/${asset.id}`) }}
+                            >
+                              <IdCard className="h-4 w-4" />
+                              Preview event card
                             </DropdownMenuItem>
                             {canManageCertificates && (
                               <>
-                                <ConfirmAction
-                                  title="Send certificate PDF?"
-                                  description="This customer's certificate will be marked as sent."
-                                  confirmLabel="Send PDF"
-                                  tone="success"
-                                  onConfirm={() => sendCertificate(asset)}
-                                >
-                                  <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600 focus:bg-emerald-50 focus:text-emerald-700">
+                                {asset.certificateStatus !== "sent" ? (
+                                  <DropdownMenuItem
+                                    className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-emerald-600 focus:bg-emerald-50 focus:text-emerald-700"
+                                    onSelect={(e) => { e.preventDefault(); setPending({ type: "certificate", asset }) }}
+                                  >
                                     <Send className="h-4 w-4" />
                                     Send certificate
                                   </DropdownMenuItem>
-                                </ConfirmAction>
-                                <ConfirmAction
-                                  title="Send event card?"
-                                  description="This customer's event card will be marked as sent."
-                                  confirmLabel="Send card"
-                                  tone="success"
-                                  onConfirm={() => sendCard(asset)}
-                                >
-                                  <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-blue-600 focus:bg-blue-50 focus:text-blue-700">
+                                ) : (
+                                  <>
+                                    <DropdownMenuItem
+                                      onSelect={(e) => { e.preventDefault(); setPending({ type: "email", asset }) }}
+                                      disabled={!asset.certificateId || emailing}
+                                      className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-indigo-600 focus:bg-indigo-50 focus:text-indigo-700"
+                                    >
+                                      <Mail className="h-4 w-4" />
+                                      {language === "ar" ? "إرسال الشهادة بالبريد" : "Email certificate"}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-slate-600"
+                                      disabled={!asset.certificateId || emailing}
+                                      onSelect={(e) => { e.preventDefault(); setPending({ type: "email", asset }) }}
+                                    >
+                                      <RotateCcw className="h-4 w-4" />
+                                      {language === "ar" ? "إعادة إرسال الشهادة" : "Resend certificate"}
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {asset.cardStatus !== "sent" ? (
+                                  <DropdownMenuItem
+                                    className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-blue-600 focus:bg-blue-50 focus:text-blue-700"
+                                    onSelect={(e) => { e.preventDefault(); setPending({ type: "card", asset }) }}
+                                  >
                                     <Mail className="h-4 w-4" />
                                     Send event card
                                   </DropdownMenuItem>
-                                </ConfirmAction>
-                                <ConfirmAction
-                                  title={language === "ar" ? "إرسال الشهادة بالبريد؟" : "Email certificate?"}
-                                  description={language === "ar" ? "سيتم إرسال شهادة هذا العميل فقط إلى بريده المسجل." : "Only this customer's own certificate will be sent to their registered email."}
-                                  confirmLabel={language === "ar" ? "إرسال بالبريد" : "Send email"}
-                                  tone="success"
-                                  onConfirm={() => {
-                                    if (asset.certificateId) return sendCertificateEmails([asset.certificateId])
-                                  }}
-                                >
+                                ) : (
                                   <DropdownMenuItem
-                                    disabled={!asset.certificateId || asset.certificateStatus !== "sent" || emailing}
-                                    onSelect={(event) => event.preventDefault()}
-                                    className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-indigo-600 focus:bg-indigo-50 focus:text-indigo-700"
+                                    className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-slate-600"
+                                    onSelect={(e) => { e.preventDefault(); setPending({ type: "card", asset }) }}
                                   >
-                                    <Mail className="h-4 w-4" />
-                                    {language === "ar" ? "إرسال الشهادة بالبريد" : "Email certificate"}
+                                    <RotateCcw className="h-4 w-4" />
+                                    Resend event card
                                   </DropdownMenuItem>
-                                </ConfirmAction>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-slate-600"
-                                  disabled={!asset.certificateId || asset.certificateStatus !== "sent" || emailing}
-                                  onClick={() => asset.certificateId && sendCertificateEmails([asset.certificateId])}
-                                >
-                                  <RotateCcw className="h-4 w-4" />
-                                  {language === "ar" ? "إعادة إرسال الشهادة" : "Resend certificate"}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className="cursor-pointer rounded-xl px-3 py-2 font-semibold text-slate-600"
-                                  onClick={() => sendCard(asset)}
-                                >
-                                  <RotateCcw className="h-4 w-4" />
-                                  Resend event card
-                                </DropdownMenuItem>
+                                )}
                               </>
                             )}
                           </DropdownMenuContent>
@@ -706,6 +689,30 @@ export function CertificatesManager() {
       <Card className="rounded-[24px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.05)]">
         <CardContent className="p-4 text-sm font-semibold text-slate-500">{activity}</CardContent>
       </Card>
+
+      {/* Confirm dialog lives outside the DropdownMenu so every row's menu works reliably. */}
+      <AlertDialog open={Boolean(pending)} onOpenChange={(open) => { if (!open) setPending(null) }}>
+        <AlertDialogContent dir={isAr ? "rtl" : "ltr"} className="max-w-[92vw] rounded-2xl sm:max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pending?.type === "certificate" ? (isAr ? "إصدار الشهادة؟" : "Send certificate PDF?") : pending?.type === "card" ? (isAr ? "إرسال كارت الفعالية؟" : "Send event card?") : (isAr ? "إرسال الشهادة بالبريد؟" : "Email certificate?")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pending?.type === "certificate"
+                ? (isAr ? "سيتم إصدار شهادة هذا العميل." : "This customer's certificate will be marked as sent.")
+                : pending?.type === "card"
+                  ? (isAr ? "سيتم إصدار كارت الفعالية لهذا العميل." : "This customer's event card will be marked as sent.")
+                  : (isAr ? "سيتم إرسال شهادة هذا العميل فقط إلى بريده المسجل." : "Only this customer's own certificate will be sent to their registered email.")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="grid grid-cols-2 gap-3">
+            <AlertDialogCancel className="mt-0 h-10 rounded-xl font-extrabold">{isAr ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); runPending() }} className="h-10 rounded-xl bg-[hsl(var(--primary))] font-extrabold text-white">
+              {pending?.type === "certificate" ? (isAr ? "إصدار" : "Send PDF") : pending?.type === "card" ? (isAr ? "إرسال الكارت" : "Send card") : (isAr ? "إرسال بالبريد" : "Send email")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -733,23 +740,16 @@ export function CertificateBuilder() {
 
         const normalizedEvents = (eventRows || []).map((row: any) => {
           const template = (templateRows || []).find((item: any) => Number(item.event_id) === Number(row.id))
-          let fieldPositions: any = {}
-          try {
-            if (template?.field_positions_json) {
-              fieldPositions = typeof template.field_positions_json === "string" 
-                ? JSON.parse(template.field_positions_json) 
-                : template.field_positions_json
-            }
-          } catch (e) {}
-
           const base = normalizeDeliveryEvent(row)
+          const fields = parseTemplateFields(template?.field_positions_json)
           return {
             ...base,
             templateName: template?.name || "Certificate template",
             background: template?.template_url || row.cover_image_url || "",
-            issueRule: "Issue after check-in",
-            signatory: fieldPositions.signatoryText || base.signatory,
-            footer: fieldPositions.footerText || base.footer,
+            signatory: fields.signatoryText || base.signatory,
+            footer: fields.footerText || base.footer,
+            visibility: resolveCertificateVisibility(fields),
+            venueLogoUrl: typeof fields.venueLogoUrl === "string" ? fields.venueLogoUrl : "",
           }
         })
         const normalizedAssets = (deliveryRows || []).map(normalizeDelivery)
@@ -779,6 +779,11 @@ export function CertificateBuilder() {
     setEvents((current) => current.map((event) => (event.id === selectedEvent.id ? { ...event, ...patch } : event)))
   }
 
+  const toggleVisibility = (key: keyof CertificateVisibility) => {
+    if (!selectedEvent) return
+    updateEvent({ visibility: { ...selectedEvent.visibility, [key]: !selectedEvent.visibility[key] } })
+  }
+
   const saveTemplate = async () => {
     if (!selectedEvent?.id || !selectedEvent.templateName.trim() || !selectedEvent.background.trim()) {
       toast.error("Missing template data", { description: "Choose an event, template name, and artwork URL first." })
@@ -799,6 +804,8 @@ export function CertificateBuilder() {
           signatory: { x: "82%", y: "78%" },
           signatoryText: selectedEvent.signatory,
           footerText: selectedEvent.footer,
+          visibility: selectedEvent.visibility,
+          venueLogoUrl: selectedEvent.venueLogoUrl,
         },
         isDefault: true,
         isActive: true,
@@ -865,20 +872,12 @@ export function CertificateBuilder() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <Badge className="mb-3 rounded-xl bg-[hsl(var(--primary))] text-white hover:bg-[hsl(var(--primary))]">
-            Builder
-          </Badge>
-          <h1 className="text-xl font-extrabold tracking-tight text-[#17172f] md:text-2xl">{adminT(language, "certificates.builder")}</h1>
-          <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500">
-            Create one certificate design per event. Admin uploads the artwork, while customer data positions stay fixed.
-          </p>
-        </div>
-        <Button asChild variant="outline" className="h-10 rounded-2xl bg-white px-4 text-sm font-extrabold">
-          <Link href="/admin/certificates">{adminT(language, "certificates.backToDelivery")}</Link>
-        </Button>
-      </div>
+      <AdminPageHeader
+        eyebrow="Builder"
+        title={adminT(language, "certificates.builder")}
+        description="Create one certificate design per event. Admin uploads the artwork, while customer data positions stay fixed."
+        action={{ label: adminT(language, "certificates.backToDelivery"), href: "/admin/certificates", variant: "outline" }}
+      />
 
       <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
         <Card className="rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
@@ -918,8 +917,29 @@ export function CertificateBuilder() {
               <Input value={selectedEvent.templateName} onChange={(event) => updateEvent({ templateName: event.target.value })} className="h-11 rounded-xl" />
             </div>
             <div className="space-y-2">
-              <Label className="text-sm font-bold">{adminT(language, "certificates.cardTemplateName")}</Label>
-              <Input value={selectedEvent.cardName} onChange={(event) => updateEvent({ cardName: event.target.value })} className="h-11 rounded-xl" />
+              <Label className="text-sm font-bold">{language === "ar" ? "إظهار / إخفاء عناصر الشهادة" : "Show / hide certificate fields"}</Label>
+              <div className="grid gap-2 rounded-2xl border border-slate-100 bg-slate-50/60 p-3 sm:grid-cols-2">
+                {CERTIFICATE_VISIBILITY_KEYS.map((key) => {
+                  const on = selectedEvent.visibility[key]
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => toggleVisibility(key)}
+                      className={cn(
+                        "flex h-10 items-center justify-between rounded-xl border bg-white px-3 text-xs font-extrabold transition",
+                        on ? "border-[hsl(var(--primary)/0.35)] text-[#17172f]" : "border-slate-200 text-slate-400"
+                      )}
+                    >
+                      <span className="capitalize">{key.replace(/([A-Z])/g, " $1").trim()}</span>
+                      {on ? <Eye className="h-4 w-4 text-[hsl(var(--primary))]" /> : <EyeOff className="h-4 w-4" />}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-xs font-semibold leading-5 text-slate-400">
+                {language === "ar" ? "اسم العميل يظهر دائمًا. أخفِ الباقي لو الشهادة صورة جاهزة." : "Customer name always shows. Hide the rest when the artwork already contains them."}
+              </p>
             </div>
             <ImageUrlDropzone
               label="Certificate artwork URL"
@@ -957,10 +977,17 @@ export function CertificateBuilder() {
                 </Button>
               </div>
             </section>
-            <div className="space-y-2">
-              <Label className="text-sm font-bold">{adminT(language, "certificates.issueRule")}</Label>
-              <Input value={selectedEvent.issueRule} onChange={(event) => updateEvent({ issueRule: event.target.value })} className="h-11 rounded-xl" />
-            </div>
+            <ImageUrlDropzone
+              label={language === "ar" ? "لوجو مكان الفعالية (للكارت)" : "Venue logo (for event card)"}
+              value={selectedEvent.venueLogoUrl}
+              onChange={(value) => {
+                updateEvent({ venueLogoUrl: value })
+                setActivity(value ? "Venue logo updated. It appears next to the project logo on the card." : "Venue logo cleared.")
+              }}
+              placeholder="/uploads/assets/venue-logo.png"
+              helperText={language === "ar" ? "يظهر جنب لوجو المشروع على الكارت." : "Shown next to the project logo on the card."}
+              previewClassName="sm:h-[120px]"
+            />
             <div className="space-y-2">
               <Label className="text-sm font-bold">{adminT(language, "certificates.signedBy")}</Label>
               <Input value={selectedEvent.signatory} onChange={(event) => updateEvent({ signatory: event.target.value })} className="h-11 rounded-xl" />
@@ -996,49 +1023,26 @@ export function CertificateBuilder() {
             </Select>
           </CardHeader>
           <CardContent className="space-y-4 p-4">
-            <div
-              className="relative mx-auto aspect-[1.414/1] w-full max-w-4xl overflow-hidden rounded-[24px] border border-slate-100 bg-gradient-to-br from-[#eef6ff] via-white to-[#f8effb] shadow-inner"
-              style={
-                selectedEvent.background
-                  ? {
-                      backgroundImage: `linear-gradient(rgba(255,255,255,.18), rgba(255,255,255,.18)), url(${apiAssetUrl(selectedEvent.background)})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }
-                  : undefined
-              }
-            >
-              <div className="absolute left-[6%] top-[7%]">
-                <img src="/logo.png" alt="Stylish Holidays" className="h-9 w-auto" />
-              </div>
-              <div className="absolute right-[6%] top-[8%] rounded-full bg-white/80 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-[hsl(var(--primary))]">
-                Verified Attendance
-              </div>
-              <div className="absolute inset-x-[9%] top-[25%] text-center">
-                <p className="text-xs font-extrabold uppercase tracking-[0.35em] text-slate-400">{adminT(language, "certificates.certificateOfAttendance")}</p>
-                <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-[#17172f] md:text-4xl">{selectedAsset?.attendee || "Customer name"}</h2>
-                <p className="mx-auto mt-4 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-                  has successfully attended <span className="font-extrabold text-[#17172f]">{selectedEvent.title}</span>
-                </p>
-              </div>
-              <div className="absolute bottom-[17%] left-[9%] right-[9%] grid grid-cols-3 gap-3 text-center">
-                <div>
-                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">{adminT(language, "common.date")}</p>
-                  <p className="text-xs font-extrabold text-[#17172f] md:text-sm">
-                    {selectedEvent.date ? new Intl.DateTimeFormat(language === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" }).format(new Date(selectedEvent.date)) : "Event date"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">{adminT(language, "certificates.certificateNo")}</p>
-                  <p className="text-xs font-extrabold text-[#17172f] md:text-sm">{selectedAsset?.certificateNo || "Certificate number"}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">{adminT(language, "certificates.signedBy")}</p>
-                  <p className="text-xs font-extrabold text-[#17172f] md:text-sm">{selectedEvent.signatory}</p>
-                </div>
-              </div>
-              <p className="absolute bottom-[7%] left-[9%] right-[9%] text-center text-[10px] font-semibold text-slate-400 md:text-xs">{selectedEvent.footer}</p>
-            </div>
+            <CertificateArtwork
+              backgroundUrl={selectedEvent.background}
+              logoUrl="/logo.png"
+              visibility={selectedEvent.visibility}
+              attendeeName={selectedAsset?.attendee || "Customer name"}
+              eventTitle={selectedEvent.title}
+              dateText={selectedEvent.date ? new Intl.DateTimeFormat(language === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" }).format(new Date(selectedEvent.date)) : "Event date"}
+              certificateNo={selectedAsset?.certificateNo || "Certificate number"}
+              signatoryText={selectedEvent.signatory}
+              footerText={selectedEvent.footer}
+              labels={{
+                heading: adminT(language, "certificates.certificateOfAttendance"),
+                verified: "Verified Attendance",
+                attendedPrefix: "has successfully attended",
+                date: adminT(language, "common.date"),
+                certificateNo: adminT(language, "certificates.certificateNo"),
+                signedBy: adminT(language, "certificates.signedBy"),
+              }}
+              className="max-w-4xl"
+            />
             <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">{activity}</div>
             <div
               className="relative mx-auto aspect-[1.58/1] w-full max-w-xl overflow-hidden rounded-[28px] bg-gradient-to-br from-[#0f172a] to-[hsl(var(--primary))] p-5 text-white shadow-inner"
@@ -1052,7 +1056,15 @@ export function CertificateBuilder() {
                   : undefined
               }
             >
-              <div className="flex items-center justify-between"><img src="/favicon.png" alt="Stylish Holidays" className="h-10 w-10 rounded-full bg-white p-1" /><Badge className="rounded-xl bg-white/20 text-white hover:bg-white/20">ready</Badge></div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <img src="/favicon.png" alt="Stylish Holidays" className="h-10 w-10 rounded-full bg-white p-1" />
+                  {selectedEvent.venueLogoUrl ? (
+                    <img src={apiAssetUrl(selectedEvent.venueLogoUrl)} alt="Venue" className="h-10 w-10 rounded-full bg-white object-cover p-1" />
+                  ) : null}
+                </div>
+                <Badge className="rounded-xl bg-white/20 text-white hover:bg-white/20">ready</Badge>
+              </div>
               <p className="mt-8 text-[10px] font-bold uppercase tracking-widest text-white/70">{language === "ar" ? "كارت دخول الفعالية" : "Event Access Card"}</p>
               <h2 className="mt-2 text-2xl font-extrabold leading-tight">{selectedAsset?.attendee || "Customer name"}</h2>
               <p className="mt-2 text-xs font-semibold leading-5 text-white/75">{selectedEvent.title}</p>

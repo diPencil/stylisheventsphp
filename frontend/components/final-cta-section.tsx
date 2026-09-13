@@ -95,7 +95,7 @@ export function FinalCtaSection({ settings }: { settings?: Partial<HomepageFinal
             {isRtl ? eyebrowAr : eyebrowEn}
           </motion.div>
 
-          <h2 className={`text-2xl md:text-4xl lg:text-5xl ${isRtl ? "font-bold" : "font-extrabold"} tracking-tight text-slate-900 mb-8 leading-[1.2] md:leading-[1.1]`}>
+          <h2 className={`text-2xl md:text-3xl lg:text-4xl ${isRtl ? "font-bold" : "font-extrabold"} tracking-tight text-slate-900 mb-8 leading-[1.2] md:leading-[1.1]`}>
             {isRtl ? (
               <span className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
                 {titleAr}

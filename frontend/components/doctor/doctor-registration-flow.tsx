@@ -172,7 +172,7 @@ export function DoctorRegistrationFlow() {
         <header className="mb-8 grid gap-5 rounded-[30px] bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] lg:grid-cols-[1fr_360px]">
           <div>
             <Badge className="mb-4 rounded-full bg-primary px-4 py-1 text-white hover:bg-primary">Doctor Registration</Badge>
-            <h1 className="max-w-3xl text-3xl font-black leading-tight text-[#0f172a] md:text-5xl">
+            <h1 className="max-w-3xl text-2xl font-black leading-tight text-[#0f172a] md:text-4xl">
               {isRtl ? "سجل في الفعالية واستلم تذكرتك بعد اعتماد الدفع" : "Register for your event and receive the ticket after payment approval"}
             </h1>
             <p className="mt-4 max-w-3xl text-base font-medium leading-8 text-slate-500">

@@ -1,12 +1,12 @@
 "use client"
 
-import { Settings2 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { useLanguage } from "@/contexts/language-context"
 import { adminT } from "@/lib/admin-translations"
+import { AdminPageHeader } from "@/components/admin/admin-primitives"
 import { ThemeSettingsPanel } from "@/components/admin/theme-settings-panel"
 import { SiteContentSettingsPanel } from "@/components/admin/site-content-settings-panel"
 import { CurrencySettingsPanel } from "@/components/admin/currency-settings-panel"
+import { EmailSettingsPanel } from "@/components/admin/email-settings-panel"
 import { MedicalSpecialtiesPanel } from "@/components/admin/medical-specialties-panel"
 import { PaymentMethodsPanel } from "@/components/admin/payment-methods-panel"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -18,26 +18,20 @@ export default function AdminSettingsPage() {
 
   return (
     <div className={cn("admin-settings-page space-y-5", isRtl && "text-right")}>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <Badge className="mb-3 rounded-xl bg-[hsl(var(--primary))] text-white hover:bg-[hsl(var(--primary))]">
-            <Settings2 className="h-3.5 w-3.5" />
-            {adminT(language, "settings.workspace")}
-          </Badge>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[#10132d] md:text-3xl">{adminT(language, "settings.title")}</h1>
-          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500 md:text-[15px]">
-          {adminT(language, "settings.subtitle")}
-          </p>
-        </div>
-      </div>
+      <AdminPageHeader
+        eyebrow={adminT(language, "settings.workspace")}
+        title={adminT(language, "settings.title")}
+        description={adminT(language, "settings.subtitle")}
+      />
       <Tabs defaultValue="theme" className="space-y-5">
         <div className="settings-tabs-scroll w-full overflow-x-auto pb-1">
-        <TabsList className="grid h-auto min-w-[1020px] grid-cols-5 rounded-[20px] bg-white p-1 shadow-[0_12px_32px_rgba(15,23,42,0.06)] lg:w-[1120px]">
+        <TabsList className="grid h-auto min-w-[1180px] grid-cols-6 rounded-[20px] bg-white p-1 shadow-[0_12px_32px_rgba(15,23,42,0.06)] lg:w-[1280px]">
           <TabsTrigger value="theme" className="rounded-xl py-2.5 font-extrabold">{adminT(language, "settings.themeIdentity")}</TabsTrigger>
           <TabsTrigger value="website" className="rounded-xl py-2.5 font-extrabold">{adminT(language, "settings.websiteContent")}</TabsTrigger>
           <TabsTrigger value="currency" className="rounded-xl py-2.5 font-extrabold">{adminT(language, "settings.currencyRates")}</TabsTrigger>
           <TabsTrigger value="specialties" className="rounded-xl py-2.5 font-extrabold">{language === "ar" ? "التخصصات الطبية" : "Medical Specialties"}</TabsTrigger>
           <TabsTrigger value="payments" className="rounded-xl py-2.5 font-extrabold">{adminT(language, "settings.payments")}</TabsTrigger>
+          <TabsTrigger value="email" className="rounded-xl py-2.5 font-extrabold">{language === "ar" ? "إعدادات البريد" : "Email Settings"}</TabsTrigger>
         </TabsList>
         </div>
         <TabsContent value="theme" className="mt-0">
@@ -54,6 +48,9 @@ export default function AdminSettingsPage() {
         </TabsContent>
         <TabsContent value="payments" className="mt-0">
           <PaymentMethodsPanel />
+        </TabsContent>
+        <TabsContent value="email" className="mt-0">
+          <EmailSettingsPanel />
         </TabsContent>
       </Tabs>
     </div>

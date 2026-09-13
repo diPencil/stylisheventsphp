@@ -18,9 +18,12 @@ use App\Http\Controllers\SpecialtyController;
 use App\Http\Controllers\CatalogController;
 
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
+    Route::post('/verify-email', [AuthController::class, 'verifyEmail'])->middleware('throttle:10,1');
+    Route::post('/resend-verification', [AuthController::class, 'resendVerification'])->middleware('throttle:5,1');
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
     Route::post('/avatar-upload', [AuthController::class, 'avatarUpload']);
     Route::post('/bootstrap-admin', [AuthController::class, 'bootstrapAdmin']);
 
@@ -214,6 +217,10 @@ Route::middleware('auth:api')->group(function () {
     Route::put('/platform/settings/site-content', [PlatformSettingsController::class, 'updateSiteContent'])->middleware('permission:website_content.manage');
     Route::put('/platform/settings/currency', [PlatformSettingsController::class, 'updateCurrency'])->middleware('permission:settings.manage');
     Route::put('/platform/settings/card-template', [PlatformSettingsController::class, 'updateCardTemplate'])->middleware('permission:certificates.manage');
+    Route::get('/platform/settings/email', [PlatformSettingsController::class, 'getEmail'])->middleware('permission:settings.manage');
+    Route::put('/platform/settings/email', [PlatformSettingsController::class, 'updateEmail'])->middleware('permission:settings.manage');
+    Route::post('/platform/settings/email/test', [PlatformSettingsController::class, 'testEmail'])->middleware('permission:settings.manage');
+    Route::post('/platform/settings/email/test-incoming', [PlatformSettingsController::class, 'testIncoming'])->middleware('permission:settings.manage');
     Route::post('/platform/assets/upload', [PlatformSettingsController::class, 'uploadAsset'])->middleware('any_permission:website_content.manage,certificates.manage');
 });
 

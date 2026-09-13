@@ -65,7 +65,7 @@ export function OnboardingCompleted() {
         <CheckCircle className="h-12 w-12 text-green-600" />
       </motion.div>
 
-      <h2 className="text-3xl font-bold mb-4">Setup Complete!</h2>
+      <h2 className="text-2xl font-bold mb-4">Setup Complete!</h2>
       <p className="text-muted-foreground mb-8 max-w-md mx-auto">
         Your video analysis project has been created successfully. You'll be redirected to your dashboard in a moment.
       </p>

@@ -78,6 +78,13 @@ export default function EventCardDownloadPage() {
   const eventTitle = title(data, isRtl)
   const logo = isRtl ? "/LogoAR.png" : "/logo.png"
   const cover = apiAssetUrl(data.cover_image_url || data.banner_image_url)
+  let venueLogo: string | null = null
+  try {
+    const fields = typeof data.template_fields_json === "string" ? JSON.parse(data.template_fields_json) : data.template_fields_json
+    if (fields && typeof fields.venueLogoUrl === "string" && fields.venueLogoUrl) venueLogo = fields.venueLogoUrl
+  } catch {
+    venueLogo = null
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-24 pt-8">
@@ -103,14 +110,19 @@ export default function EventCardDownloadPage() {
             <div className="absolute inset-0 bg-gradient-to-br from-slate-950/55 via-transparent to-orange-600/35" />
             <div className="relative z-10 flex h-full flex-col justify-between p-10">
               <div className="flex items-start justify-between gap-6">
-                <img src={logo} alt="Stylish Holidays" className="h-16 w-auto rounded-2xl bg-white/95 p-2" crossOrigin="anonymous" />
+                <div className="flex items-center gap-3">
+                  <img src={logo} alt="Stylish Holidays" className="h-16 w-auto rounded-2xl bg-white/95 p-2" crossOrigin="anonymous" />
+                  {venueLogo ? (
+                    <img src={apiAssetUrl(venueLogo)} alt="Venue" className="h-16 w-16 rounded-2xl bg-white/95 object-cover p-2" crossOrigin="anonymous" />
+                  ) : null}
+                </div>
                 <span className="rounded-full bg-white/20 px-5 py-2 text-sm font-black uppercase tracking-[0.16em] text-white">
                   {data.checked_in_at ? (isRtl ? "تم الحضور" : "Checked in") : (isRtl ? "جاهز" : "Ready")}
                 </span>
               </div>
               <div>
                 <p className="text-sm font-black uppercase tracking-[0.22em] text-white/70">{isRtl ? "كارت دخول الفعالية" : "Event Access Card"}</p>
-                <h1 className="mt-4 max-w-[560px] text-5xl font-black leading-tight">{eventTitle}</h1>
+                <h1 className="mt-4 max-w-[560px] text-4xl font-black leading-tight">{eventTitle}</h1>
                 <p className="mt-4 text-xl font-extrabold text-white/85">{data.full_name}</p>
               </div>
               <div className="grid grid-cols-[1fr_190px] items-end gap-8">

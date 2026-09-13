@@ -217,7 +217,7 @@ export function EventCreatePage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="draft">Draft (Hidden)</SelectItem>
-                    <SelectItem value="published">Published (Upcoming/Previous)</SelectItem>
+                    <SelectItem value="published">{language === "ar" ? "منشور (القادم / السابق تلقائيًا حسب تاريخ النهاية)" : "Published (auto Upcoming / Previous by end date)"}</SelectItem>
                     <SelectItem value="disabled">Disabled</SelectItem>
                   </SelectContent>
                 </Select>

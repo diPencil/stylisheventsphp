@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/contexts/language-context"
 import { useAuthSession } from "@/lib/auth-session"
 import { apiAssetUrl, currentAuthToken, platformApi } from "@/lib/platform-api"
+import { pricingCurrencyForCountry, ticketPriceForCurrency } from "@/lib/currency-settings"
 import { cn } from "@/lib/utils"
 
 function formatDate(value?: string, locale = "en-US") {
@@ -50,12 +51,16 @@ export default function PublicEventPage() {
   const tickets = data?.tickets || []
   const locale = isRtl ? "ar-EG" : "en-US"
   const policy = event?.registration_policy || {}
+  const viewerCountry = String(authSession.user?.country_code || (authSession.user as any)?.countryCode || "")
+  // Egyptians see EGP prices, everyone else sees USD — same rule the checkout charges by.
+  // Guests fall back to the browsing language until they pick a country at checkout.
+  const displayCurrency = pricingCurrencyForCountry(viewerCountry || undefined, isRtl ? "EGP" : "USD")
 
   if (error) {
     return (
       <PublicPageFrame>
         <section className="px-4 py-40 text-center">
-          <h1 className="text-3xl font-black text-slate-950">{isRtl ? "الفعالية غير متاحة" : "Event unavailable"}</h1>
+          <h1 className="text-2xl font-black text-slate-950">{isRtl ? "الفعالية غير متاحة" : "Event unavailable"}</h1>
           <p className="mt-3 font-semibold text-slate-500">{error}</p>
           <Button asChild className="mt-8 rounded-full px-6 font-black">
             <Link href="/upcoming-events">{isRtl ? "العودة للفعاليات" : "Back to events"}</Link>
@@ -116,7 +121,7 @@ export default function PublicEventPage() {
                 <Badge icon={Ticket} label={event.type} />
                 <Badge icon={CheckCircle2} label={stateLabel(event.state, isRtl)} />
               </div>
-              <h2 className="mt-7 text-2xl font-black text-slate-950 md:text-4xl lg:text-5xl">{isRtl ? "عن الفعالية" : "About this event"}</h2>
+              <h2 className="mt-7 text-2xl font-black text-slate-950 md:text-3xl lg:text-4xl">{isRtl ? "عن الفعالية" : "About this event"}</h2>
               <p className="mt-4 whitespace-pre-line text-base font-semibold leading-8 text-slate-600">
                 {isRtl ? event.description_ar || event.summary_ar : event.description_en || event.summary_en}
               </p>
@@ -159,8 +164,8 @@ export default function PublicEventPage() {
               <h2 className="text-2xl font-black text-slate-950">{isRtl ? "التذاكر المتاحة" : "Available tickets"}</h2>
               <div className="mt-5 space-y-3 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-1">
                 {tickets.map((ticket: any) => {
-                  const currency = isRtl ? "EGP" : "USD"
-                  const price = currency === "EGP" ? ticket.price_egp ?? ticket.price : ticket.price_usd ?? ticket.price
+                  const currency = displayCurrency
+                  const price = ticketPriceForCurrency(ticket, currency)
                   return (
                     <div key={ticket.id} className={cn("rounded-2xl border p-4", ticket.is_sold_out || !ticket.price_period_id ? "border-slate-100 bg-slate-50 opacity-70" : "border-primary/15 bg-primary/5")}>
                       <div className="flex items-start justify-between gap-3">
@@ -272,7 +277,7 @@ function ReviewsSection({ slug, data, setData, isRtl }: { slug: string; data: an
       <div className="flex flex-col justify-between gap-5 md:flex-row md:items-start">
         <div>
           <Badge icon={Star} label={isRtl ? "تقييمات الحضور" : "Attendee reviews"} />
-          <h2 className="mt-5 text-2xl font-black text-slate-950 md:text-4xl lg:text-5xl">{isRtl ? "آراء الحضور" : "Event reviews"}</h2>
+          <h2 className="mt-5 text-2xl font-black text-slate-950 md:text-3xl lg:text-4xl">{isRtl ? "آراء الحضور" : "Event reviews"}</h2>
           <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
             {isRtl ? "تظهر هنا التقييمات المعتمدة فقط بعد مراجعة الإدارة." : "Only approved attendee reviews are shown here after admin moderation."}
           </p>

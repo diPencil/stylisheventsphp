@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ConfirmAction } from "@/components/admin/confirm-action"
+import { AdminPageHeader, MetricCard } from "@/components/admin/admin-primitives"
 import { useLanguage } from "@/contexts/language-context"
 import { adminT } from "@/lib/admin-translations"
 import { platformApi } from "@/lib/platform-api"
@@ -284,36 +285,17 @@ export function CheckinConsole() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <Badge className="mb-3 rounded-xl bg-[hsl(var(--primary))] text-white hover:bg-[hsl(var(--primary))]">{isArabic ? "تسجيل حضور QR" : "QR Check-in"}</Badge>
-        <h1 className="text-xl font-extrabold tracking-tight text-[#17172f] md:text-2xl">{adminT(language, "checkin.title")}</h1>
-        <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500">
-          {isArabic ? "تحقق من تذاكر QR مباشرة من قاعدة البيانات وامنع الدخول المكرر أو الملغي." : "Validate live attendee QR tickets from the database and prevent duplicate, wrong-event, or revoked access."}
-        </p>
-      </div>
+      <AdminPageHeader
+        eyebrow={isArabic ? "تسجيل حضور QR" : "QR Check-in"}
+        title={adminT(language, "checkin.title")}
+        description={isArabic ? "تحقق من تذاكر QR مباشرة من قاعدة البيانات وامنع الدخول المكرر أو الملغي." : "Validate live attendee QR tickets from the database and prevent duplicate, wrong-event, or revoked access."}
+      />
 
       <div className="grid gap-4 md:grid-cols-4">
-        {[
-          { label: isArabic ? "إجمالي التذاكر" : "Total Tickets", value: totals.total, icon: Ticket },
-          { label: adminT(language, "overview.checkedIn"), value: totals.checkedIn, icon: UserCheck },
-          { label: adminT(language, "status.waiting"), value: totals.waiting, icon: Clock3 },
-          { label: isArabic ? "ملغي" : "Revoked", value: totals.cancelled, icon: XCircle },
-        ].map((item) => {
-          const Icon = item.icon
-          return (
-            <Card key={item.label} className="rounded-[24px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.05)]">
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[hsl(var(--primary)/0.10)] text-[hsl(var(--primary))]">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">{item.label}</p>
-                  <p className="text-lg font-extrabold text-[#17172f]">{item.value}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
+        <MetricCard label={isArabic ? "إجمالي التذاكر" : "Total Tickets"} value={totals.total} icon={Ticket} />
+        <MetricCard label={adminT(language, "overview.checkedIn")} value={totals.checkedIn} icon={UserCheck} />
+        <MetricCard label={adminT(language, "status.waiting")} value={totals.waiting} icon={Clock3} />
+        <MetricCard label={isArabic ? "ملغي" : "Revoked"} value={totals.cancelled} icon={XCircle} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1fr_420px]">

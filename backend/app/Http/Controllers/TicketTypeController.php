@@ -134,6 +134,9 @@ class TicketTypeController extends Controller
         if (!$this->requireEventScope($user, $existing->event_id)) {
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
+        if ((int) $validated['eventId'] !== (int) $existing->event_id && !$this->requireEventScope($user, (int) $validated['eventId'])) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
 
         $ticket = [
             'event_id' => $validated['eventId'],

@@ -49,7 +49,7 @@ export function EventsInspireSection({ settings }: EventsInspireSectionProps) {
               </span>
             ) : null}
 
-            <h2 className="mt-6 text-2xl font-black leading-[1.08] tracking-tight text-[#0f172a] md:text-4xl lg:text-5xl">
+            <h2 className="mt-6 text-2xl font-black leading-[1.08] tracking-tight text-[#0f172a] md:text-3xl lg:text-4xl">
               {title}
             </h2>
 
