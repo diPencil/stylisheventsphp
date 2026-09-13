@@ -102,6 +102,7 @@ export default function PublicEventPage() {
         backgroundImage={heroImage}
         imageAlt={isRtl ? event.title_ar : event.title_en}
         compactMobile={true}
+        hideDescription={true}
       />
       <section className="px-4 py-8 pb-32 sm:px-6 lg:py-16 lg:pb-16" dir={isRtl ? "rtl" : "ltr"}>
         <div className="container px-0 md:px-6 lg:px-8 mx-auto grid max-w-7xl items-start gap-4 md:gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">

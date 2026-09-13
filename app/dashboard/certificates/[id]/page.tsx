@@ -93,6 +93,7 @@ export default function CertificateDownloadPage() {
   // Template fields saved in the builder (texts, artwork, hide/show flags).
   const fields = parseTemplateFields(data.field_positions_json)
   const visibility = resolveCertificateVisibility(fields)
+  const templateTexts = (fields.texts && typeof fields.texts === "object" ? fields.texts : {}) as Record<string, string>
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-24 pt-8">
@@ -126,9 +127,9 @@ export default function CertificateDownloadPage() {
             signatoryText={fields?.signatoryText || "Stylish Holidays"}
             footerText={fields?.footerText || "Verified by Stylish Holidays."}
             labels={{
-              heading: isRtl ? "شهادة حضور ومشاركة" : "Certificate of Attendance",
-              verified: "Verified Attendance",
-              attendedPrefix: isRtl ? "لقد حضر/ت بنجاح فعالية" : "has successfully attended",
+              heading: templateTexts.heading || (isRtl ? "شهادة حضور ومشاركة" : "Certificate of Attendance"),
+              verified: templateTexts.verifiedBadge || "Verified Attendance",
+              attendedPrefix: templateTexts.eventPrefix || (isRtl ? "لقد حضر/ت بنجاح فعالية" : "has successfully attended"),
               date: isRtl ? "التاريخ" : "Date",
               certificateNo: isRtl ? "رقم الشهادة" : "Certificate No.",
               signedBy: isRtl ? "توقيع" : "Signed By",

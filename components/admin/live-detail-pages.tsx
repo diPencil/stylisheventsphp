@@ -962,9 +962,9 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
                 signatoryText={templateFields.signatoryText || "Stylish Holidays"}
                 footerText={templateFields.footerText || "Verified by Stylish Holidays."}
                 labels={{
-                  heading: adminT(language, "certificates.certificateOfAttendance"),
-                  verified: language === "ar" ? "حضور موثق" : "Verified Attendance",
-                  attendedPrefix: "has successfully attended",
+                  heading: (templateFields.texts?.heading as string) || adminT(language, "certificates.certificateOfAttendance"),
+                  verified: (templateFields.texts?.verifiedBadge as string) || (language === "ar" ? "حضور موثق" : "Verified Attendance"),
+                  attendedPrefix: (templateFields.texts?.eventPrefix as string) || "has successfully attended",
                   date: adminT(language, "common.date"),
                   certificateNo: adminT(language, "certificates.certificateNo"),
                   signedBy: adminT(language, "certificates.signedBy"),

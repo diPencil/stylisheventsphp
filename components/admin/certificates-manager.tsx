@@ -72,6 +72,7 @@ type CertificateEvent = {
   signatory: string
   visibility: CertificateVisibility
   venueLogoUrl: string
+  texts: { heading: string; verifiedBadge: string; eventPrefix: string }
 }
 
 type CustomerAsset = {
@@ -159,6 +160,16 @@ function normalizeDeliveryEvent(row: any): CertificateEvent {
     signatory: row.organizer_name || "Stylish Holidays",
     visibility: { ...defaultCertificateVisibility },
     venueLogoUrl: "",
+    texts: { heading: "", verifiedBadge: "", eventPrefix: "" },
+  }
+}
+
+function normalizeTexts(input?: any): { heading: string; verifiedBadge: string; eventPrefix: string } {
+  const source = (input && typeof input === "object" ? input : {}) as Record<string, unknown>
+  return {
+    heading: typeof source.heading === "string" ? source.heading : "",
+    verifiedBadge: typeof source.verifiedBadge === "string" ? source.verifiedBadge : "",
+    eventPrefix: typeof source.eventPrefix === "string" ? source.eventPrefix : "",
   }
 }
 
@@ -724,6 +735,7 @@ export function CertificateBuilder() {
   const [selectedEventId, setSelectedEventId] = useState("")
   const [selectedAssetId, setSelectedAssetId] = useState("")
   const [cardTemplateImage, setCardTemplateImage] = useState("")
+  const [builderTab, setBuilderTab] = useState<"certificate" | "card">("certificate")
   const [activity, setActivity] = useState("Certificate design workspace is ready.")
 
   useEffect(() => {
@@ -750,6 +762,7 @@ export function CertificateBuilder() {
             footer: fields.footerText || base.footer,
             visibility: resolveCertificateVisibility(fields),
             venueLogoUrl: typeof fields.venueLogoUrl === "string" ? fields.venueLogoUrl : "",
+            texts: normalizeTexts(fields.texts),
           }
         })
         const normalizedAssets = (deliveryRows || []).map(normalizeDelivery)
@@ -806,6 +819,7 @@ export function CertificateBuilder() {
           footerText: selectedEvent.footer,
           visibility: selectedEvent.visibility,
           venueLogoUrl: selectedEvent.venueLogoUrl,
+          texts: selectedEvent.texts,
         },
         isDefault: true,
         isActive: true,
@@ -916,6 +930,23 @@ export function CertificateBuilder() {
               <Label className="text-sm font-bold">{adminT(language, "certificates.templateName")}</Label>
               <Input value={selectedEvent.templateName} onChange={(event) => updateEvent({ templateName: event.target.value })} className="h-11 rounded-xl" />
             </div>
+            <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+              {(["certificate", "card"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setBuilderTab(tab)}
+                  className={cn(
+                    "h-10 rounded-xl text-sm font-extrabold transition",
+                    builderTab === tab ? "bg-white text-[#17172f] shadow-sm" : "text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  {tab === "certificate" ? (language === "ar" ? "الشهادة" : "Certificate") : (language === "ar" ? "الكارت" : "Event Card")}
+                </button>
+              ))}
+            </div>
+            {builderTab === "certificate" ? (
+              <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm font-bold">{language === "ar" ? "إظهار / إخفاء عناصر الشهادة" : "Show / hide certificate fields"}</Label>
               <div className="grid gap-2 rounded-2xl border border-slate-100 bg-slate-50/60 p-3 sm:grid-cols-2">
@@ -950,6 +981,37 @@ export function CertificateBuilder() {
               }}
               helperText="Paste the certificate image URL, or drag an image/link here. Data fields stay fixed."
             />
+            <div className="space-y-2">
+              <Label className="text-sm font-bold">{language === "ar" ? "نصوص الحقول (اختياري)" : "Field texts (optional)"}</Label>
+              <div className="grid gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500">{language === "ar" ? "العنوان" : "Heading"}</Label>
+                  <Input value={selectedEvent.texts.heading} onChange={(event) => updateEvent({ texts: { ...selectedEvent.texts, heading: event.target.value } })} placeholder="CERTIFICATE OF ATTENDANCE" className="h-11 rounded-xl" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500">{language === "ar" ? "الشارة" : "Verified badge"}</Label>
+                  <Input value={selectedEvent.texts.verifiedBadge} onChange={(event) => updateEvent({ texts: { ...selectedEvent.texts, verifiedBadge: event.target.value } })} placeholder="Verified Attendance" className="h-11 rounded-xl" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500">{language === "ar" ? "سطر الحضور" : "Attendance line"}</Label>
+                  <Input value={selectedEvent.texts.eventPrefix} onChange={(event) => updateEvent({ texts: { ...selectedEvent.texts, eventPrefix: event.target.value } })} placeholder="has successfully attended" className="h-11 rounded-xl" />
+                </div>
+              </div>
+              <p className="text-xs font-semibold leading-5 text-slate-400">
+                {language === "ar" ? "اتركه فاضي للنص الافتراضي." : "Leave blank for the default text."}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-bold">{adminT(language, "certificates.signedBy")}</Label>
+              <Input value={selectedEvent.signatory} onChange={(event) => updateEvent({ signatory: event.target.value })} className="h-11 rounded-xl" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-bold">{adminT(language, "certificates.footerText")}</Label>
+              <Textarea value={selectedEvent.footer} onChange={(event) => updateEvent({ footer: event.target.value })} className="min-h-24 rounded-xl" />
+            </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
             <section className="rounded-[20px] border border-slate-100 bg-white p-3 shadow-sm">
               <div className="mb-3">
                 <p className="text-sm font-extrabold text-[#17172f]">{language === "ar" ? "صورة تصميم كارت الفعالية" : "Event card design image"}</p>
@@ -988,14 +1050,8 @@ export function CertificateBuilder() {
               helperText={language === "ar" ? "يظهر جنب لوجو المشروع على الكارت." : "Shown next to the project logo on the card."}
               previewClassName="sm:h-[120px]"
             />
-            <div className="space-y-2">
-              <Label className="text-sm font-bold">{adminT(language, "certificates.signedBy")}</Label>
-              <Input value={selectedEvent.signatory} onChange={(event) => updateEvent({ signatory: event.target.value })} className="h-11 rounded-xl" />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-bold">{adminT(language, "certificates.footerText")}</Label>
-              <Textarea value={selectedEvent.footer} onChange={(event) => updateEvent({ footer: event.target.value })} className="min-h-24 rounded-xl" />
-            </div>
+              </div>
+            )}
             <Button className="h-11 w-full rounded-2xl bg-[hsl(var(--primary))] font-extrabold text-white hover:bg-[hsl(var(--primary)/0.9)]" onClick={saveTemplate}>
               <Save className="h-4 w-4" />
               Save Template
@@ -1034,9 +1090,9 @@ export function CertificateBuilder() {
               signatoryText={selectedEvent.signatory}
               footerText={selectedEvent.footer}
               labels={{
-                heading: adminT(language, "certificates.certificateOfAttendance"),
-                verified: "Verified Attendance",
-                attendedPrefix: "has successfully attended",
+                heading: selectedEvent.texts.heading || adminT(language, "certificates.certificateOfAttendance"),
+                verified: selectedEvent.texts.verifiedBadge || "Verified Attendance",
+                attendedPrefix: selectedEvent.texts.eventPrefix || "has successfully attended",
                 date: adminT(language, "common.date"),
                 certificateNo: adminT(language, "certificates.certificateNo"),
                 signedBy: adminT(language, "certificates.signedBy"),
