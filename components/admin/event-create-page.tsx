@@ -505,13 +505,7 @@ function PdfUploadField({ value, onChange }: { value: string; onChange: (value: 
     }
     setUploading(true)
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(String(reader.result || ""))
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      })
-      const uploaded = await platformApi.uploadPlatformAsset({ fileName: file.name, dataUrl })
+      const uploaded = await platformApi.uploadPlatformAssetFile(file)
       onChange(uploaded.url || "")
       toast.success(language === "ar" ? "تم رفع ملف الفعالية" : "Event PDF uploaded")
     } catch (error) {

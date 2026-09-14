@@ -195,35 +195,44 @@ export function EventCard({ event, previous = false }: { event: any; previous?: 
   const ctaText = previous
     ? (isRtl ? "عرض التفاصيل" : "View Details")
     : (isRtl ? "عرض التفاصيل والتسجيل" : "View details and register")
+  const title = isRtl ? event.titleAr : event.titleEn
+  const summary = isRtl ? event.summaryAr || event.outcomeAr : event.summaryEn || event.outcomeEn
+  const location = isRtl ? event.cityAr : event.cityEn
+  const date = isRtl ? event.dateAr : event.dateEn
+  const type = isRtl ? event.typeAr || event.typeEn : event.typeEn || event.typeAr
+  const status = isRtl ? event.statusAr || event.attendees : event.statusEn || event.attendees
 
   return (
-    <article className="group overflow-hidden rounded-[24px] md:rounded-[32px] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
-      <div className={`relative h-32 sm:h-40 md:h-52 p-4 md:p-5 text-white ${event.image ? 'bg-slate-900' : 'bg-gradient-to-br from-[hsl(var(--secondary))] via-primary to-[hsl(var(--brand-purple))]'}`}>
-        {event.image && (
-          <img src={event.image} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70 transition-transform duration-500 group-hover:scale-105" />
-        )}
-        {!event.image && (
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.16)_0,transparent_35%,rgba(255,255,255,0.10)_100%)]" />
-        )}
-        {event.image && (
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent" />
-        )}
-        <div className="relative z-10 flex h-full flex-col justify-between">
-          <span className="w-fit rounded-full bg-white/16 px-3 py-1 text-xs font-extrabold backdrop-blur">{isRtl ? event.typeAr || event.cityAr : event.typeEn || event.cityEn}</span>
-          <div>
-            <p className="text-xs md:text-sm font-bold opacity-80">{isRtl ? event.dateAr : event.dateEn}</p>
-            <h3 className="mt-1 md:mt-2 text-lg md:text-xl font-black leading-tight line-clamp-1 md:line-clamp-none">{isRtl ? event.titleAr : event.titleEn}</h3>
+    <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_22px_70px_rgba(15,23,42,0.10)]">
+      <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+        {event.image ? (
+          <img src={event.image} alt={title || ""} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-primary/80">
+            <span className="text-xs font-black uppercase tracking-[0.18em] text-white/70">Stylish Holidays</span>
           </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/10 to-transparent" />
+        <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3">
+          <span className="max-w-[70%] truncate rounded-full bg-white/90 px-3 py-1 text-xs font-black capitalize text-slate-900 shadow-sm">{type || (isRtl ? "فعالية" : "Event")}</span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-primary shadow-sm">
+            <CalendarDays className="h-4 w-4" />
+          </span>
         </div>
       </div>
-      <div className="space-y-4 md:space-y-5 p-4 md:p-6">
-        <p className="text-sm font-medium leading-7 text-slate-600 line-clamp-2">{isRtl ? event.summaryAr || event.outcomeAr : event.summaryEn || event.outcomeEn}</p>
-        <div className="flex flex-wrap gap-2 md:grid md:gap-3 md:grid-cols-3">
-          <MiniMeta icon={MapPin} label={isRtl ? event.cityAr : event.cityEn} />
-          <MiniMeta icon={previous ? Star : Users} label={previous ? event.satisfaction : event.seats} />
-          <MiniMeta icon={previous ? CheckCircle2 : Ticket} label={isRtl ? event.statusAr || event.attendees : event.statusEn || event.attendees} />
+
+      <div className="flex flex-1 flex-col p-5">
+        <p className="text-xs font-black uppercase tracking-[0.12em] text-primary">{date || (isRtl ? "قريبًا" : "Coming soon")}</p>
+        <h3 className="mt-2 min-h-[56px] text-xl font-black leading-7 text-slate-950 line-clamp-2">{title || (isRtl ? "فعالية جديدة" : "New Event")}</h3>
+        <p className="mt-3 min-h-[52px] text-sm font-semibold leading-6 text-slate-500 line-clamp-2">{summary || (isRtl ? "تفاصيل الفعالية ستكون متاحة قريبًا." : "Event details will be available soon.")}</p>
+
+        <div className="mt-5 grid gap-2 sm:grid-cols-3">
+          <MiniMeta icon={MapPin} label={location || "-"} />
+          <MiniMeta icon={previous ? Star : Users} label={previous ? event.satisfaction || "-" : event.seats || "-"} />
+          <MiniMeta icon={previous ? CheckCircle2 : Ticket} label={status || "-"} />
         </div>
-        <Button asChild={Boolean(href)} disabled={!href} variant={previous ? "outline" : "default"} className="h-11 w-full rounded-2xl font-extrabold">
+
+        <Button asChild={Boolean(href)} disabled={!href} variant={previous ? "outline" : "default"} className="mt-5 h-11 w-full rounded-lg font-extrabold">
           {href ? (
             <Link href={href}>
               {ctaText}
@@ -240,9 +249,9 @@ export function EventCard({ event, previous = false }: { event: any; previous?: 
 
 function MiniMeta({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   return (
-    <div className="flex min-h-8 md:min-h-12 items-center gap-1.5 md:gap-2 rounded-lg md:rounded-2xl bg-slate-50 px-2.5 md:px-3 py-1 md:py-0 text-[11px] md:text-sm font-extrabold text-slate-600">
-      <Icon className="h-3 w-3 md:h-4 md:w-4 shrink-0 text-primary" />
-      <span className="line-clamp-1 md:line-clamp-2">{label}</span>
+    <div className="flex min-h-14 items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-extrabold text-slate-600">
+      <Icon className="h-4 w-4 shrink-0 text-primary" />
+      <span className="min-w-0 truncate">{label || "-"}</span>
     </div>
   )
 }
