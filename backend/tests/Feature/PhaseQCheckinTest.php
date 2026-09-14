@@ -302,6 +302,38 @@ class PhaseQCheckinTest extends TestCase
         $this->assertTrue(DB::table('checkin_logs')->where('attendee_id', $wrongEvent['attendeeId'])->where('scan_result', 'invalid')->where('notes', 'like', 'wrong_event:%')->exists());
     }
 
+    public function test_checkin_after_event_end_is_rejected(): void
+    {
+        $adminRole = $this->roleId('admin');
+        $this->allow($adminRole, 'checkin.manage');
+        $admin = $this->user('admin', 'admin-phase-q-ended@example.test');
+        $endedEventId = DB::table('events')->insertGetId([
+            'slug' => 'phase-q-ended-' . uniqid(),
+            'title_en' => 'Ended Event',
+            'title_ar' => 'فعالية منتهية',
+            'type' => 'conference',
+            'status' => 'published',
+            'public_registration_enabled' => 1,
+            'registration_approval_mode' => 'automatic',
+            'registration_access' => 'guest_allowed',
+            'max_tickets_per_checkout' => 1,
+            'max_attendees' => 100,
+            'starts_at' => now()->subDays(3),
+            'ends_at' => now()->subDay(),
+            'registration_starts_at' => now()->subDays(10),
+            'registration_ends_at' => now()->subDays(4),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $ticket = $this->attendeeTicket($endedEventId, str_repeat('a', 64));
+
+        $this->withHeaders($this->bearer($admin))->postJson('/api/attendees/checkin', ['qrToken' => $ticket['ticketNumber'], 'eventId' => $endedEventId])
+            ->assertStatus(422)->assertJsonPath('details.result', 'event_ended');
+
+        $this->assertNull(DB::table('attendees')->where('id', $ticket['attendeeId'])->value('checked_in_at'));
+        $this->assertEquals(0, DB::table('attendee_daily_checkins')->where('attendee_id', $ticket['attendeeId'])->count());
+    }
+
     public function test_event_staff_scope_and_customer_ownership_are_enforced(): void
     {
         $employeeRole = $this->roleId('employee');

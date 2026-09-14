@@ -5,9 +5,11 @@ import { useParams, useRouter } from "next/navigation"
 import { platformApi } from "@/lib/platform-api"
 import { useLanguage } from "@/contexts/language-context"
 import { Button } from "@/components/ui/button"
-import { Download, ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
+import { Download, ArrowLeft, ArrowRight, Loader2, Printer } from "lucide-react"
 import { apiAssetUrl } from "@/lib/platform-api"
 import { CertificateArtwork, parseTemplateFields, resolveCertificateVisibility } from "@/components/certificates/certificate-artwork"
+import { printA4Certificate } from "@/lib/print-a4"
+import "@/components/certificates/certificate-print.css"
 import { toast } from "sonner"
 import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
@@ -79,6 +81,10 @@ export default function CertificateDownloadPage() {
     }
   }
 
+  const handlePrint = () => {
+    printA4Certificate()
+  }
+
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -101,8 +107,16 @@ export default function CertificateDownloadPage() {
           {isRtl ? <ArrowRight className="ml-2 h-4 w-4" /> : <ArrowLeft className="mr-2 h-4 w-4" />}
           {isRtl ? "العودة" : "Back"}
         </Button>
-        <Button 
-          onClick={handleDownload} 
+        <Button
+          onClick={handlePrint}
+          variant="outline"
+          className="h-11 rounded-xl bg-white px-6 font-extrabold"
+        >
+          <Printer className="mr-2 h-4 w-4" />
+          {isRtl ? "طباعة (A4)" : "Print (A4)"}
+        </Button>
+        <Button
+          onClick={handleDownload}
           disabled={downloading}
           className="h-11 rounded-xl bg-[hsl(var(--primary))] px-6 font-extrabold text-white shadow-lg hover:bg-[hsl(var(--primary)/0.9)]"
         >
@@ -112,12 +126,13 @@ export default function CertificateDownloadPage() {
       </div>
 
       <div className="overflow-hidden rounded-[28px] border-0 bg-white p-6 shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
-        {/* Fixed A4-landscape canvas so the PDF capture matches the preview exactly */}
+        {/* Fixed A4-landscape canvas so the PDF capture matches the preview exactly.
+            cert-print-root is the only visible node during printing (see certificate-print.css). */}
         <div className="flex justify-center overflow-auto pb-4">
           <div
             ref={certificateRef}
             style={{ width: `${A4_LANDSCAPE_MM.width}mm`, height: `${A4_LANDSCAPE_MM.height}mm` }}
-            className="flex-shrink-0 bg-white"
+            className="cert-print-root flex-shrink-0 bg-white"
           >
           <CertificateArtwork
             backgroundUrl={data.template_url}

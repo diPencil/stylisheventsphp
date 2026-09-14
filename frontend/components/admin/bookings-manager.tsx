@@ -184,7 +184,7 @@ export function BookingsManager() {
         description={adminT(language, "bookings.subtitle")}
         actions={[
           ...(can("registrations.create_manual")
-            ? [{ label: language === "ar" ? "Ø­Ø¬Ø² ÙŠØ¯ÙˆÙŠ" : "Manual Booking", icon: UserPlus, href: "/admin/registrations/create", variant: "outline" as const }]
+            ? [{ label: language === "ar" ? "حجز يدوي" : "Manual Booking", icon: UserPlus, href: "/admin/registrations/create", variant: "outline" as const }]
             : []),
           { label: adminT(language, "bookings.export"), icon: ReceiptText, onClick: exportOrders },
         ]}

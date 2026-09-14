@@ -10,14 +10,16 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/contexts/language-context"
 import { apiAssetUrl, platformApi } from "@/lib/platform-api"
+import { EventCardArtwork } from "@/components/event-cards/event-card-artwork"
+import { parseCardFields } from "@/lib/event-card-template"
 
 function title(row: any, isRtl: boolean) {
   return isRtl ? row?.event_title_ar || row?.event_title_en : row?.event_title_en || row?.event_title_ar
 }
 
-function formatDate(value?: string) {
+function formatDate(value?: string, isRtl = false) {
   if (!value) return "-"
-  return new Intl.DateTimeFormat("en", { month: "short", day: "2-digit", year: "numeric" }).format(new Date(value))
+  return new Intl.DateTimeFormat(isRtl ? "ar-EG" : "en-US", { month: "short", day: "2-digit", year: "numeric" }).format(new Date(value))
 }
 
 export default function EventCardDownloadPage() {
@@ -77,14 +79,17 @@ export default function EventCardDownloadPage() {
 
   const eventTitle = title(data, isRtl)
   const logo = isRtl ? "/LogoAR.png" : "/logo.png"
-  const cover = apiAssetUrl(data.cover_image_url || data.banner_image_url)
-  let venueLogo: string | null = null
-  try {
-    const fields = typeof data.template_fields_json === "string" ? JSON.parse(data.template_fields_json) : data.template_fields_json
-    if (fields && typeof fields.venueLogoUrl === "string" && fields.venueLogoUrl) venueLogo = fields.venueLogoUrl
-  } catch {
-    venueLogo = null
-  }
+  // Stored/default card design wins; legacy certificate fields stay as fallback.
+  const cardFields = parseCardFields(data.card_template_fields_json || data.template_fields_json)
+  const legacyVenueLogo = (() => {
+    try {
+      const legacy = typeof data.template_fields_json === "string" ? JSON.parse(data.template_fields_json) : data.template_fields_json
+      return legacy && typeof legacy.venueLogoUrl === "string" && legacy.venueLogoUrl ? legacy.venueLogoUrl : null
+    } catch {
+      return null
+    }
+  })()
+  const venueLogo = (cardFields.venueLogoUrl as string) || legacyVenueLogo
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-24 pt-8">
@@ -101,43 +106,26 @@ export default function EventCardDownloadPage() {
 
       <div className="overflow-hidden rounded-[28px] bg-white p-6 shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
         <div className="flex justify-center overflow-auto pb-4">
-          <div
-            ref={cardRef}
-            className="relative flex-shrink-0 overflow-hidden rounded-[38px] bg-gradient-to-br from-[#231f32] via-[#793a21] to-[#f05a00] text-white"
-            style={{ width: "900px", height: "540px" }}
-          >
-            {cover ? <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" crossOrigin="anonymous" /> : null}
-            <div className="absolute inset-0 bg-gradient-to-br from-slate-950/55 via-transparent to-orange-600/35" />
-            <div className="relative z-10 flex h-full flex-col justify-between p-10">
-              <div className="flex items-start justify-between gap-6">
-                <div className="flex items-center gap-3">
-                  <img src={logo} alt="Stylish Holidays" className="h-16 w-auto rounded-2xl bg-white/95 p-2" crossOrigin="anonymous" />
-                  {venueLogo ? (
-                    <img src={apiAssetUrl(venueLogo)} alt="Venue" className="h-16 w-16 rounded-2xl bg-white/95 object-cover p-2" crossOrigin="anonymous" />
-                  ) : null}
-                </div>
-                <span className="rounded-full bg-white/20 px-5 py-2 text-sm font-black uppercase tracking-[0.16em] text-white">
-                  {data.checked_in_at ? (isRtl ? "تم الحضور" : "Checked in") : (isRtl ? "جاهز" : "Ready")}
-                </span>
-              </div>
-              <div>
-                <p className="text-sm font-black uppercase tracking-[0.22em] text-white/70">{isRtl ? "كارت دخول الفعالية" : "Event Access Card"}</p>
-                <h1 className="mt-4 max-w-[560px] text-4xl font-black leading-tight">{eventTitle}</h1>
-                <p className="mt-4 text-xl font-extrabold text-white/85">{data.full_name}</p>
-              </div>
-              <div className="grid grid-cols-[1fr_190px] items-end gap-8">
-                <div className="grid grid-cols-2 gap-5 text-sm font-bold text-white/85">
-                  <div><p className="text-white/55">{isRtl ? "رقم الكارت" : "Card No."}</p><p className="mt-1 text-lg text-white" dir="ltr">{data.card_number}</p></div>
-                  <div><p className="text-white/55">{isRtl ? "التذكرة" : "Ticket"}</p><p className="mt-1 text-lg text-white">{isRtl ? data.ticket_name_ar || data.ticket_name_en : data.ticket_name_en || data.ticket_name_ar}</p></div>
-                  <div><p className="text-white/55">{isRtl ? "التاريخ" : "Date"}</p><p className="mt-1 text-lg text-white">{formatDate(data.starts_at)}</p></div>
-                  <div><p className="text-white/55">{isRtl ? "الموقع" : "Location"}</p><p className="mt-1 text-lg text-white">{isRtl ? data.venue_name_ar || data.city_ar || "أونلاين" : data.venue_name_en || data.city_en || "Online"}</p></div>
-                </div>
-                <div className="rounded-[28px] bg-white p-4 text-center text-[#17172f]" dir="ltr">
-                  {data.qr_token ? <QRCodeSVG value={data.qr_token} size={150} level="H" /> : <div className="grid h-[150px] place-items-center text-sm font-black text-slate-400">No QR</div>}
-                  <p className="mt-3 truncate text-xs font-black">{data.ticket_number}</p>
-                </div>
-              </div>
-            </div>
+          <div ref={cardRef} className="w-full max-w-[880px] flex-shrink-0">
+            <EventCardArtwork
+              data={{
+                backgroundUrl: data.card_template_background_url || undefined,
+                fallbackCoverUrl: data.cover_image_url || data.banner_image_url || undefined,
+                venueLogoUrl: venueLogo,
+                logoUrl: logo,
+                statusText: data.checked_in_at ? (isRtl ? "تم الحضور" : "Checked in") : (isRtl ? "جاهز" : "Ready"),
+                eventTitle,
+                attendeeName: data.full_name,
+                cardNo: data.card_number,
+                ticketName: isRtl ? data.ticket_name_ar || data.ticket_name_en : data.ticket_name_en || data.ticket_name_ar,
+                dateText: formatDate(data.starts_at, isRtl),
+                locationText: isRtl ? data.venue_name_ar || data.city_ar || "أونلاين" : data.venue_name_en || data.city_en || "Online",
+                qrValue: data.qr_token || null,
+                ticketNumber: data.ticket_number,
+                fields: cardFields,
+                isRtl,
+              }}
+            />
           </div>
         </div>
       </div>

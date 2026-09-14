@@ -76,7 +76,7 @@ function Stars({ value }: { value: number }) {
       {Array.from({ length: 5 }).map((_, index) => (
         <Star key={index} className={cn("h-3.5 w-3.5", index < value ? "fill-amber-400 text-amber-400" : "text-slate-200")} />
       ))}
-      <span className="ml-1 text-xs font-extrabold text-slate-600">{value.toFixed(1)}</span>
+      <span className="ms-1 text-xs font-extrabold text-slate-600">{value.toFixed(1)}</span>
     </div>
   )
 }

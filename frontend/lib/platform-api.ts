@@ -485,6 +485,20 @@ export const platformApi = {
     request<any>("/api/certificates/templates", { method: "POST", body: JSON.stringify(data) }),
   updateCertificateTemplateStatus: (id: number | string, isActive: boolean) =>
     request<any>(`/api/certificates/templates/${id}/status`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
+  setDefaultCertificateTemplate: (id: number | string) =>
+    request<any>(`/api/certificates/templates/${id}/default`, { method: "POST" }),
+  deleteCertificateTemplate: (id: number | string) =>
+    request<any>(`/api/certificates/templates/${id}`, { method: "DELETE" }),
+  listEventCardTemplates: (eventId?: number) =>
+    request<any[]>(`/api/event-cards/templates${eventId ? `?eventId=${eventId}` : ""}`),
+  createEventCardTemplate: (data: Record<string, unknown>) =>
+    request<any>("/api/event-cards/templates", { method: "POST", body: JSON.stringify(data) }),
+  updateEventCardTemplateStatus: (id: number | string, isActive: boolean) =>
+    request<any>(`/api/event-cards/templates/${id}/status`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
+  setDefaultEventCardTemplate: (id: number | string) =>
+    request<any>(`/api/event-cards/templates/${id}/default`, { method: "POST" }),
+  deleteEventCardTemplate: (id: number | string) =>
+    request<any>(`/api/event-cards/templates/${id}`, { method: "DELETE" }),
   issueCertificate: (data: Record<string, unknown>) =>
     request<any>("/api/certificates/issue", { method: "POST", body: JSON.stringify(data) }),
   generateEventCard: (data: Record<string, unknown>) =>

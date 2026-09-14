@@ -515,10 +515,9 @@ class MeController extends Controller
 
         $row = DB::table('certificates as c')
             ->leftJoin('attendees as a', 'a.id', '=', 'c.attendee_id')
-            ->leftJoin('events as e', 'e.id', '=', 'c.event_id')
+            ->leftJoin('events as e', 'e.id', '=', DB::raw('COALESCE(c.event_id, a.event_id)'))
             ->leftJoin('registrations as r', 'r.id', '=', 'a.registration_id')
             ->leftJoin('doctors as d', 'd.id', '=', 'r.doctor_id')
-            ->leftJoin('certificate_templates as ct', 'ct.event_id', '=', 'c.event_id')
             ->where('c.id', $id)
             ->where('c.status', 'issued')
             ->where('d.user_id', $userId)
@@ -528,6 +527,7 @@ class MeController extends Controller
                 'c.status as certificate_status',
                 'c.issued_at as certificate_issued_at',
                 'c.file_url as certificate_file_url',
+                'c.template_key as certificate_template_key',
                 'a.id as attendee_id',
                 'r.id as registration_id',
                 'r.registration_number',
@@ -537,14 +537,35 @@ class MeController extends Controller
                 'e.title_ar as event_title_ar',
                 'e.starts_at',
                 'e.ends_at',
-                'ct.template_url',
-                'ct.field_positions_json'
             ])
             ->first();
 
         if (!$row) {
             return response()->json(['success' => false, 'message' => 'Certificate not found'], 404);
         }
+
+        // Stored template choice wins (multi-template support); otherwise the
+        // event default. This also avoids duplicate rows when an event has
+        // several templates.
+        $template = null;
+        $key = $row->certificate_template_key ?? null;
+        if ($key !== null && ctype_digit((string) $key) && $row->event_id) {
+            $template = DB::table('certificate_templates')
+                ->where('id', (int) $key)
+                ->where('event_id', $row->event_id)
+                ->first(['id', 'name', 'template_url', 'field_positions_json']);
+        }
+        if (!$template && $row->event_id) {
+            $template = DB::table('certificate_templates')
+                ->where('event_id', $row->event_id)
+                ->orderBy('is_default', 'desc')
+                ->orderBy('updated_at', 'desc')
+                ->first(['id', 'name', 'template_url', 'field_positions_json']);
+        }
+        $row->certificate_template_id = $template->id ?? null;
+        $row->certificate_template_name = $template->name ?? null;
+        $row->template_url = $template->template_url ?? null;
+        $row->field_positions_json = $template->field_positions_json ?? null;
 
         return response()->json([
             'success' => true,
@@ -595,8 +616,8 @@ class MeController extends Controller
                 'ec.id as card_id',
                 'ec.card_number',
                 'ec.file_url as card_file_url',
+                'ec.template_key as card_template_key',
                 'ec.created_at as card_sent_at',
-                DB::raw("(SELECT ct.field_positions_json FROM certificate_templates ct WHERE ct.event_id = e.id ORDER BY ct.is_default DESC, ct.updated_at DESC LIMIT 1) as template_fields_json"),
                 'gt.id as ticket_id',
                 'gt.ticket_number',
                 DB::raw('COALESCE(gt.qr_token, a.qr_token) as qr_token'),
@@ -627,6 +648,38 @@ class MeController extends Controller
 
         if (!$row) {
             return response()->json(['success' => false, 'message' => 'Event card not found'], 404);
+        }
+
+        // Stored card design wins; otherwise the event default card design.
+        // Falls back to the certificate default fields so legacy venue logos
+        // keep rendering.
+        $cardTemplate = null;
+        $cardKey = $row->card_template_key ?? null;
+        if ($cardKey !== null && ctype_digit((string) $cardKey) && $row->event_id) {
+            $cardTemplate = DB::table('event_card_templates')
+                ->where('id', (int) $cardKey)
+                ->where('event_id', $row->event_id)
+                ->first(['id', 'name', 'background_url', 'fields_json']);
+        }
+        if (!$cardTemplate && $row->event_id) {
+            $cardTemplate = DB::table('event_card_templates')
+                ->where('event_id', $row->event_id)
+                ->orderBy('is_default', 'desc')
+                ->orderBy('updated_at', 'desc')
+                ->first(['id', 'name', 'background_url', 'fields_json']);
+        }
+        $row->card_template_id = $cardTemplate->id ?? null;
+        $row->card_template_name = $cardTemplate->name ?? null;
+        $row->card_template_background_url = $cardTemplate->background_url ?? null;
+        $row->card_template_fields_json = $cardTemplate->fields_json ?? null;
+        if (!$row->card_template_fields_json && $row->event_id) {
+            $row->template_fields_json = DB::table('certificate_templates')
+                ->where('event_id', $row->event_id)
+                ->orderBy('is_default', 'desc')
+                ->orderBy('updated_at', 'desc')
+                ->value('field_positions_json');
+        } else {
+            $row->template_fields_json = $row->card_template_fields_json;
         }
 
         return response()->json([

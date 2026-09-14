@@ -139,7 +139,7 @@ export function ImageUrlDropzone({
                 className="h-10 min-w-0 rounded-2xl border-slate-200 bg-white text-sm font-bold"
               />
             </div>
-            <div className="pl-0 sm:pl-12">
+            <div className="ps-0 sm:ps-12">
               <TooltipProvider delayDuration={120}>
                 <div className="flex flex-wrap gap-2">
                   <IconAction label={uploadLabel} onClick={() => inputRef.current?.click()} icon={<UploadCloud className="h-4 w-4" />} />

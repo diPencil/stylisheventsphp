@@ -198,6 +198,20 @@ Route::middleware(['auth:api'])->group(function () {
         ->middleware('permission:certificates.manage');
     Route::patch('/certificates/templates/{id}/status', [\App\Http\Controllers\CertificateController::class, 'updateTemplateStatus'])
         ->middleware('permission:certificates.manage');
+    Route::post('/certificates/templates/{id}/default', [\App\Http\Controllers\CertificateController::class, 'setDefaultTemplate'])
+        ->middleware('permission:certificates.manage');
+    Route::delete('/certificates/templates/{id}', [\App\Http\Controllers\CertificateController::class, 'destroyTemplate'])
+        ->middleware('permission:certificates.manage');
+    Route::get('/event-cards/templates', [\App\Http\Controllers\CertificateController::class, 'getCardTemplates'])
+        ->middleware('permission:certificates.view,certificates.manage');
+    Route::post('/event-cards/templates', [\App\Http\Controllers\CertificateController::class, 'storeCardTemplate'])
+        ->middleware('permission:certificates.manage');
+    Route::patch('/event-cards/templates/{id}/status', [\App\Http\Controllers\CertificateController::class, 'updateCardTemplateStatus'])
+        ->middleware('permission:certificates.manage');
+    Route::post('/event-cards/templates/{id}/default', [\App\Http\Controllers\CertificateController::class, 'setDefaultCardTemplate'])
+        ->middleware('permission:certificates.manage');
+    Route::delete('/event-cards/templates/{id}', [\App\Http\Controllers\CertificateController::class, 'destroyCardTemplate'])
+        ->middleware('permission:certificates.manage');
     Route::post('/certificates/issue', [\App\Http\Controllers\CertificateController::class, 'issue'])
         ->middleware('permission:certificates.manage');
     Route::post('/certificates/event-card', [\App\Http\Controllers\CertificateController::class, 'eventCard'])

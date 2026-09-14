@@ -7,6 +7,7 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/contexts/language-context"
 import { apiAssetUrl } from "@/lib/platform-api"
+import { eventTypeLabel } from "@/lib/event-type-label"
 import { cn } from "@/lib/utils"
 import type { LucideIcon } from "lucide-react"
 
@@ -34,6 +35,7 @@ export function PublicPageHero({
   imageAlt,
   compactMobile = false,
   hideDescription = false,
+  titleSize = "default",
 }: {
   title: string
   description: string
@@ -42,6 +44,7 @@ export function PublicPageHero({
   imageAlt?: string
   compactMobile?: boolean
   hideDescription?: boolean
+  titleSize?: "default" | "compact"
 }) {
   const { isRtl } = useLanguage()
   const resolvedImage =
@@ -65,7 +68,12 @@ export function PublicPageHero({
         "relative z-20 w-full px-4 text-center flex flex-col items-center justify-center",
         compactMobile ? "pb-6 md:pt-20 md:pb-8" : "pb-8 md:pt-20 md:pb-8"
       )}>
-        <h1 className="mb-3 md:mb-4 max-w-[16rem] sm:max-w-xl md:max-w-3xl text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-white text-balance drop-shadow-lg">
+        <h1 className={cn(
+          "mb-3 md:mb-4 max-w-[16rem] sm:max-w-xl md:max-w-3xl tracking-tight text-white text-balance drop-shadow-lg",
+          titleSize === "compact"
+            ? "text-xl sm:text-2xl md:text-3xl font-bold"
+            : "text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold"
+        )}>
           {title}
         </h1>
         {hideDescription ? null : (
@@ -199,40 +207,47 @@ export function EventCard({ event, previous = false }: { event: any; previous?: 
   const summary = isRtl ? event.summaryAr || event.outcomeAr : event.summaryEn || event.outcomeEn
   const location = isRtl ? event.cityAr : event.cityEn
   const date = isRtl ? event.dateAr : event.dateEn
-  const type = isRtl ? event.typeAr || event.typeEn : event.typeEn || event.typeAr
+  const type = (isRtl ? event.typeAr || event.typeEn : event.typeEn || event.typeAr) || eventTypeLabel(undefined, isRtl)
   const status = isRtl ? event.statusAr || event.attendees : event.statusEn || event.attendees
+  const seats = previous ? event.satisfaction || "-" : event.seats || "-"
+  const dateLabel = date || (isRtl ? "قريبًا" : "Coming soon")
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_22px_70px_rgba(15,23,42,0.10)]">
-      <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_36px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(15,23,42,0.12)]">
+      <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
         {event.image ? (
           <img src={event.image} alt={title || ""} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-primary/80">
-            <span className="text-xs font-black uppercase tracking-[0.18em] text-white/70">Stylish Holidays</span>
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-primary/70">
+            <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/60">Stylish Holidays</span>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/10 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent" />
         <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3">
-          <span className="max-w-[70%] truncate rounded-full bg-white/90 px-3 py-1 text-xs font-black capitalize text-slate-900 shadow-sm">{type || (isRtl ? "فعالية" : "Event")}</span>
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-primary shadow-sm">
+          <span className="max-w-[70%] truncate rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold capitalize text-slate-800 shadow-sm backdrop-blur">{type}</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-primary shadow-sm backdrop-blur">
             <CalendarDays className="h-4 w-4" />
+          </span>
+        </div>
+        <div className="absolute bottom-4 left-4">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-950/70 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-white backdrop-blur">
+            <CalendarDays className="h-3.5 w-3.5 text-white/80" />
+            {dateLabel}
           </span>
         </div>
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-primary">{date || (isRtl ? "قريبًا" : "Coming soon")}</p>
-        <h3 className="mt-2 min-h-[56px] text-xl font-black leading-7 text-slate-950 line-clamp-2">{title || (isRtl ? "فعالية جديدة" : "New Event")}</h3>
-        <p className="mt-3 min-h-[52px] text-sm font-semibold leading-6 text-slate-500 line-clamp-2">{summary || (isRtl ? "تفاصيل الفعالية ستكون متاحة قريبًا." : "Event details will be available soon.")}</p>
+        <h3 className="min-h-[48px] text-lg font-extrabold leading-6 text-slate-900 line-clamp-2">{title || (isRtl ? "فعالية جديدة" : "New Event")}</h3>
+        <p className="mt-2 min-h-[40px] text-[13px] font-medium leading-5 text-slate-500 line-clamp-2">{summary || (isRtl ? "تفاصيل الفعالية ستكون متاحة قريبًا." : "Event details will be available soon.")}</p>
 
-        <div className="mt-5 grid gap-2 sm:grid-cols-3">
-          <MiniMeta icon={MapPin} label={location || "-"} />
-          <MiniMeta icon={previous ? Star : Users} label={previous ? event.satisfaction || "-" : event.seats || "-"} />
-          <MiniMeta icon={previous ? CheckCircle2 : Ticket} label={status || "-"} />
+        <div className="mt-4 flex items-center gap-4 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-600">
+          <CardMeta icon={MapPin} label={location || (isRtl ? "أونلاين" : "Online")} />
+          <CardMeta icon={previous ? Star : Users} label={seats} />
+          <CardMeta icon={previous ? CheckCircle2 : Ticket} label={status || "-"} dot />
         </div>
 
-        <Button asChild={Boolean(href)} disabled={!href} variant={previous ? "outline" : "default"} className="mt-5 h-11 w-full rounded-lg font-extrabold">
+        <Button asChild={Boolean(href)} disabled={!href} variant={previous ? "outline" : "default"} className="mt-4 h-10 w-full rounded-xl text-sm font-bold">
           {href ? (
             <Link href={href}>
               {ctaText}
@@ -244,6 +259,19 @@ export function EventCard({ event, previous = false }: { event: any; previous?: 
         </Button>
       </div>
     </article>
+  )
+}
+
+function CardMeta({ icon: Icon, label, dot = false }: { icon: LucideIcon; label: string; dot?: boolean }) {
+  return (
+    <span title={label} className="flex min-w-0 flex-1 items-center gap-1.5">
+      {dot ? (
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+      ) : (
+        <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+      )}
+      <span className="truncate">{label || "-"}</span>
+    </span>
   )
 }
 

@@ -4,6 +4,7 @@ import type { Metadata } from "next"
 import { ThemeProvider } from "@/components/theme-provider"
 import { PlatformThemeProvider } from "@/components/platform-theme-provider"
 import { LanguageProvider } from "@/contexts/language-context"
+import { AppDirectionProvider } from "@/components/direction-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { ScrollToTop } from "@/components/ui/scroll-to-top"
 import { ImpersonationBanner } from "@/components/impersonation-banner"
@@ -205,8 +206,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             value={{ light: "white", dark: "black" }}
           >
             <PlatformThemeProvider>
-              <ImpersonationBanner />
-              {children}
+              <AppDirectionProvider>
+                <ImpersonationBanner />
+                {children}
+              </AppDirectionProvider>
             </PlatformThemeProvider>
             <Toaster position="top-right" richColors closeButton />
             <ScrollToTop />

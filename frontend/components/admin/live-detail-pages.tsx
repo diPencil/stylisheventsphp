@@ -15,6 +15,7 @@ import {
   ImageIcon,
   Mail,
   MapPin,
+  Printer,
   QrCode,
   ReceiptText,
   Search,
@@ -38,6 +39,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CatalogSelect } from "@/components/admin/catalog-select"
 import { CertificateArtwork, parseTemplateFields, resolveCertificateVisibility } from "@/components/certificates/certificate-artwork"
+import { printA4Certificate } from "@/lib/print-a4"
+import { EventCardArtwork } from "@/components/event-cards/event-card-artwork"
+import { parseCardFields, resolveEventCardVisibility, cardFieldText } from "@/lib/event-card-template"
+import "@/components/certificates/certificate-print.css"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -938,6 +943,8 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
   const [cardTemplateImage, setCardTemplateImage] = useState("")
   const [certificateTemplateImage, setCertificateTemplateImage] = useState("")
   const [templateFields, setTemplateFields] = useState<Record<string, any>>({})
+  const [cardDesignBackground, setCardDesignBackground] = useState("")
+  const [cardDesignFields, setCardDesignFields] = useState<Record<string, any>>({})
 
   useEffect(() => {
     let active = true
@@ -945,8 +952,9 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
       platformApi.listCertificateDelivery(),
       platformApi.getCardTemplateSettings(),
       platformApi.listCertificateTemplates().catch(() => []),
+      platformApi.listEventCardTemplates().catch(() => []),
     ])
-        .then(([rows, cardTemplate, templates]) => {
+        .then(([rows, cardTemplate, templates, cardDesigns]) => {
           const record = rows.find((item: any) => String(item.attendee_id) === String(id) || String(item.certificate_id) === String(id) || String(item.card_id) === String(id))
           if (active) {
             setCardTemplateImage(cardTemplate?.imageUrl || "")
@@ -954,9 +962,21 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
             let bg = ""
             let fields: Record<string, any> = {}
             if (record) {
-              const tmpl = (templates || []).find((t: any) => Number(t.event_id) === Number(record.event_id))
+              // Stored template choice wins (multi-template support), else event default.
+              const storedId = record.certificate_template_id ? String(record.certificate_template_id) : ""
+              const tmpl = (templates || []).find((t: any) => storedId && String(t.id) === storedId && Number(t.event_id) === Number(record.event_id))
+                || (templates || []).find((t: any) => Number(t.event_id) === Number(record.event_id))
               bg = tmpl?.template_url || record.cover_image_url || ""
               fields = parseTemplateFields(tmpl?.field_positions_json)
+
+              // Card design: stored choice wins, else event default.
+              const storedCardId = record.card_template_id ? String(record.card_template_id) : ""
+              const designs = (cardDesigns || []).filter((t: any) => Number(t.event_id) === Number(record.event_id))
+              const design = designs.find((t: any) => storedCardId && String(t.id) === storedCardId)
+                || designs.find((t: any) => t.is_default)
+                || designs[0]
+              setCardDesignBackground(typeof design?.background_url === "string" ? design.background_url : "")
+              setCardDesignFields(parseCardFields(design?.fields_json))
             }
             setCertificateTemplateImage(bg)
             setTemplateFields(fields)
@@ -979,7 +999,8 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
   async function sendAsset() {
     try {
       if (kind === "certificate") {
-        await platformApi.issueCertificate({ attendeeId: Number(row.attendee_id || row.id), templateKey: "default" })
+        const storedTemplateId = row.certificate_template_id ? String(row.certificate_template_id) : ""
+        await platformApi.issueCertificate({ attendeeId: Number(row.attendee_id || row.id), templateKey: storedTemplateId || "default" })
         toast.success(language === "ar" ? "تم إرسال الشهادة" : "Certificate sent", { description: row.full_name })
       } else {
         await platformApi.generateEventCard({ attendeeId: Number(row.attendee_id || row.id), templateKey: "default" })
@@ -993,31 +1014,43 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
   async function downloadAsset() {
     const el = document.getElementById("asset-preview-container")
     if (!el) return
-    
+
     try {
       toast.info(language === "ar" ? "جاري تحضير الملف..." : "Preparing PDF...")
       const html2canvas = (await import("html2canvas")).default
       const { jsPDF } = await import("jspdf")
-      
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false } as any)
-      const imgData = canvas.toDataURL("image/jpeg", 1.0)
-      
-      // Calculate dimensions in mm for PDF (jsPDF default is mm, but we can use px or pt)
-      // We'll use the canvas dimensions to perfectly match the aspect ratio
-      const pdf = new jsPDF({
-        orientation: canvas.width > canvas.height ? "landscape" : "portrait",
-        unit: "px",
-        format: [canvas.width, canvas.height]
-      })
-      
-      pdf.addImage(imgData, "JPEG", 0, 0, canvas.width, canvas.height)
-      pdf.save(`${kind}-${title}.pdf`)
-      
+
+      if (kind === "certificate") {
+        // True A4 landscape (297 x 210 mm) — same as the customer download.
+        const canvas = await html2canvas(el, { scale: 3, useCORS: true, backgroundColor: "#ffffff", logging: false } as any)
+        const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4", compress: true })
+        pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, 297, 210, undefined, "FAST")
+        pdf.save(`${kind}-${title}.pdf`)
+      } else {
+        const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false } as any)
+        const imgData = canvas.toDataURL("image/jpeg", 1.0)
+
+        // Calculate dimensions in mm for PDF (jsPDF default is mm, but we can use px or pt)
+        // We'll use the canvas dimensions to perfectly match the aspect ratio
+        const pdf = new jsPDF({
+          orientation: canvas.width > canvas.height ? "landscape" : "portrait",
+          unit: "px",
+          format: [canvas.width, canvas.height]
+        })
+
+        pdf.addImage(imgData, "JPEG", 0, 0, canvas.width, canvas.height)
+        pdf.save(`${kind}-${title}.pdf`)
+      }
+
       toast.success(language === "ar" ? "تم التحميل بنجاح" : "Downloaded successfully")
     } catch (error) {
       console.error(error)
       toast.error(language === "ar" ? "فشل التحميل" : "Download failed")
     }
+  }
+
+  function printAsset() {
+    printA4Certificate()
   }
 
   return (
@@ -1033,6 +1066,9 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={downloadAsset} variant="outline" className="h-10 rounded-2xl bg-white px-4 text-sm font-extrabold"><Download className="h-4 w-4" /> {adminT(language, "common.download")}</Button>
+          {kind === "certificate" && (
+            <Button onClick={printAsset} variant="outline" className="h-10 rounded-2xl bg-white px-4 text-sm font-extrabold"><Printer className="h-4 w-4" /> {language === "ar" ? "طباعة (A4)" : "Print (A4)"}</Button>
+          )}
           {canManageCertificates && <Button onClick={sendAsset} className="h-10 rounded-2xl bg-[hsl(var(--primary))] px-4 text-sm font-extrabold text-white"><Mail className="h-4 w-4" /> {adminT(language, "common.send")}</Button>}
         </div>
       </div>
@@ -1040,7 +1076,7 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
       {kind === "certificate" ? (
         <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
           <CardContent className="p-4 md:p-6">
-            <div id="asset-preview-container">
+            <div id="asset-preview-container" className={kind === "certificate" ? "cert-print-root" : undefined}>
               <CertificateArtwork
                 backgroundUrl={certificateTemplateImage}
                 logoUrl="/logo.png"
@@ -1069,37 +1105,28 @@ export function LiveCustomerAssetPreviewPage({ id, kind }: { id: string; kind: "
         <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
           <Card className="rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
             <CardContent className="p-6">
-              <div
-                id="asset-preview-container"
-                className="relative mx-auto aspect-[1.58/1] max-w-xl overflow-hidden rounded-[34px] bg-gradient-to-br from-[#0f172a] to-[hsl(var(--primary))] p-6 text-white shadow-2xl"
-                style={
-                  cardTemplateImage
-                    ? {
-                        backgroundImage: `linear-gradient(rgba(15,23,42,.32), rgba(15,23,42,.32)), url(${apiAssetUrl(cardTemplateImage)})`,
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                      }
-                    : undefined
-                }
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <img src="/favicon.png" alt="Stylish Holidays" className="h-12 w-12 rounded-full bg-white p-1" />
-                    {typeof templateFields.venueLogoUrl === "string" && templateFields.venueLogoUrl ? (
-                      <img src={apiAssetUrl(templateFields.venueLogoUrl)} alt="Venue" className="h-12 w-12 rounded-full bg-white object-cover p-1" />
-                    ) : null}
-                  </div>
-                  <Badge className="rounded-xl bg-white/20 text-white hover:bg-white/20">{status}</Badge>
-                </div>
-                <p className="mt-10 text-xs font-bold uppercase tracking-widest text-white/60">{language === "ar" ? "كارت دخول الفعالية" : "Event Access Card"}</p>
-                <h2 className="mt-3 text-2xl font-extrabold leading-tight">{row.full_name}</h2>
-                <p className="mt-3 text-sm font-semibold leading-6 text-white/70">{eventTitle(row)}</p>
-                <div className="mt-8 grid grid-cols-2 gap-4 text-sm font-semibold text-white/75">
-                  <div><p className="text-white/45">{language === "ar" ? "رقم الكارت" : "Card No."}</p><p>{title}</p></div>
-                  <div><p className="text-white/45">{adminT(language, "common.ticket")}</p><p>{row.ticket_name_en}</p></div>
-                  <div><p className="text-white/45">{language === "ar" ? "رقم الحضور" : "Attendee"}</p><p>{row.attendee_number}</p></div>
-                  <div><p className="text-white/45">{adminT(language, "attendees.checkin")}</p><p>{row.checked_in_at ? adminStatusT(language, "checkedIn") : adminStatusT(language, "notChecked")}</p></div>
-                </div>
+              <div id="asset-preview-container">
+                <EventCardArtwork
+                  data={{
+                    backgroundUrl: cardDesignBackground || undefined,
+                    fallbackGlobalUrl: cardTemplateImage || undefined,
+                    fallbackCoverUrl: row.cover_image_url || row.banner_image_url || undefined,
+                    venueLogoUrl: (parseCardFields(cardDesignFields).venueLogoUrl as string) || (typeof templateFields.venueLogoUrl === "string" ? templateFields.venueLogoUrl : undefined),
+                    headerText: language === "ar" ? "كارت دخول الفعالية" : "Event Access Card",
+                    statusText: status,
+                    eventTitle: eventTitle(row),
+                    attendeeName: row.full_name,
+                    cardNo: title,
+                    ticketName: row.ticket_name_en || row.ticket_name_ar,
+                    dateText: (row.event_starts_at || row.starts_at) ? new Intl.DateTimeFormat(language === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" }).format(new Date(row.event_starts_at || row.starts_at)) : "",
+                    locationText: row.venue_name_en || row.venue_city_en || "",
+                    qrValue: row.qr_token || null,
+                    ticketNumber: row.ticket_number || undefined,
+                    fields: cardDesignFields,
+                    isRtl: language === "ar",
+                  }}
+                  className="max-w-xl"
+                />
               </div>
             </CardContent>
           </Card>

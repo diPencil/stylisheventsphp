@@ -3,13 +3,14 @@
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { ArrowRight, CalendarDays, CheckCircle2, FileText, MapPin, MessageSquareText, Star, Ticket, Users } from "lucide-react"
+import { ArrowRight, CalendarDays, CheckCircle2, ChevronLeft, FileText, MapPin, MessageSquareText, Star, Ticket, Users } from "lucide-react"
 import { PublicPageFrame, PublicPageHero } from "@/components/public/page-building-blocks"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/contexts/language-context"
 import { useAuthSession } from "@/lib/auth-session"
 import { apiAssetUrl, currentAuthToken, platformApi } from "@/lib/platform-api"
 import { pricingCurrencyForCountry, ticketPriceForCurrency } from "@/lib/currency-settings"
+import { eventTypeLabel } from "@/lib/event-type-label"
 import { cn } from "@/lib/utils"
 
 function formatDate(value?: string, locale = "en-US") {
@@ -110,67 +111,80 @@ export default function PublicEventPage() {
         imageAlt={isRtl ? event.title_ar : event.title_en}
         compactMobile={true}
         hideDescription={true}
+        titleSize="compact"
       />
-      <section className="px-4 py-8 pb-32 sm:px-6 lg:py-16 lg:pb-16" dir={isRtl ? "rtl" : "ltr"}>
-        <div className="container px-0 md:px-6 lg:px-8 mx-auto grid max-w-7xl items-start gap-4 md:gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <section className="px-4 pb-32 sm:px-6 lg:pb-16" dir={isRtl ? "rtl" : "ltr"}>
+        <div className="container px-0 md:px-6 lg:px-8 mx-auto max-w-7xl">
+          <div className="relative z-10 -mt-10 md:-mt-14 rounded-2xl border border-slate-200/70 bg-white/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.10)] backdrop-blur md:p-5">
+            <div className="mb-3">
+              <Link href="/upcoming-events" className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 transition hover:text-primary">
+                <ChevronLeft className={cn("h-4 w-4", isRtl && "rotate-180")} />
+                {isRtl ? "العودة للفعاليات" : "Back to events"}
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <StripInfo icon={CalendarDays} label={isRtl ? "الموعد" : "Date"} value={formatDate(event.starts_at, locale)} />
+              <StripInfo icon={MapPin} label={isRtl ? "المكان" : "Location"} value={locationLabel} />
+              <StripInfo icon={Users} label={isRtl ? "السعة" : "Capacity"} value={event.max_attendees ? Number(event.max_attendees).toLocaleString(locale) : (isRtl ? "حسب التوفر" : "Subject to availability")} />
+              <StripInfo icon={Ticket} label={isRtl ? "النوع" : "Type"} value={eventTypeLabel(event.type, isRtl)} />
+            </div>
+          </div>
+        </div>
+        <div className="container px-0 md:px-6 lg:px-8 mx-auto grid max-w-7xl items-start gap-4 md:gap-6 lg:grid-cols-[minmax(0,1fr)_380px] mt-4 md:mt-6">
           <div className="space-y-4 md:space-y-6">
-            {detailsImage ? (
-              <div className="overflow-hidden rounded-[32px] bg-white shadow-[0_22px_70px_rgba(15,23,42,0.08)]">
+            <div className="overflow-hidden rounded-2xl bg-white shadow-[0_14px_45px_rgba(15,23,42,0.07)]">
+              {detailsImage ? (
                 <img
                   src={detailsImage}
                   alt={isRtl ? event.title_ar : event.title_en}
                   className="aspect-[16/8] w-full object-cover"
                 />
-              </div>
-            ) : null}
-
-            <div className="rounded-[24px] md:rounded-[32px] bg-white p-4 sm:p-6 shadow-[0_22px_70px_rgba(15,23,42,0.08)] md:p-8">
-              <div className="flex flex-wrap gap-3">
-                <Badge icon={Ticket} label={event.type} />
-                <Badge icon={CheckCircle2} label={stateLabel(event.state, isRtl)} />
-              </div>
-              <h2 className="mt-7 text-2xl font-black text-slate-950 md:text-3xl lg:text-4xl">{isRtl ? "عن الفعالية" : "About this event"}</h2>
-              <p className="mt-4 whitespace-pre-line text-base font-semibold leading-8 text-slate-600">
-                {isRtl ? event.description_ar || event.summary_ar : event.description_en || event.summary_en}
-              </p>
-              {event.event_pdf_url ? (
-                <Button asChild variant="outline" className="mt-6 h-11 rounded-2xl border-primary/20 bg-white font-black text-primary hover:bg-primary/5">
-                  <Link href={apiAssetUrl(event.event_pdf_url)} target="_blank">
-                    <FileText className="h-4 w-4" />
-                    {isRtl ? "عرض / تحميل ملف الفعالية" : "View / Download Event PDF"}
-                  </Link>
-                </Button>
               ) : null}
+              <div className="p-5 md:p-7">
+                <div className="flex flex-wrap gap-2">
+                  <Badge icon={Ticket} label={eventTypeLabel(event.type, isRtl)} />
+                  <Badge icon={CheckCircle2} label={stateLabel(event.state, isRtl)} />
+                </div>
+                <h2 className="mt-4 text-xl font-extrabold text-slate-950 md:text-2xl">{isRtl ? "عن الفعالية" : "About this event"}</h2>
+                <p className="mt-3 whitespace-pre-line text-sm font-medium leading-7 text-slate-600 md:text-[15px]">
+                  {isRtl ? event.description_ar || event.summary_ar : event.description_en || event.summary_en}
+                </p>
+                {event.organizer_name ? (
+                  <p className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-500">
+                    <Users className="h-4 w-4 text-primary" />
+                    {isRtl ? "المنظم: " : "Organizer: "}{event.organizer_name}
+                  </p>
+                ) : null}
+                {event.event_pdf_url ? (
+                  <Button asChild variant="outline" className="mt-5 h-10 rounded-xl border-primary/20 bg-white text-sm font-bold text-primary hover:bg-primary/5">
+                    <Link href={apiAssetUrl(event.event_pdf_url)} target="_blank">
+                      <FileText className="h-4 w-4" />
+                      {isRtl ? "عرض / تحميل ملف الفعالية" : "View / Download Event PDF"}
+                    </Link>
+                  </Button>
+                ) : null}
+              </div>
             </div>
 
             {contentSections.length ? (
               <div className="grid gap-4 md:grid-cols-3">
                 {contentSections.map((section) => (
                   <div key={section.title} className="rounded-[24px] bg-white p-5 shadow-[0_18px_55px_rgba(15,23,42,0.07)]">
-                    <h3 className="text-lg font-black text-slate-950">{section.title}</h3>
+                    <h3 className="text-base font-extrabold text-slate-950">{section.title}</h3>
                     <p className="mt-3 whitespace-pre-line text-sm font-semibold leading-7 text-slate-600">{section.body}</p>
                   </div>
                 ))}
               </div>
             ) : null}
 
-            <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-3">
-              <Info icon={CalendarDays} label={isRtl ? "الموعد" : "Date"} value={formatDate(event.starts_at, locale)} />
-              <Info icon={MapPin} label={isRtl ? "المكان" : "Location"} value={locationLabel} />
-              <Info icon={Users} label={isRtl ? "السعة" : "Capacity"} value={event.max_attendees ? Number(event.max_attendees).toLocaleString(locale) : (isRtl ? "حسب التوفر" : "Subject to availability")} />
-              {event.organizer_name ? (
-                <Info icon={Users} label={isRtl ? "المنظم" : "Organizer"} value={event.organizer_name} className="col-span-2 md:col-span-3" />
-              ) : null}
-            </div>
-
             {data.sessions?.length ? (
               <div className="rounded-[24px] md:rounded-[32px] bg-white p-4 sm:p-6 shadow-[0_22px_70px_rgba(15,23,42,0.08)]">
-                <h2 className="text-2xl font-black text-slate-950">{isRtl ? "جدول الفعالية" : "Agenda"}</h2>
+                <h2 className="text-xl font-extrabold text-slate-950 md:text-2xl">{isRtl ? "جدول الفعالية" : "Agenda"}</h2>
                 <div className="mt-5 space-y-3">
                   {data.sessions.map((session: any) => (
                     <div key={session.id} className="rounded-2xl bg-slate-50 p-4">
                       <p className="text-sm font-black text-primary">{formatDate(session.starts_at, locale)}</p>
-                      <h3 className="mt-1 text-lg font-black text-slate-950">{isRtl ? session.title_ar : session.title_en}</h3>
+                      <h3 className="mt-1 text-base font-extrabold text-slate-950">{isRtl ? session.title_ar : session.title_en}</h3>
                       <p className="mt-1 text-sm font-semibold text-slate-500">{session.speaker_name || session.room_name || ""}</p>
                     </div>
                   ))}
@@ -183,7 +197,7 @@ export default function PublicEventPage() {
 
           <aside className="lg:sticky lg:top-[116px] lg:self-start">
             <div className="rounded-[24px] md:rounded-[32px] bg-white p-4 sm:p-5 shadow-[0_22px_70px_rgba(15,23,42,0.10)] lg:max-h-[calc(100vh-140px)] lg:overflow-hidden">
-              <h2 className="text-2xl font-black text-slate-950">{isRtl ? "التذاكر المتاحة" : "Available tickets"}</h2>
+              <h2 className="text-lg font-extrabold text-slate-950 md:text-xl">{isRtl ? "التذاكر المتاحة" : "Available tickets"}</h2>
               <div className="mt-5 space-y-3 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-1">
                 {tickets.map((ticket: any) => {
                   const currency = displayCurrency
@@ -299,13 +313,13 @@ function ReviewsSection({ slug, data, setData, isRtl }: { slug: string; data: an
       <div className="flex flex-col justify-between gap-5 md:flex-row md:items-start">
         <div>
           <Badge icon={Star} label={isRtl ? "تقييمات الحضور" : "Attendee reviews"} />
-          <h2 className="mt-5 text-2xl font-black text-slate-950 md:text-3xl lg:text-4xl">{isRtl ? "آراء الحضور" : "Event reviews"}</h2>
+          <h2 className="mt-4 text-xl font-extrabold text-slate-950 md:text-2xl">{isRtl ? "آراء الحضور" : "Event reviews"}</h2>
           <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
             {isRtl ? "تظهر هنا التقييمات المعتمدة فقط بعد مراجعة الإدارة." : "Only approved attendee reviews are shown here after admin moderation."}
           </p>
         </div>
         <div className="rounded-3xl bg-slate-50 px-5 py-4 text-center">
-          <p className="text-3xl font-black text-primary" dir="ltr">{Number(summary.average || 0).toFixed(1)}</p>
+          <p className="text-2xl font-extrabold text-primary" dir="ltr">{Number(summary.average || 0).toFixed(1)}</p>
           <div className="mt-1 flex justify-center gap-1 text-primary" aria-label={`${summary.average} stars`}>
             {[1, 2, 3, 4, 5].map((star) => <Star key={star} className={cn("h-4 w-4", star <= Math.round(summary.average || 0) && "fill-current")} />)}
           </div>
@@ -398,12 +412,16 @@ function Badge({ icon: Icon, label }: { icon: any; label: string }) {
   return <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-xs font-black text-primary"><Icon className="h-4 w-4" />{label}</span>
 }
 
-function Info({ icon: Icon, label, value, className }: { icon: any; label: string; value: string; className?: string }) {
+function StripInfo({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
   return (
-    <div className={cn("rounded-[20px] md:rounded-[28px] bg-white p-4 md:p-5 shadow-[0_18px_55px_rgba(15,23,42,0.07)]", className)}>
-      <Icon className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-      <p className="mt-2 md:mt-4 text-[10px] md:text-xs font-black uppercase text-slate-400">{label}</p>
-      <p className="mt-1 md:mt-2 text-sm font-black leading-5 md:leading-6 text-slate-950">{value}</p>
+    <div className="flex min-w-0 items-center gap-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+        <Icon className="h-4 w-4 text-primary" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">{label}</span>
+        <span title={value} className="block truncate text-[13px] font-bold leading-5 text-slate-900">{value}</span>
+      </span>
     </div>
   )
 }

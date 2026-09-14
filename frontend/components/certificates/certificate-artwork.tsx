@@ -110,7 +110,7 @@ export function CertificateArtwork({
   return (
     <div
       className={cn(
-        "relative mx-auto aspect-[1.414/1] w-full overflow-hidden rounded-[24px] border border-slate-100 bg-gradient-to-br from-[#eef6ff] via-white to-[#f8effb] shadow-inner",
+        "certificate-artwork relative mx-auto aspect-[297/210] w-full overflow-hidden rounded-[24px] border border-slate-100 bg-gradient-to-br from-[#eef6ff] via-white to-[#f8effb] shadow-inner",
         className
       )}
       style={

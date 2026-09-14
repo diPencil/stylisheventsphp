@@ -438,29 +438,15 @@ class EventController extends Controller
 
         $bindings[] = $limit; // for LIMIT
 
+        // GROUP BY e.id only: every other selected column is functionally dependent on
+        // the event primary key (one venue/organizer row per event). Grouping by the TEXT
+        // columns (descriptions, gallery_json, catalogs_json, agenda, ...) exhausts
+        // MariaDB/MySQL sort memory and fails with error 1038 "Out of sort memory".
+        // sql_mode here has no ONLY_FULL_GROUP_BY, so this is valid and returns
+        // identical rows with correct COUNT(DISTINCT ...)/AVG aggregates per event.
         $sql = $this->eventSelect() . "
             $whereClause
-            GROUP BY
-              e.id, e.organizer_id, e.venue_id, e.slug, e.title_en, e.title_ar, e.summary_en, e.summary_ar,
-              e.description_en, e.description_ar, e.type, e.status, e.starts_at, e.ends_at,
-              e.registration_starts_at, e.registration_ends_at, e.public_registration_enabled,
-              e.registration_approval_mode, e.registration_access, e.max_tickets_per_checkout,
-              e.capacity_hold_hours_override, e.manual_payment_enabled, e.timezone, e.cover_image_url,
-              e.banner_image_url, e.event_details_image_url, e.event_pdf_url, e.gallery_json, e.google_maps_url,
-              e.max_attendees, e.target_all_specialties, e.catalogs_json, e.created_at, e.updated_at,
-              v.name_en, v.name_ar, v.city_en, v.city_ar, v.capacity, u.name"
-              . (Schema::hasColumn('events', 'organizer_name') ? ", e.organizer_name" : "")
-              . (Schema::hasColumn('events', 'city_name') ? ", e.city_name" : "")
-              . (Schema::hasColumn('events', 'venue_name') ? ", e.venue_name" : "")
-              . (Schema::hasColumn('events', 'seo_title') ? ", e.seo_title" : "")
-              . (Schema::hasColumn('events', 'seo_description') ? ", e.seo_description" : "")
-              . (Schema::hasColumn('events', 'seo_keywords') ? ", e.seo_keywords" : "")
-              . (Schema::hasColumn('events', 'agenda_ar') ? ", e.agenda_ar" : "")
-              . (Schema::hasColumn('events', 'agenda_en') ? ", e.agenda_en" : "")
-              . (Schema::hasColumn('events', 'checkin_notes_ar') ? ", e.checkin_notes_ar" : "")
-              . (Schema::hasColumn('events', 'checkin_notes_en') ? ", e.checkin_notes_en" : "")
-              . (Schema::hasColumn('events', 'ticket_terms_ar') ? ", e.ticket_terms_ar" : "")
-              . (Schema::hasColumn('events', 'ticket_terms_en') ? ", e.ticket_terms_en" : "") . "
+            GROUP BY e.id
             ORDER BY $orderBy
             LIMIT ?
         ";
