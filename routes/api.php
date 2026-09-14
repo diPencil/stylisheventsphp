@@ -222,7 +222,7 @@ Route::middleware('auth:api')->group(function () {
     Route::put('/platform/settings/email', [PlatformSettingsController::class, 'updateEmail'])->middleware('permission:settings.manage');
     Route::post('/platform/settings/email/test', [PlatformSettingsController::class, 'testEmail'])->middleware('permission:settings.manage');
     Route::post('/platform/settings/email/test-incoming', [PlatformSettingsController::class, 'testIncoming'])->middleware('permission:settings.manage');
-    Route::post('/platform/assets/upload', [PlatformSettingsController::class, 'uploadAsset'])->middleware('any_permission:website_content.manage,certificates.manage');
+    Route::post('/platform/assets/upload', [PlatformSettingsController::class, 'uploadAsset'])->middleware('any_permission:website_content.manage,certificates.manage,events.manage');
 });
 
 // Phase F: Customer Dashboard
