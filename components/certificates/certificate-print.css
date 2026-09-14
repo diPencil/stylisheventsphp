@@ -1,0 +1,49 @@
+/* True A4 landscape printing for certificates.
+   The @page rule itself is injected at print time (see lib/print-a4.ts)
+   because static and named @page rules are either ignored by Chrome or leak
+   into every printed page. These rules only apply while body.cert-printing
+   is set: no page margins effect, no rounded corners, no shadows —
+   exactly 297mm x 210mm. */
+
+@media print {
+  body.cert-printing {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.cert-printing * {
+    visibility: hidden;
+  }
+
+  body.cert-printing .cert-print-root,
+  body.cert-printing .cert-print-root * {
+    visibility: visible;
+  }
+
+  body.cert-printing .cert-print-root {
+    position: fixed;
+    inset: 0;
+    width: 297mm;
+    height: 210mm;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body.cert-printing .cert-print-root .certificate-artwork {
+    width: 297mm;
+    height: 210mm;
+    max-width: none;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  body.cert-printing .cert-print-root img {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

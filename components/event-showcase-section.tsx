@@ -6,14 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { useLanguage } from "@/contexts/language-context"
 import { AnimatedCtaButton } from "@/components/ui/animated-cta-button"
 import { apiAssetUrl } from "@/lib/platform-api"
+import { eventTypeLabel } from "@/lib/event-type-label"
 import { EventCard } from "@/components/public/page-building-blocks"
-
-function eventTypeAr(type?: string) {
-  if (type === "conference") return "مؤتمر"
-  if (type === "exhibition") return "معرض"
-  if (type === "workshop") return "ورشة عمل"
-  return "ملتقى"
-}
 
 export function EventShowcaseSection({ siteContent: remoteSiteContent }: { siteContent?: any } = {}) {
   const { isRtl } = useLanguage()
@@ -56,8 +50,8 @@ export function EventShowcaseSection({ siteContent: remoteSiteContent }: { siteC
       cityAr: [event.custom_venue_name, event.city_name].filter(Boolean).join(", ") || event.venue_name_ar || event.venue_city_ar || event.location_ar || event.locationAr || "أونلاين",
       dateEn: event.starts_at ? new Date(event.starts_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "TBD",
       dateAr: event.starts_at ? new Date(event.starts_at).toLocaleDateString("ar-EG", { month: "short", day: "numeric", year: "numeric" }) : "قريبًا",
-      typeEn: event.type,
-      typeAr: eventTypeAr(event.type),
+      typeEn: eventTypeLabel(event.type, false),
+      typeAr: eventTypeLabel(event.type, true),
       seats: event.max_attendees ? Number(event.max_attendees).toLocaleString(isRtl ? "ar-EG" : "en-US") : (isRtl ? "حسب التوفر" : "TBA"),
       statusEn: "Registration open",
       statusAr: "التسجيل متاح",

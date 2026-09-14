@@ -56,8 +56,8 @@ export function PaginationControls({
   const pageNumbers = Array.from(new Set([1, page - 1, page, page + 1, totalPages].filter((item) => item >= 1 && item <= totalPages)))
 
   return (
-    <div className={cn("flex flex-col gap-3 border-t border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between", isRtl && "sm:flex-row-reverse", className)}>
-      <div className={cn("flex flex-wrap items-center gap-3", isRtl && "flex-row-reverse")}>
+    <div className={cn("flex flex-col gap-3 border-t border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between", className)}>
+      <div className="flex flex-wrap items-center gap-3">
         <p className="text-xs font-bold text-slate-400">
           {language === "ar" ? `${start}-${end} من ${total}` : `${start}-${end} of ${total}`}
         </p>
@@ -80,7 +80,7 @@ export function PaginationControls({
           </SelectContent>
         </Select>
       </div>
-      <div className={cn("flex items-center gap-1", isRtl && "flex-row-reverse")}>
+      <div className="flex items-center gap-1">
         <Button variant="outline" size="icon" disabled={page <= 1} onClick={() => onPageChange(Math.max(1, page - 1))} className="h-9 w-9 rounded-xl">
           {isRtl ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>

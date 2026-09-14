@@ -16,7 +16,7 @@ import { adminT } from "@/lib/admin-translations"
 import { platformApi } from "@/lib/platform-api"
 import jsQR from "jsqr"
 
-type ScanStatus = "idle" | "scanning" | "accepted" | "duplicate" | "invalid" | "revoked" | "wrong_event" | "camera_error" | "network"
+type ScanStatus = "idle" | "scanning" | "accepted" | "duplicate" | "invalid" | "revoked" | "wrong_event" | "event_ended" | "camera_error" | "network"
 
 type ScanResult = {
   status: ScanStatus
@@ -46,9 +46,9 @@ type BarcodeDetectorInstance = {
   detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>>
 }
 
-function formatTime(value?: string) {
+function formatTime(value?: string, isArabic = false) {
   if (!value) return "-"
-  return new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit" }).format(new Date(value))
+  return new Intl.DateTimeFormat(isArabic ? "ar-EG" : "en-US", { hour: "2-digit", minute: "2-digit" }).format(new Date(value))
 }
 
 function formatDateTime(value?: string, isArabic = false) {
@@ -59,6 +59,7 @@ function formatDateTime(value?: string, isArabic = false) {
 function resultClasses(status: ScanStatus) {
   if (status === "accepted") return "bg-emerald-50 text-emerald-800"
   if (status === "duplicate" || status === "wrong_event") return "bg-amber-50 text-amber-800"
+  if (status === "event_ended") return "bg-slate-100 text-slate-700"
   if (status === "revoked" || status === "invalid" || status === "camera_error" || status === "network") return "bg-red-50 text-red-800"
   return "bg-slate-50 text-slate-700"
 }
@@ -72,6 +73,7 @@ function statusLabel(status: ScanStatus | string | null | undefined, isArabic: b
     invalid: ["Invalid", "غير صالح"],
     revoked: ["Revoked", "ملغي"],
     wrong_event: ["Wrong event", "فعالية أخرى"],
+    event_ended: ["Event ended", "انتهت الفعالية"],
     camera_error: ["Camera error", "خطأ الكاميرا"],
     network: ["Network error", "خطأ اتصال"],
   }
@@ -87,10 +89,11 @@ function sourceLabel(source: CheckinHistoryRow["scan_source"], isArabic: boolean
 
 function classifyError(error: any): ScanStatus {
   const result = error?.details?.result
-  if (result === "duplicate" || result === "revoked" || result === "invalid" || result === "wrong_event") return result
+  if (result === "duplicate" || result === "revoked" || result === "invalid" || result === "wrong_event" || result === "event_ended") return result
   const message = error instanceof Error ? error.message.toLowerCase() : ""
   if (message.includes("already")) return "duplicate"
   if (message.includes("not active")) return "revoked"
+  if (message.includes("already ended")) return "event_ended"
   if (message.includes("event")) return "wrong_event"
   if (message.includes("reachable") || message.includes("network")) return "network"
   return "invalid"
@@ -400,7 +403,7 @@ export function CheckinConsole() {
                 <div key={`${log.status}-${index}`} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 p-3 text-sm">
                   <div className="min-w-0">
                     <p className="truncate font-extrabold">{log.attendee?.full_name || log.message}</p>
-                    <p className="text-xs font-medium text-slate-400">{formatTime(log.scannedAt)}</p>
+                    <p className="text-xs font-medium text-slate-400">{formatTime(log.scannedAt, isArabic)}</p>
                   </div>
                   <Badge variant={log.status === "accepted" ? "default" : "secondary"} className="shrink-0 capitalize">{statusLabel(log.status, isArabic)}</Badge>
                 </div>

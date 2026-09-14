@@ -64,6 +64,7 @@ import { PaginationControls, useTablePagination } from "@/components/admin/table
 import { TableDateTime } from "@/components/admin/table-date-time"
 import { useLanguage } from "@/contexts/language-context"
 import { adminStatusT, adminT } from "@/lib/admin-translations"
+import { eventTypeLabel } from "@/lib/event-type-label"
 import { enabledCurrencyRates, formatCurrencyAmount, readCurrencySettings, type CurrencyRate, type CurrencySettings } from "@/lib/currency-settings"
 import { platformApi } from "@/lib/platform-api"
 import { cn } from "@/lib/utils"
@@ -557,7 +558,7 @@ export function EventsManager() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" dir={language === "ar" ? "rtl" : "ltr"}>
       <AdminPageHeader
         eyebrow={adminT(language, "events.management")}
         title={adminT(language, "events.title")}
@@ -955,7 +956,7 @@ function EventsTable({
                       <div className="max-w-[230px]">
                         <p className="line-clamp-1 text-sm font-extrabold text-[#17172f]">{eventTitle(event)}</p>
                         <p className="line-clamp-1 text-xs font-medium text-slate-400">{event.slug}</p>
-                        <Badge className="mt-2 rounded-lg bg-[hsl(var(--primary)/0.08)] text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.08)]">{event.type}</Badge>
+                        <Badge className="mt-2 rounded-lg bg-[hsl(var(--primary)/0.08)] capitalize text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.08)]">{eventTypeLabel(event.type, language === "ar")}</Badge>
                       </div>
                     </TableCell>
                     <TableCell>

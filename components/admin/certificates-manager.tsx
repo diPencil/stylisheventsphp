@@ -18,6 +18,7 @@ import {
   Save,
   Send,
   Sparkles,
+  Trash2,
   UserCheck,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -36,9 +37,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ImageUrlDropzone } from "@/components/admin/image-url-dropzone"
 import { CERTIFICATE_VISIBILITY_KEYS, CertificateArtwork, defaultCertificateVisibility, parseTemplateFields, resolveCertificateVisibility, type CertificateVisibility } from "@/components/certificates/certificate-artwork"
+import { EventCardArtwork } from "@/components/event-cards/event-card-artwork"
+import { EVENT_CARD_VISIBILITY_KEYS, defaultEventCardVisibility, parseCardFields, type EventCardVisibility } from "@/lib/event-card-template"
 import { AdminPageHeader, MetricCard } from "@/components/admin/admin-primitives"
 import { ConfirmAction } from "@/components/admin/confirm-action"
 import {
@@ -87,9 +91,21 @@ type CustomerAsset = {
   cardNo: string
   certificateStatus: DeliveryStatus
   certificateSentAt: string
+  certificateTemplateId: string
+  certificateTemplateName: string
   cardStatus: DeliveryStatus
   cardSentAt: string
+  cardTemplateId: string
+  cardTemplateName: string
   checkedIn: boolean
+}
+
+type CertificateTemplateOption = {
+  id: string
+  eventId: string
+  name: string
+  isDefault: boolean
+  isActive: boolean
 }
 
 type EmailBatchResult = {
@@ -143,8 +159,12 @@ function normalizeDelivery(row: any): CustomerAsset {
     cardNo: row.card_number || `CARD-${row.attendee_number || row.attendee_id}`,
     certificateStatus: row.certificate_status === "issued" ? "sent" : row.checked_in_at ? "ready" : "not_ready",
     certificateSentAt: row.certificate_sent_at || "",
+    certificateTemplateId: row.certificate_template_id ? String(row.certificate_template_id) : "",
+    certificateTemplateName: row.certificate_template_name || "",
     cardStatus: row.card_id ? "sent" : "ready",
     cardSentAt: row.card_sent_at || "",
+    cardTemplateId: row.card_template_id ? String(row.card_template_id) : "",
+    cardTemplateName: row.card_template_name || "",
     checkedIn: Boolean(row.checked_in_at),
   }
 }
@@ -194,6 +214,12 @@ export function CertificatesManager() {
   const [emailResults, setEmailResults] = useState<EmailBatchResult[]>([])
   const [emailStatuses, setEmailStatuses] = useState<Record<string, EmailBatchResult["status"]>>({})
   const [activity, setActivity] = useState("Certificate and event-card delivery center is ready.")
+  const [templates, setTemplates] = useState<CertificateTemplateOption[]>([])
+  // Admin's per-attendee template choice (manual assignment). Key: attendee id.
+  const [templateChoices, setTemplateChoices] = useState<Record<string, string>>({})
+  const [cardTemplates, setCardTemplates] = useState<CertificateTemplateOption[]>([])
+  // Admin's per-attendee card design choice. Key: attendee id.
+  const [cardChoices, setCardChoices] = useState<Record<string, string>>({})
 
   useEffect(() => {
     let active = true
@@ -239,6 +265,60 @@ export function CertificatesManager() {
   }, [eventFilter, page, pageSize, search])
 
   useEffect(() => {
+    let active = true
+    async function loadTemplates() {
+      try {
+        const rows = await platformApi.listCertificateTemplates(
+          eventFilter !== "all" ? Number(eventFilter) : undefined
+        )
+        if (!active) return
+        setTemplates(
+          (rows || []).map((row: any) => ({
+            id: String(row.id),
+            eventId: String(row.event_id),
+            name: row.name || `Template ${row.id}`,
+            isDefault: Boolean(row.is_default),
+            isActive: row.is_active !== false,
+          }))
+        )
+      } catch {
+        if (active) setTemplates([])
+      }
+    }
+    loadTemplates()
+    return () => {
+      active = false
+    }
+  }, [eventFilter])
+
+  useEffect(() => {
+    let active = true
+    async function loadCardTemplates() {
+      try {
+        const rows = await platformApi.listEventCardTemplates(
+          eventFilter !== "all" ? Number(eventFilter) : undefined
+        )
+        if (!active) return
+        setCardTemplates(
+          (rows || []).map((row: any) => ({
+            id: String(row.id),
+            eventId: String(row.event_id),
+            name: row.name || `Card ${row.id}`,
+            isDefault: Boolean(row.is_default),
+            isActive: row.is_active !== false,
+          }))
+        )
+      } catch {
+        if (active) setCardTemplates([])
+      }
+    }
+    loadCardTemplates()
+    return () => {
+      active = false
+    }
+  }, [eventFilter])
+
+  useEffect(() => {
     setPage(1)
   }, [eventFilter, search, pageSize])
 
@@ -270,7 +350,7 @@ export function CertificatesManager() {
     } catch (error) {
       toast.error("Export used visible rows", { description: error instanceof Error ? error.message : "Could not load the full filtered certificate list." })
     }
-    const headers = ["#", "Customer", "Email", "Ticket", "Certificate", "Certificate Status", "Card", "Card Status", "Checked In"]
+    const headers = ["#", "Customer", "Email", "Ticket", "Certificate", "Certificate Status", "Template", "Card", "Card Status", "Checked In"]
     const escape = (value: string | number | boolean) => `"${String(value ?? "").replace(/"/g, '""')}"`
     const csvRows = exportRows.map((asset, index) => [
       index + 1,
@@ -279,6 +359,7 @@ export function CertificatesManager() {
       asset.ticket,
       asset.certificateNo,
       asset.certificateStatus,
+      asset.certificateTemplateName || effectiveTemplateName(asset),
       asset.cardNo,
       asset.cardStatus,
       asset.checkedIn,
@@ -301,12 +382,38 @@ export function CertificatesManager() {
     setActivity(message)
   }
 
+  const templatesForEvent = (eventId: string) => templates.filter((t) => t.eventId === String(eventId))
+  const defaultTemplateForEvent = (eventId: string) =>
+    templatesForEvent(eventId).find((t) => t.isDefault) || templatesForEvent(eventId)[0]
+  const cardTemplatesForEvent = (eventId: string) => cardTemplates.filter((t) => t.eventId === String(eventId))
+  const defaultCardTemplateForEvent = (eventId: string) =>
+    cardTemplatesForEvent(eventId).find((t) => t.isDefault) || cardTemplatesForEvent(eventId)[0]
+
+  /** Effective template id for issuing: explicit choice → stored → event default. */
+  const effectiveTemplateId = (asset: CustomerAsset) =>
+    templateChoices[asset.id] || asset.certificateTemplateId || defaultTemplateForEvent(asset.eventId)?.id || ""
+
+  const effectiveCardTemplateId = (asset: CustomerAsset) =>
+    cardChoices[asset.id] || asset.cardTemplateId || defaultCardTemplateForEvent(asset.eventId)?.id || ""
+
+  const effectiveCardTemplateName = (asset: CustomerAsset) => {
+    const id = effectiveCardTemplateId(asset)
+    return cardTemplatesForEvent(asset.eventId).find((t) => t.id === id)?.name || asset.cardTemplateName || ""
+  }
+
+  const effectiveTemplateName = (asset: CustomerAsset) => {
+    const id = effectiveTemplateId(asset)
+    return templatesForEvent(asset.eventId).find((t) => t.id === id)?.name || asset.certificateTemplateName || ""
+  }
+
   const sendCertificate = async (asset: CustomerAsset) => {
     try {
-      const issued = await platformApi.issueCertificate({ attendeeId: Number(asset.id), templateKey: "default" })
+      const templateId = effectiveTemplateId(asset)
+      const issued = await platformApi.issueCertificate({ attendeeId: Number(asset.id), templateKey: templateId || "default" })
+      const chosenName = templatesForEvent(asset.eventId).find((t) => t.id === templateId)?.name || asset.certificateTemplateName
       updateAsset(
         asset.id,
-        { checkedIn: true, certificateId: issued.id ? String(issued.id) : asset.certificateId, certificateStatus: "sent", certificateNo: issued.certificateNumber || asset.certificateNo, certificateSentAt: new Date().toISOString() },
+        { checkedIn: true, certificateId: issued.id ? String(issued.id) : asset.certificateId, certificateStatus: "sent", certificateNo: issued.certificateNumber || asset.certificateNo, certificateSentAt: new Date().toISOString(), certificateTemplateId: templateId, certificateTemplateName: chosenName },
         `${issued.certificateNumber || asset.certificateNo} sent to ${asset.email}.`
       )
       toast.success("Certificate issued", { description: asset.attendee })
@@ -317,8 +424,10 @@ export function CertificatesManager() {
 
   const sendCard = async (asset: CustomerAsset) => {
     try {
-      const card = await platformApi.generateEventCard({ attendeeId: Number(asset.id), templateKey: "default" })
-      updateAsset(asset.id, { cardStatus: "sent", cardNo: card.cardNumber || asset.cardNo, cardSentAt: new Date().toISOString() }, `${card.cardNumber || asset.cardNo} sent to ${asset.email}.`)
+      const cardId = cardChoices[asset.id] || asset.cardTemplateId || defaultCardTemplateForEvent(asset.eventId)?.id || ""
+      const card = await platformApi.generateEventCard({ attendeeId: Number(asset.id), templateKey: cardId || "default" })
+      const chosenName = cardTemplatesForEvent(asset.eventId).find((t) => t.id === cardId)?.name || asset.cardTemplateName
+      updateAsset(asset.id, { cardStatus: "sent", cardNo: card.cardNumber || asset.cardNo, cardSentAt: new Date().toISOString(), cardTemplateId: cardId, cardTemplateName: chosenName }, `${card.cardNumber || asset.cardNo} sent to ${asset.email}.`)
       toast.success("Event card generated", { description: asset.attendee })
     } catch (error) {
       toast.error("Event card failed", { description: error instanceof Error ? error.message : "Could not generate event card." })
@@ -396,9 +505,11 @@ export function CertificatesManager() {
       <AdminPageHeader
         eyebrow={language === "ar" ? "عمليات الشهادات" : "Certificates Operations"}
         title={adminT(language, "certificates.title")}
-        description={language === "ar" ? "تابع كل شهادة وكارت فعالية تم إرسالهما للعملاء مع حالة التسليم والفعالية المرتبطة وإجراءات إعادة الإرسال." : "Track every certificate and event card sent to customers, with delivery status, event relation, and resend actions."}
+        description={language === "ar" ? "تابع كل شهادة وكارت فعالية تم إرسالهما للعملاء مع حالة التسليم والفعالية المرتبطة وإجراءات إعادة الإرسال." : <>Track every certificate and event card sent to customers, with delivery status,<br />event relation, and resend actions.</>}
+        actionsClassName="items-center md:flex-nowrap md:[&>*]:shrink-0"
         actions={[
           ...(canManageCertificates ? [{ label: adminT(language, "certificates.builder"), icon: Sparkles, href: "/admin/certificates/builder", variant: "outline" as const }] : []),
+          { label: language === "ar" ? "قوالب الشهادات" : "Templates", icon: Eye, href: "/admin/certificates/templates", variant: "outline" as const },
           { label: language === "ar" ? "تصدير السجل" : "Export Log", icon: Download, onClick: exportLog },
         ]}
       />
@@ -512,6 +623,7 @@ export function CertificatesManager() {
                   <TableHead>{adminT(language, "common.customer")}</TableHead>
                   <TableHead>{adminT(language, "common.event")}</TableHead>
                   <TableHead>{adminT(language, "certificates.certificate")}</TableHead>
+                  <TableHead>{language === "ar" ? "التصميم" : "Template"}</TableHead>
                   <TableHead data-no-wrap>{language === "ar" ? "إرسال الشهادة" : "Certificate Sent"}</TableHead>
                   <TableHead>{language === "ar" ? "حالة البريد" : "Email Status"}</TableHead>
                   <TableHead>{adminT(language, "certificates.eventCard")}</TableHead>
@@ -546,6 +658,28 @@ export function CertificatesManager() {
                         {adminStatusT(language, deliveryLabel(asset.certificateStatus))}
                       </Badge>
                     </TableCell>
+                    <TableCell className="min-w-[170px]">
+                      {templatesForEvent(asset.eventId).length > 1 ? (
+                        <Select
+                          value={effectiveTemplateId(asset) || undefined}
+                          onValueChange={(value) => setTemplateChoices((current) => ({ ...current, [asset.id]: value }))}
+                          disabled={!canManageCertificates}
+                        >
+                          <SelectTrigger className="h-9 rounded-xl border-slate-200 bg-slate-50 text-xs font-bold">
+                            <SelectValue placeholder={language === "ar" ? "اختر التصميم" : "Choose template"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {templatesForEvent(asset.eventId).map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.name}{t.isDefault ? (language === "ar" ? " (افتراضي)" : " (default)") : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-xs font-bold text-slate-500">{effectiveTemplateName(asset) || "-"}</span>
+                      )}
+                    </TableCell>
                     <TableCell data-no-wrap><TableDateTime value={asset.certificateSentAt} /></TableCell>
                     <TableCell>
                       <Badge className={cn(
@@ -560,6 +694,24 @@ export function CertificatesManager() {
                     </TableCell>
                     <TableCell>
                       <Badge className={cn("rounded-xl", deliveryClass(asset.cardStatus))}>{adminStatusT(language, deliveryLabel(asset.cardStatus))}</Badge>
+                      {cardTemplatesForEvent(asset.eventId).length > 1 && (
+                        <Select
+                          value={effectiveCardTemplateId(asset) || undefined}
+                          onValueChange={(value) => setCardChoices((current) => ({ ...current, [asset.id]: value }))}
+                          disabled={!canManageCertificates}
+                        >
+                          <SelectTrigger className="mt-1 h-9 min-w-[150px] rounded-xl border-slate-200 bg-slate-50 text-xs font-bold">
+                            <SelectValue placeholder={language === "ar" ? "تصميم الكارت" : "Card design"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {cardTemplatesForEvent(asset.eventId).map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.name}{t.isDefault ? (language === "ar" ? " (افتراضي)" : " (default)") : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </TableCell>
                     <TableCell data-no-wrap><TableDateTime value={asset.cardSentAt} /></TableCell>
                     <TableCell>
@@ -739,16 +891,28 @@ export function CertificateBuilder() {
   const [builderTab, setBuilderTab] = useState<"certificate" | "card">("certificate")
   const [activity, setActivity] = useState("Certificate design workspace is ready.")
   const [builderLoading, setBuilderLoading] = useState(true)
+  const [builderTemplates, setBuilderTemplates] = useState<CertificateTemplateOption[]>([])
+  const [saveAsDefault, setSaveAsDefault] = useState(true)
+  const [savingTemplate, setSavingTemplate] = useState(false)
+  const [builderCardDesigns, setBuilderCardDesigns] = useState<CertificateTemplateOption[]>([])
+  const [cardDesignName, setCardDesignName] = useState("")
+  const [cardDesignBackground, setCardDesignBackground] = useState("")
+  const [cardDesignVenueLogo, setCardDesignVenueLogo] = useState("")
+  const [cardDesignHeader, setCardDesignHeader] = useState("")
+  const [cardDesignVisibility, setCardDesignVisibility] = useState<EventCardVisibility>({ ...defaultEventCardVisibility })
+  const [saveCardAsDefault, setSaveCardAsDefault] = useState(true)
+  const [savingCardDesign, setSavingCardDesign] = useState(false)
 
   useEffect(() => {
     let active = true
     async function loadBuilderData() {
       try {
-        const [eventRows, deliveryRows, templateRows, cardTemplate] = await Promise.all([
+        const [eventRows, deliveryRows, templateRows, cardTemplate, cardDesignRows] = await Promise.all([
           platformApi.listEvents(),
           platformApi.listCertificateDelivery(),
           platformApi.listCertificateTemplates(),
           platformApi.getCardTemplateSettings(),
+          platformApi.listEventCardTemplates().catch(() => []),
         ])
         if (!active) return
 
@@ -770,6 +934,24 @@ export function CertificateBuilder() {
         const normalizedAssets = (deliveryRows || []).map(normalizeDelivery)
         setEvents(normalizedEvents)
         setAssets(normalizedAssets)
+        setBuilderCardDesigns(
+          (cardDesignRows || []).map((t: any) => ({
+            id: String(t.id),
+            eventId: String(t.event_id),
+            name: t.name || `Card ${t.id}`,
+            isDefault: Boolean(t.is_default),
+            isActive: t.is_active !== false,
+          }))
+        )
+        setBuilderTemplates(
+          (templateRows || []).map((t: any) => ({
+            id: String(t.id),
+            eventId: String(t.event_id),
+            name: t.name || `Template ${t.id}`,
+            isDefault: Boolean(t.is_default),
+            isActive: t.is_active !== false,
+          }))
+        )
         setCardTemplateImage(cardTemplate?.imageUrl || "")
         setSelectedEventId((current) => current || normalizedEvents[0]?.id || "")
         setSelectedAssetId((current) => current || normalizedAssets[0]?.id || "")
@@ -808,6 +990,7 @@ export function CertificateBuilder() {
     }
 
     try {
+      setSavingTemplate(true)
       await platformApi.createCertificateTemplate({
         eventId: Number(selectedEvent.id),
         name: selectedEvent.templateName,
@@ -825,15 +1008,112 @@ export function CertificateBuilder() {
           venueLogoUrl: selectedEvent.venueLogoUrl,
           texts: selectedEvent.texts,
         },
-        isDefault: true,
+        isDefault: saveAsDefault,
         isActive: true,
       })
+      const templateRows = await platformApi.listCertificateTemplates(Number(selectedEvent.id))
+      setBuilderTemplates(
+        (templateRows || []).map((t: any) => ({
+          id: String(t.id),
+          eventId: String(t.event_id),
+          name: t.name || `Template ${t.id}`,
+          isDefault: Boolean(t.is_default),
+          isActive: t.is_active !== false,
+        }))
+      )
       setActivity(`${selectedEvent.templateName} saved.`)
       toast.success("Template saved", { description: selectedEvent.title })
     } catch (error) {
       toast.error("Template save failed", { description: error instanceof Error ? error.message : "Could not save template." })
+    } finally {
+      setSavingTemplate(false)
     }
   }
+
+  const makeDefaultTemplate = async (templateId: string) => {
+    try {
+      await platformApi.setDefaultCertificateTemplate(templateId)
+      setBuilderTemplates((current) =>
+        current.map((t) =>
+          t.eventId === selectedEvent?.id ? { ...t, isDefault: t.id === templateId } : t
+        )
+      )
+      setActivity("Default template updated.")
+      toast.success(language === "ar" ? "تم تعيين التصميم الافتراضي" : "Default template updated")
+    } catch (error) {
+      toast.error("Default update failed", { description: error instanceof Error ? error.message : "Could not update default template." })
+    }
+  }
+
+  const eventTemplates = selectedEvent ? builderTemplates.filter((t) => t.eventId === selectedEvent.id) : []
+
+  const saveCardDesign = async () => {
+    if (!selectedEvent?.id || !cardDesignName.trim()) {
+      toast.error(language === "ar" ? "بيانات التصميم ناقصة" : "Missing design data", { description: language === "ar" ? "اكتب اسم التصميم أولاً." : "Give the card design a name first." })
+      return
+    }
+    try {
+      setSavingCardDesign(true)
+      await platformApi.createEventCardTemplate({
+        eventId: Number(selectedEvent.id),
+        name: cardDesignName.trim(),
+        backgroundUrl: cardDesignBackground.trim() || null,
+        fields: {
+          venueLogoUrl: cardDesignVenueLogo.trim() || "",
+          texts: { header: cardDesignHeader.trim() },
+          visibility: cardDesignVisibility,
+        },
+        isDefault: saveCardAsDefault,
+        isActive: true,
+      })
+      const rows = await platformApi.listEventCardTemplates(Number(selectedEvent.id))
+      setBuilderCardDesigns((current) => {
+        const others = current.filter((t) => t.eventId !== selectedEvent.id)
+        const fresh = (rows || []).map((t: any) => ({
+          id: String(t.id),
+          eventId: String(t.event_id),
+          name: t.name || `Card ${t.id}`,
+          isDefault: Boolean(t.is_default),
+          isActive: t.is_active !== false,
+        }))
+        return [...others, ...fresh]
+      })
+      setCardDesignName("")
+      setActivity(`Card design saved for ${selectedEvent.title}.`)
+      toast.success(language === "ar" ? "تم حفظ تصميم الكارت" : "Card design saved", { description: selectedEvent.title })
+    } catch (error) {
+      toast.error(language === "ar" ? "فشل حفظ التصميم" : "Card design save failed", { description: error instanceof Error ? error.message : undefined })
+    } finally {
+      setSavingCardDesign(false)
+    }
+  }
+
+  const makeDefaultCardDesign = async (designId: string) => {
+    try {
+      await platformApi.setDefaultEventCardTemplate(designId)
+      setBuilderCardDesigns((current) =>
+        current.map((t) => (t.eventId === selectedEvent?.id ? { ...t, isDefault: t.id === designId } : t))
+      )
+      toast.success(language === "ar" ? "تم تعيين الافتراضي" : "Default card design updated")
+    } catch (error) {
+      toast.error(language === "ar" ? "فشل التحديث" : "Update failed", { description: error instanceof Error ? error.message : undefined })
+    }
+  }
+
+  const deleteCardDesign = async (design: CertificateTemplateOption) => {
+    try {
+      await platformApi.deleteEventCardTemplate(design.id)
+      setBuilderCardDesigns((current) => current.filter((t) => t.id !== design.id))
+      toast.success(language === "ar" ? "تم حذف التصميم" : "Card design deleted")
+    } catch (error) {
+      toast.error(language === "ar" ? "تعذر الحذف" : "Delete failed", { description: error instanceof Error ? error.message : undefined })
+    }
+  }
+
+  const toggleCardDesignVisibility = (key: keyof EventCardVisibility) =>
+    setCardDesignVisibility((current) => ({ ...current, [key]: !current[key] }))
+
+  const eventCardDesigns = selectedEvent ? builderCardDesigns.filter((t) => t.eventId === selectedEvent.id) : []
 
   const saveCardTemplate = async (imageUrl = cardTemplateImage) => {
     try {
@@ -882,7 +1162,7 @@ export function CertificateBuilder() {
         <CardContent className="flex min-h-[360px] flex-col items-center justify-center gap-4 p-8 text-center">
           <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--primary))]" />
           <div>
-            <p className="text-base font-extrabold text-[#17172f]">{language === "ar" ? "جاري تحميل مصمم الشهادات..." : "Loading certificate builder..."}</p>
+            <p className="text-base font-extrabold text-[#17172f]">{language === "ar" ? "جاري تحميل مصمم كانفس..." : "Loading canvas builder..."}</p>
             <p className="mt-2 text-sm font-semibold text-slate-400">{language === "ar" ? "بنجهز الفعاليات والقوالب قبل عرض المصمم." : "Loading events and templates before opening the builder."}</p>
           </div>
         </CardContent>
@@ -907,63 +1187,80 @@ export function CertificateBuilder() {
       <AdminPageHeader
         eyebrow="Builder"
         title={adminT(language, "certificates.builder")}
-        description="Create one certificate design per event. Admin uploads the artwork, while customer data positions stay fixed."
+        description={language === "ar" ? "أضف أكتر من تصميم لنفس الفعالية، واختار الافتراضي، ووزع التصاميم يدويًا من جدول التوزيع." : "Add multiple designs per event, pick the default, and assign designs manually from the delivery table."}
         action={{ label: adminT(language, "certificates.backToDelivery"), href: "/admin/certificates", variant: "outline" }}
       />
 
-      <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
-        <Card className="rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base font-extrabold">
-              <Sparkles className="h-5 w-5 text-[hsl(var(--primary))]" />
-              Builder Settings
-            </CardTitle>
-            <p className="text-sm font-medium text-slate-400">{adminT(language, "certificates.templatePerEvent")}</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-bold">{adminT(language, "common.event")}</Label>
-              <Select
-                value={selectedEventId}
-                onValueChange={(value) => {
-                  setSelectedEventId(value)
-                  const firstAsset = assets.find((asset) => asset.eventId === value)
-                  setSelectedAssetId(firstAsset?.id || "")
-                }}
-              >
-                <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {events.map((event) => (
-                    <SelectItem key={event.id} value={event.id}>
-                      {event.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <Card className="rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
+        <CardContent className="grid gap-3 p-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label className="text-sm font-bold">{adminT(language, "common.event")}</Label>
+            <Select
+              value={selectedEventId}
+              onValueChange={(value) => {
+                setSelectedEventId(value)
+                const firstAsset = assets.find((asset) => asset.eventId === value)
+                setSelectedAssetId(firstAsset?.id || "")
+              }}
+            >
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {events.map((event) => (
+                  <SelectItem key={event.id} value={event.id}>
+                    {event.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-bold">{language === "ar" ? "العميل للمعاينة" : "Preview customer"}</Label>
+            <Select value={selectedAsset?.id || ""} onValueChange={setSelectedAssetId}>
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {eventAssets.length ? eventAssets.map((asset) => (
+                  <SelectItem key={asset.id} value={asset.id}>
+                    {asset.attendee}
+                  </SelectItem>
+                )) : <SelectItem value="none" disabled>{adminT(language, "certificates.noCheckedCustomers")}</SelectItem>}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
+      <div className="grid gap-4 md:grid-cols-4">
+        <MetricCard label={language === "ar" ? "تمبلتات الشهادات" : "Certificate templates"} value={eventTemplates.length} icon={FileText} />
+        <MetricCard label={language === "ar" ? "شهادات صادرة" : "Issued certificates"} value={eventAssets.filter((asset) => asset.certificateStatus === "sent").length} icon={BadgeCheck} />
+        <MetricCard label={language === "ar" ? "تمبلتات الكروت" : "Card templates"} value={eventCardDesigns.length} icon={IdCard} />
+        <MetricCard label={language === "ar" ? "كروت صادرة" : "Issued cards"} value={eventAssets.filter((asset) => asset.cardStatus === "sent").length} icon={QrCode} />
+      </div>
+
+      <Tabs value={builderTab} onValueChange={(value) => setBuilderTab(value as "certificate" | "card")} className="space-y-5" dir={language === "ar" ? "rtl" : "ltr"}>
+        <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-white/70 p-1 lg:w-[480px]">
+          <TabsTrigger value="certificate" className="rounded-xl">{language === "ar" ? "الشهادة" : "Certificate"}</TabsTrigger>
+          <TabsTrigger value="card" className="rounded-xl">{language === "ar" ? "كارت الفعالية" : "Event Card"}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="certificate">
+          <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
+      <Card className="rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-extrabold">
+            <Sparkles className="h-5 w-5 text-[hsl(var(--primary))]" />
+            {language === "ar" ? "إعدادات الشهادة" : "Certificate Settings"}
+          </CardTitle>
+          <p className="text-sm font-medium text-slate-400">{adminT(language, "certificates.templatePerEvent")}</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm font-bold">{adminT(language, "certificates.templateName")}</Label>
               <Input value={selectedEvent.templateName} onChange={(event) => updateEvent({ templateName: event.target.value })} className="h-11 rounded-xl" />
             </div>
-            <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
-              {(["certificate", "card"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setBuilderTab(tab)}
-                  className={cn(
-                    "h-10 rounded-xl text-sm font-extrabold transition",
-                    builderTab === tab ? "bg-white text-[#17172f] shadow-sm" : "text-slate-400 hover:text-slate-600"
-                  )}
-                >
-                  {tab === "certificate" ? (language === "ar" ? "الشهادة" : "Certificate") : (language === "ar" ? "الكارت" : "Event Card")}
-                </button>
-              ))}
-            </div>
-            {builderTab === "certificate" ? (
               <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm font-bold">{language === "ar" ? "إظهار / إخفاء عناصر الشهادة" : "Show / hide certificate fields"}</Label>
@@ -1025,11 +1322,175 @@ export function CertificateBuilder() {
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-bold">{adminT(language, "certificates.footerText")}</Label>
-              <Textarea value={selectedEvent.footer} onChange={(event) => updateEvent({ footer: event.target.value })} className="min-h-24 rounded-xl" />
+              <Input value={selectedEvent.footer} onChange={(event) => updateEvent({ footer: event.target.value })} className="h-11 rounded-xl" />
             </div>
               </div>
-            ) : (
+            <Button className="h-11 w-full rounded-2xl bg-[hsl(var(--primary))] font-extrabold text-white hover:bg-[hsl(var(--primary)/0.9)]" onClick={saveTemplate} disabled={savingTemplate}>
+              <Save className="h-4 w-4" />
+              {savingTemplate ? (language === "ar" ? "جاري الحفظ..." : "Saving...") : (language === "ar" ? "حفظ تصميم الشهادة" : "Save Certificate Template")}
+            </Button>
+            <label className="flex cursor-pointer items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-600">
+              <Checkbox checked={saveAsDefault} onCheckedChange={(checked) => setSaveAsDefault(Boolean(checked))} />
+              {language === "ar" ? "تعيين كتصميم افتراضي للفعالية" : "Set as event default design"}
+            </label>
+            {eventTemplates.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-sm font-bold">{language === "ar" ? "تصاميم الشهادات" : "Certificate designs"}</Label>
+                  <Link href="/admin/certificates/templates" className="text-xs font-extrabold text-[hsl(var(--primary))] hover:underline">
+                    {language === "ar" ? "عرض الكل" : "View all"}
+                  </Link>
+                </div>
+                <div className="space-y-2">
+                  {eventTemplates.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between gap-2 rounded-2xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+                      <span className="min-w-0 truncate text-xs font-extrabold text-[#17172f]">
+                        {t.name}
+                        {t.isDefault && <span className="ms-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700">{language === "ar" ? "افتراضي" : "Default"}</span>}
+                      </span>
+                      {!t.isDefault && (
+                        <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 rounded-xl bg-white text-xs font-bold" onClick={() => makeDefaultTemplate(t.id)}>
+                          {language === "ar" ? "افتراضي" : "Make default"}
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+        </CardContent>
+      </Card>
+
+        <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
+          <CardHeader className="flex flex-col gap-3 border-b border-slate-100 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle className="text-base font-extrabold">{language === "ar" ? "معاينة الشهادة" : "Certificate Preview"}</CardTitle>
+              <p className="mt-1 text-sm font-medium text-slate-400">{adminT(language, "certificates.previewCopy")}</p>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 p-4">
+            <CertificateArtwork
+              backgroundUrl={selectedEvent.background}
+              logoUrl="/logo.png"
+              visibility={selectedEvent.visibility}
+              attendeeName={selectedAsset?.attendee || "Customer name"}
+              eventTitle={selectedEvent.title}
+              dateText={selectedEvent.date ? new Intl.DateTimeFormat(language === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" }).format(new Date(selectedEvent.date)) : "Event date"}
+              certificateNo={selectedAsset?.certificateNo || "Certificate number"}
+              signatoryText={selectedEvent.signatory}
+              footerText={selectedEvent.footer}
+              labels={{
+                heading: selectedEvent.texts.heading || adminT(language, "certificates.certificateOfAttendance"),
+                verified: selectedEvent.texts.verifiedBadge || "Verified Attendance",
+                attendedPrefix: selectedEvent.texts.eventPrefix || "has successfully attended",
+                date: adminT(language, "common.date"),
+                certificateNo: adminT(language, "certificates.certificateNo"),
+                signedBy: adminT(language, "certificates.signedBy"),
+              }}
+              className="max-w-4xl"
+            />
+            <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">{activity}</div>
+          </CardContent>
+        </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="card">
+          <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
+      <Card className="rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-extrabold">
+            <Sparkles className="h-5 w-5 text-[hsl(var(--primary))]" />
+            {language === "ar" ? "إعدادات الكارت" : "Event Card Settings"}
+          </CardTitle>
+          <p className="text-sm font-medium text-slate-400">{language === "ar" ? "صمم كارت الدخول الخاص بكل فعالية." : "Design the access card for each event."}</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
               <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-bold">{language === "ar" ? "اسم تصميم الكارت" : "Card design name"}</Label>
+              <Input value={cardDesignName} onChange={(event) => setCardDesignName(event.target.value)} placeholder={language === "ar" ? "مثال: كارت VIP" : "e.g. VIP Card"} className="h-11 rounded-xl" />
+            </div>
+            <ImageUrlDropzone
+              label={language === "ar" ? "صورة خلفية الكارت (للتصميم)" : "Card background image (for this design)"}
+              value={cardDesignBackground}
+              onChange={(value) => setCardDesignBackground(value)}
+              placeholder="/uploads/assets/card-template.png"
+              helperText={language === "ar" ? "اتركها فاضية للخلفية الافتراضية." : "Leave empty for the default background."}
+              previewClassName="sm:h-[120px]"
+            />
+            <ImageUrlDropzone
+              label={language === "ar" ? "لوجو مكان الفعالية (للتصميم)" : "Venue logo (for this design)"}
+              value={cardDesignVenueLogo}
+              onChange={(value) => setCardDesignVenueLogo(value)}
+              placeholder="/uploads/assets/venue-logo.png"
+              helperText={language === "ar" ? "يظهر جنب لوجو المشروع على الكارت." : "Shown next to the project logo on the card."}
+              previewClassName="sm:h-[120px]"
+            />
+            <div className="space-y-2">
+              <Label className="text-sm font-bold">{language === "ar" ? "عنوان الكارت" : "Card heading"}</Label>
+              <Input value={cardDesignHeader} onChange={(event) => setCardDesignHeader(event.target.value)} placeholder="Event Access Card" className="h-11 rounded-xl" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-bold">{language === "ar" ? "إظهار / إخفاء عناصر الكارت" : "Show / hide card fields"}</Label>
+              <div className="grid gap-2 rounded-2xl border border-slate-100 bg-slate-50/60 p-3 sm:grid-cols-2">
+                {EVENT_CARD_VISIBILITY_KEYS.map((key) => {
+                  const on = cardDesignVisibility[key]
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => toggleCardDesignVisibility(key)}
+                      className={cn(
+                        "flex h-10 items-center justify-between rounded-xl border bg-white px-3 text-xs font-extrabold transition",
+                        on ? "border-[hsl(var(--primary)/0.35)] text-[#17172f]" : "border-slate-200 text-slate-400"
+                      )}
+                    >
+                      <span className="capitalize">{key.replace(/([A-Z])/g, " $1").trim()}</span>
+                      {on ? <Eye className="h-4 w-4 text-[hsl(var(--primary))]" /> : <EyeOff className="h-4 w-4" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <Button className="h-11 w-full rounded-2xl bg-[hsl(var(--primary))] font-extrabold text-white hover:bg-[hsl(var(--primary)/0.9)]" onClick={saveCardDesign} disabled={savingCardDesign}>
+              <Save className="h-4 w-4" />
+              {savingCardDesign ? (language === "ar" ? "جاري الحفظ..." : "Saving...") : (language === "ar" ? "حفظ تصميم الكارت" : "Save Card Design")}
+            </Button>
+            <label className="flex cursor-pointer items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-600">
+              <Checkbox checked={saveCardAsDefault} onCheckedChange={(checked) => setSaveCardAsDefault(Boolean(checked))} />
+              {language === "ar" ? "تعيين كتصميم افتراضي للفعالية" : "Set as event default design"}
+            </label>
+            {eventCardDesigns.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-sm font-bold">{language === "ar" ? "تصاميم كارت الفعالية" : "Event card designs"}</Label>
+                  <Link href="/admin/certificates/templates" className="text-xs font-extrabold text-[hsl(var(--primary))] hover:underline">
+                    {language === "ar" ? "عرض الكل" : "View all"}
+                  </Link>
+                </div>
+                <div className="space-y-2">
+                  {eventCardDesigns.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between gap-2 rounded-2xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+                      <span className="min-w-0 truncate text-xs font-extrabold text-[#17172f]">
+                        {t.name}
+                        {t.isDefault && <span className="ms-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700">{language === "ar" ? "افتراضي" : "Default"}</span>}
+                      </span>
+                      <span className="flex shrink-0 gap-1">
+                        {!t.isDefault && (
+                          <Button type="button" variant="outline" size="sm" className="h-8 rounded-xl bg-white text-xs font-bold" onClick={() => makeDefaultCardDesign(t.id)}>
+                            {language === "ar" ? "افتراضي" : "Make default"}
+                          </Button>
+                        )}
+                        <Button type="button" variant="outline" size="sm" className="h-8 rounded-xl bg-white px-2.5 text-xs font-bold text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => deleteCardDesign(t)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <section className="rounded-[20px] border border-slate-100 bg-white p-3 shadow-sm">
               <div className="mb-3">
                 <p className="text-sm font-extrabold text-[#17172f]">{language === "ar" ? "صورة تصميم كارت الفعالية" : "Event card design image"}</p>
@@ -1069,85 +1530,43 @@ export function CertificateBuilder() {
               previewClassName="sm:h-[120px]"
             />
               </div>
-            )}
-            <Button className="h-11 w-full rounded-2xl bg-[hsl(var(--primary))] font-extrabold text-white hover:bg-[hsl(var(--primary)/0.9)]" onClick={saveTemplate}>
-              <Save className="h-4 w-4" />
-              Save Template
-            </Button>
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
 
         <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
           <CardHeader className="flex flex-col gap-3 border-b border-slate-100 md:flex-row md:items-center md:justify-between">
             <div>
-              <CardTitle className="text-base font-extrabold">{adminT(language, "certificates.certificatePreview")}</CardTitle>
-              <p className="mt-1 text-sm font-medium text-slate-400">{adminT(language, "certificates.previewCopy")}</p>
+              <CardTitle className="text-base font-extrabold">{language === "ar" ? "معاينة الكارت" : "Card Preview"}</CardTitle>
+              <p className="mt-1 text-sm font-medium text-slate-400">{language === "ar" ? "معاينة حية لتصميم الكارت الحالي." : "Live preview of the current card design."}</p>
             </div>
-            <Select value={selectedAsset?.id || ""} onValueChange={setSelectedAssetId}>
-              <SelectTrigger className="h-10 rounded-xl md:w-64">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {eventAssets.length ? eventAssets.map((asset) => (
-                  <SelectItem key={asset.id} value={asset.id}>
-                    {asset.attendee}
-                  </SelectItem>
-                )) : <SelectItem value="none" disabled>{adminT(language, "certificates.noCheckedCustomers")}</SelectItem>}
-              </SelectContent>
-            </Select>
           </CardHeader>
           <CardContent className="space-y-4 p-4">
-            <CertificateArtwork
-              backgroundUrl={selectedEvent.background}
-              logoUrl="/logo.png"
-              visibility={selectedEvent.visibility}
-              attendeeName={selectedAsset?.attendee || "Customer name"}
-              eventTitle={selectedEvent.title}
-              dateText={selectedEvent.date ? new Intl.DateTimeFormat(language === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" }).format(new Date(selectedEvent.date)) : "Event date"}
-              certificateNo={selectedAsset?.certificateNo || "Certificate number"}
-              signatoryText={selectedEvent.signatory}
-              footerText={selectedEvent.footer}
-              labels={{
-                heading: selectedEvent.texts.heading || adminT(language, "certificates.certificateOfAttendance"),
-                verified: selectedEvent.texts.verifiedBadge || "Verified Attendance",
-                attendedPrefix: selectedEvent.texts.eventPrefix || "has successfully attended",
-                date: adminT(language, "common.date"),
-                certificateNo: adminT(language, "certificates.certificateNo"),
-                signedBy: adminT(language, "certificates.signedBy"),
+            <EventCardArtwork
+              data={{
+                backgroundUrl: cardDesignBackground || undefined,
+                fallbackGlobalUrl: cardTemplateImage || undefined,
+                venueLogoUrl: cardDesignVenueLogo || undefined,
+                headerText: cardDesignHeader || undefined,
+                statusText: "ready",
+                eventTitle: selectedEvent.title,
+                attendeeName: selectedAsset?.attendee || "Customer name",
+                cardNo: selectedAsset?.cardNo || "Card number",
+                ticketName: selectedAsset?.ticket || undefined,
+                dateText: selectedEvent.date ? new Intl.DateTimeFormat(language === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" }).format(new Date(selectedEvent.date)) : "Event date",
+                locationText: "",
+                qrValue: null,
+                ticketNumber: selectedAsset?.cardNo,
+                fields: { venueLogoUrl: cardDesignVenueLogo, texts: { header: cardDesignHeader }, visibility: cardDesignVisibility },
+                isRtl: language === "ar",
               }}
-              className="max-w-4xl"
+              className="max-w-xl"
             />
             <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">{activity}</div>
-            <div
-              className="relative mx-auto aspect-[1.58/1] w-full max-w-xl overflow-hidden rounded-[28px] bg-gradient-to-br from-[#0f172a] to-[hsl(var(--primary))] p-5 text-white shadow-inner"
-              style={
-                cardTemplateImage
-                  ? {
-                      backgroundImage: `linear-gradient(rgba(15,23,42,.28), rgba(15,23,42,.28)), url(${apiAssetUrl(cardTemplateImage)})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }
-                  : undefined
-              }
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <img src="/favicon.png" alt="Stylish Holidays" className="h-10 w-10 rounded-full bg-white p-1" />
-                  {selectedEvent.venueLogoUrl ? (
-                    <img src={apiAssetUrl(selectedEvent.venueLogoUrl)} alt="Venue" className="h-10 w-10 rounded-full bg-white object-cover p-1" />
-                  ) : null}
-                </div>
-                <Badge className="rounded-xl bg-white/20 text-white hover:bg-white/20">ready</Badge>
-              </div>
-              <p className="mt-8 text-[10px] font-bold uppercase tracking-widest text-white/70">{language === "ar" ? "كارت دخول الفعالية" : "Event Access Card"}</p>
-              <h2 className="mt-2 text-2xl font-extrabold leading-tight">{selectedAsset?.attendee || "Customer name"}</h2>
-              <p className="mt-2 text-xs font-semibold leading-5 text-white/75">{selectedEvent.title}</p>
-              <div className="absolute bottom-5 left-5 rounded-2xl bg-white p-2 text-[#17172f]"><QrCode className="h-12 w-12" /></div>
-              <p className="absolute bottom-6 right-5 text-xs font-bold text-white/75">{selectedAsset?.cardNo || "Card number"}</p>
-            </div>
           </CardContent>
         </Card>
-      </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

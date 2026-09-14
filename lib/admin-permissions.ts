@@ -83,6 +83,7 @@ export const adminRoutePermissions: AdminRoutePermission[] = [
   { prefix: "/admin/certificates/builder", permissions: ["certificates.manage"] },
   { prefix: "/admin/certificates/cards", permissions: ["certificates.manage"] },
   { prefix: "/admin/certificates", permissions: ["certificates.view", "certificates.manage"] },
+  { prefix: "/admin/event-cards", permissions: ["certificates.view", "certificates.manage"] },
   { prefix: "/admin/reviews", permissions: ["reviews.view", "reviews.manage"] },
   { prefix: "/admin/reports", permissions: ["reports.view"] },
   { prefix: "/admin/settings", permissions: ["settings.manage", "website_content.manage", "theme_identity.manage"] },

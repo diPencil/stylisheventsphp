@@ -5,13 +5,14 @@ import { EventCard, PublicPageFrame, PublicPageHero } from "@/components/public/
 import { useLanguage } from "@/contexts/language-context"
 import { useEffect, useState } from "react"
 import { platformApi, apiAssetUrl } from "@/lib/platform-api"
+import { eventTypeLabel } from "@/lib/event-type-label"
 import { normalizeSiteContentSettings } from "@/lib/site-content-defaults"
 
 const mapEventToCard = (event: any) => ({
   titleEn: event.title_en,
   titleAr: event.title_ar,
-  typeEn: event.type,
-  typeAr: event.type,
+  typeEn: eventTypeLabel(event.type, false),
+  typeAr: eventTypeLabel(event.type, true),
   cityEn: event.venue_name_en || event.venue_city_en || "",
   cityAr: event.venue_name_ar || event.venue_city_ar || "",
   dateEn: event.starts_at ? new Date(event.starts_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "",

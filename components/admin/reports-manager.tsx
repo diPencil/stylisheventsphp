@@ -220,7 +220,7 @@ export function ReportsManager() {
 
   const renderTable = (mode: "revenue" | "attendance" | "tickets" | "full") => (
     <Card className="overflow-hidden rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
-      <CardHeader className={cn("flex flex-col gap-3 border-b border-slate-100 md:flex-row md:items-center md:justify-between", isRtl && "md:flex-row-reverse text-right")}>
+      <CardHeader className="flex flex-col gap-3 border-b border-slate-100 text-start md:flex-row md:items-center md:justify-between">
         <div>
           <CardTitle className="text-base font-extrabold">{adminT(language, "reports.table")}</CardTitle>
           <p className="mt-1 text-sm font-medium text-slate-400">{adminT(language, "reports.tableCopy")}</p>
@@ -348,7 +348,7 @@ export function ReportsManager() {
       </Tabs>
 
       <Card className="rounded-[28px] border-0 bg-white shadow-[0_16px_35px_rgba(15,23,42,0.06)]">
-        <CardHeader><CardTitle className={cn("flex items-center gap-2 text-base font-extrabold", isRtl && "flex-row-reverse text-right")}><BarChart3 className="h-5 w-5 text-[hsl(var(--primary))]" /> {adminT(language, "reports.performanceSnapshot")}</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2 text-start text-base font-extrabold"><BarChart3 className="h-5 w-5 shrink-0 text-[hsl(var(--primary))]" /> {adminT(language, "reports.performanceSnapshot")}</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-4">
           {rows.map((row) => {
             const rate = percent(row.checkedIn, row.attendees)

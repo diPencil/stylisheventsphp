@@ -324,7 +324,16 @@ function AdminNav({ collapsed, permissions }: { collapsed?: boolean; permissions
     <nav className="space-y-1">
       {navItems.filter((item) => isAllowed(permissions, item.rule)).map((item) => {
         const Icon = item.icon
-        const active = item.href === "/admin" ? currentPath === item.href : currentPath.startsWith(item.href)
+        // Longest-prefix match wins so nested pages (e.g. certificate
+        // templates) highlight only their own nav item.
+        const matches = item.href === "/admin"
+          ? currentPath === item.href
+          : currentPath === item.href || currentPath.startsWith(`${item.href}/`)
+        const active = matches && navItems.every((other) => {
+          if (other === item || other.href === "/admin") return true
+          const otherMatches = currentPath === other.href || currentPath.startsWith(`${other.href}/`)
+          return !otherMatches || other.href.length <= item.href.length
+        })
 
         return (
           <Link
@@ -472,7 +481,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         const registrationNotifications = (registrations || []).slice(0, 4).map((registration: any) => ({
           title: registration.order_status === "paid" || registration.payment_status === "approved" ? "Booking paid" : "Booking needs review",
           body: `${registration.doctor_name || "Customer"} - ${registration.event_title_en || "Event"}`,
-          time: registration.created_at ? new Intl.DateTimeFormat("en", { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(registration.created_at)) : "now",
+            time: registration.created_at ? new Intl.DateTimeFormat(language === "ar" ? "ar-EG" : "en-US", { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(registration.created_at)) : "now",
           href: `/admin/orders/${registration.id}`,
           unread: registration.payment_status !== "approved",
         }))
