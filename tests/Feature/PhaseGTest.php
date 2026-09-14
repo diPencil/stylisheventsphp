@@ -196,6 +196,241 @@ class PhaseGTest extends TestCase
         $response->assertStatus(200);
     }
 
+    public function test_certificate_multi_template_assignment_and_default_switch()
+    {
+        $eventA = DB::table('events')->insertGetId([
+            'organizer_id' => $this->admin->id,
+            'slug' => 'phaseg-multi-a-' . uniqid(),
+            'title_en' => 'Multi Template Event A',
+            'title_ar' => 'فعالية أ',
+            'status' => 'published',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $eventB = DB::table('events')->insertGetId([
+            'organizer_id' => $this->admin->id,
+            'slug' => 'phaseg-multi-b-' . uniqid(),
+            'title_en' => 'Multi Template Event B',
+            'title_ar' => 'فعالية ب',
+            'status' => 'published',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $ticketId = DB::table('ticket_types')->insertGetId([
+            'event_id' => $eventA,
+            'name_en' => 'Multi Ticket',
+            'name_ar' => 'تذكرة',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $orderId = DB::table('orders')->insertGetId([
+            'event_id' => $eventA,
+            'order_number' => 'ORD-MULTI-' . uniqid(),
+            'status' => 'paid',
+            'customer_name' => 'Multi Attendee',
+            'customer_email' => 'multi-' . uniqid() . '@test.com',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $attendeeId = DB::table('attendees')->insertGetId([
+            'order_id' => $orderId,
+            'event_id' => $eventA,
+            'ticket_type_id' => $ticketId,
+            'attendee_number' => 'ATT-MULTI-' . uniqid(),
+            'full_name' => 'Multi Attendee',
+            'email' => 'multi-attendee-' . uniqid() . '@test.com',
+            'qr_token' => str_repeat('e', 63) . '5',
+            'qr_status' => 'used',
+            'checked_in_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $templateA1 = DB::table('certificate_templates')->insertGetId([
+            'event_id' => $eventA, 'name' => 'Speaker Design', 'template_type' => 'image',
+            'template_url' => '/uploads/a1.png', 'is_default' => 1, 'is_active' => 1,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $templateA2 = DB::table('certificate_templates')->insertGetId([
+            'event_id' => $eventA, 'name' => 'Attendee Design', 'template_type' => 'image',
+            'template_url' => '/uploads/a2.png', 'is_default' => 0, 'is_active' => 1,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $templateB = DB::table('certificate_templates')->insertGetId([
+            'event_id' => $eventB, 'name' => 'Other Event Design', 'template_type' => 'image',
+            'template_url' => '/uploads/b.png', 'is_default' => 1, 'is_active' => 1,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        // Template from another event must be rejected.
+        $this->actingAs($this->admin, 'api')
+            ->postJson('/api/certificates/issue', ['attendeeId' => $attendeeId, 'templateKey' => (string) $templateB])
+            ->assertStatus(422);
+
+        // Switch default within the event.
+        $this->actingAs($this->admin, 'api')
+            ->postJson("/api/certificates/templates/{$templateA2}/default")
+            ->assertStatus(200)
+            ->assertJsonPath('status', 'success');
+        $this->assertEquals(0, (int) DB::table('certificate_templates')->where('id', $templateA1)->value('is_default'));
+        $this->assertEquals(1, (int) DB::table('certificate_templates')->where('id', $templateA2)->value('is_default'));
+
+        // Issue with the explicit template choice (manual assignment).
+        $this->actingAs($this->admin, 'api')
+            ->postJson('/api/certificates/issue', ['attendeeId' => $attendeeId, 'templateKey' => (string) $templateA1])
+            ->assertStatus(200)
+            ->assertJsonPath('status', 'success');
+        $this->assertDatabaseHas('certificates', [
+            'attendee_id' => $attendeeId,
+            'template_key' => (string) $templateA1,
+        ]);
+
+        // Delivery exposes the stored template name.
+        $delivery = $this->actingAs($this->admin, 'api')
+            ->getJson("/api/certificates/delivery?eventId={$eventA}")
+            ->assertStatus(200)
+            ->json('data');
+        $row = collect($delivery)->firstWhere('attendee_id', $attendeeId);
+        $this->assertNotNull($row);
+        $this->assertEquals($templateA1, (int) $row['certificate_template_id']);
+        $this->assertEquals('Speaker Design', $row['certificate_template_name']);
+
+        // Deleting a template used by issued certificates is refused...
+        $this->actingAs($this->admin, 'api')
+            ->deleteJson("/api/certificates/templates/{$templateA1}")
+            ->assertStatus(409);
+
+        // ...while an unused one deletes cleanly.
+        $this->actingAs($this->admin, 'api')
+            ->deleteJson("/api/certificates/templates/{$templateB}")
+            ->assertStatus(200)
+            ->assertJsonPath('status', 'success');
+        $this->assertDatabaseMissing('certificate_templates', ['id' => $templateB]);
+    }
+
+    public function test_event_card_multi_design_assignment_and_default_switch()
+    {
+        $eventA = DB::table('events')->insertGetId([
+            'organizer_id' => $this->admin->id,
+            'slug' => 'phaseg-card-a-' . uniqid(),
+            'title_en' => 'Card Design Event A',
+            'title_ar' => 'فعالية كارت أ',
+            'status' => 'published',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $eventB = DB::table('events')->insertGetId([
+            'organizer_id' => $this->admin->id,
+            'slug' => 'phaseg-card-b-' . uniqid(),
+            'title_en' => 'Card Design Event B',
+            'title_ar' => 'فعالية كارت ب',
+            'status' => 'published',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $ticketId = DB::table('ticket_types')->insertGetId([
+            'event_id' => $eventA,
+            'name_en' => 'Card Ticket',
+            'name_ar' => 'تذكرة كارت',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $orderId = DB::table('orders')->insertGetId([
+            'event_id' => $eventA,
+            'order_number' => 'ORD-CARD-' . uniqid(),
+            'status' => 'paid',
+            'customer_name' => 'Card Attendee',
+            'customer_email' => 'card-' . uniqid() . '@test.com',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $attendeeId = DB::table('attendees')->insertGetId([
+            'order_id' => $orderId,
+            'event_id' => $eventA,
+            'ticket_type_id' => $ticketId,
+            'attendee_number' => 'ATT-CARD-' . uniqid(),
+            'full_name' => 'Card Attendee',
+            'email' => 'card-attendee-' . uniqid() . '@test.com',
+            'qr_token' => str_repeat('d', 63) . '4',
+            'qr_status' => 'used',
+            'checked_in_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Create two designs via API; second becomes default.
+        $design1 = $this->actingAs($this->admin, 'api')
+            ->postJson('/api/event-cards/templates', [
+                'eventId' => $eventA, 'name' => 'VIP Card', 'backgroundUrl' => '/uploads/vip.png',
+                'fields' => ['texts' => ['header' => 'VIP Access'], 'visibility' => ['qr' => true]],
+                'isDefault' => true,
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('status', 'success')
+            ->json('data.id');
+        $design2 = $this->actingAs($this->admin, 'api')
+            ->postJson('/api/event-cards/templates', [
+                'eventId' => $eventA, 'name' => 'Standard Card',
+                'fields' => ['visibility' => ['qr' => false]],
+                'isDefault' => false,
+            ])
+            ->assertStatus(200)
+            ->json('data.id');
+        $foreign = DB::table('event_card_templates')->insertGetId([
+            'event_id' => $eventB, 'name' => 'Foreign Card', 'is_default' => 1, 'is_active' => 1,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        // Listing shows both, default first.
+        $list = $this->actingAs($this->admin, 'api')
+            ->getJson("/api/event-cards/templates?eventId={$eventA}")
+            ->assertStatus(200)
+            ->json('data');
+        $this->assertCount(2, $list);
+        $this->assertEquals($design1, (int) $list[0]['id']);
+
+        // Foreign design rejected on generate.
+        $this->actingAs($this->admin, 'api')
+            ->postJson('/api/certificates/event-card', ['attendeeId' => $attendeeId, 'templateKey' => (string) $foreign])
+            ->assertStatus(422);
+
+        // Generate with explicit design choice (manual assignment).
+        $this->actingAs($this->admin, 'api')
+            ->postJson('/api/certificates/event-card', ['attendeeId' => $attendeeId, 'templateKey' => (string) $design2])
+            ->assertStatus(200)
+            ->assertJsonPath('status', 'success');
+        $this->assertDatabaseHas('event_cards', [
+            'attendee_id' => $attendeeId,
+            'event_id' => $eventA,
+            'template_key' => (string) $design2,
+        ]);
+
+        // Delivery exposes the stored card design name.
+        $delivery = $this->actingAs($this->admin, 'api')
+            ->getJson("/api/certificates/delivery?eventId={$eventA}")
+            ->assertStatus(200)
+            ->json('data');
+        $row = collect($delivery)->firstWhere('attendee_id', $attendeeId);
+        $this->assertNotNull($row);
+        $this->assertEquals($design2, (int) $row['card_template_id']);
+        $this->assertEquals('Standard Card', $row['card_template_name']);
+
+        // Switch default; delete guard blocks used design, allows unused.
+        $this->actingAs($this->admin, 'api')
+            ->postJson("/api/event-cards/templates/{$design2}/default")
+            ->assertStatus(200);
+        $this->assertEquals(1, (int) DB::table('event_card_templates')->where('id', $design2)->value('is_default'));
+        $this->actingAs($this->admin, 'api')
+            ->deleteJson("/api/event-cards/templates/{$design2}")
+            ->assertStatus(409);
+        $this->actingAs($this->admin, 'api')
+            ->deleteJson("/api/event-cards/templates/{$design1}")
+            ->assertStatus(200);
+        $this->assertDatabaseMissing('event_card_templates', ['id' => $design1]);
+    }
+
     public function test_card_template_setting_and_image_upload()
     {
         $uploadResponse = $this->actingAs($this->admin, 'api')
@@ -277,6 +512,24 @@ class PhaseGTest extends TestCase
             'updated_at' => now(),
         ]);
 
+        // Full attendance: one daily check-in for each of the 2 event days.
+        foreach ([now()->addDay(), now()->addDays(2)] as $day) {
+            DB::table('attendee_daily_checkins')->insert([
+                'attendee_id' => $attendeeId,
+                'event_id' => $eventId,
+                'checkin_date' => $day->toDateString(),
+                'first_checked_in_at' => $day,
+                'last_checked_in_at' => $day,
+                'first_scanned_by_user_id' => $this->admin->id,
+                'last_scanned_by_user_id' => $this->admin->id,
+                'first_source' => 'manual',
+                'last_source' => 'manual',
+                'checkin_count' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
         $this->actingAs($this->admin, 'api')
             ->postJson('/api/certificates/issue', ['attendeeId' => $attendeeId, 'templateKey' => 'default'])
             ->assertStatus(200)
@@ -286,6 +539,75 @@ class PhaseGTest extends TestCase
             ->postJson('/api/certificates/event-card', ['attendeeId' => $attendeeId, 'templateKey' => 'default'])
             ->assertStatus(200)
             ->assertJsonPath('status', 'success');
+    }
+
+    public function test_certificate_issue_requires_all_event_days()
+    {        $eventId = DB::table('events')->insertGetId([
+            'organizer_id' => $this->admin->id,
+            'slug' => 'phaseg-cert-partial-' . uniqid(),
+            'title_en' => 'Phase G Partial Attendance Event',
+            'title_ar' => 'فعالية حضور جزئي',
+            'status' => 'published',
+            'starts_at' => now()->subDays(2),
+            'ends_at' => now()->subDay(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $ticketId = DB::table('ticket_types')->insertGetId([
+            'event_id' => $eventId,
+            'name_en' => 'Partial Ticket',
+            'name_ar' => 'تذكرة جزئية',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $orderId = DB::table('orders')->insertGetId([
+            'event_id' => $eventId,
+            'order_number' => 'ORD-PARTIAL-' . uniqid(),
+            'status' => 'paid',
+            'customer_name' => 'Partial Attendee',
+            'customer_email' => 'partial-' . uniqid() . '@test.com',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $attendeeId = DB::table('attendees')->insertGetId([
+            'order_id' => $orderId,
+            'event_id' => $eventId,
+            'ticket_type_id' => $ticketId,
+            'attendee_number' => 'ATT-PARTIAL-' . uniqid(),
+            'full_name' => 'Partial Attendee',
+            'email' => 'partial-attendee-' . uniqid() . '@test.com',
+            'qr_token' => str_repeat('b', 63) . '2',
+            'qr_status' => 'used',
+            'checked_in_at' => now()->subDays(2),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Only 1 of the 2 event days attended.
+        DB::table('attendee_daily_checkins')->insert([
+            'attendee_id' => $attendeeId,
+            'event_id' => $eventId,
+            'checkin_date' => now()->subDays(2)->toDateString(),
+            'first_checked_in_at' => now()->subDays(2),
+            'last_checked_in_at' => now()->subDays(2),
+            'first_scanned_by_user_id' => $this->admin->id,
+            'last_scanned_by_user_id' => $this->admin->id,
+            'first_source' => 'manual',
+            'last_source' => 'manual',
+            'checkin_count' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($this->admin, 'api')
+            ->postJson('/api/certificates/issue', ['attendeeId' => $attendeeId, 'templateKey' => 'default'])
+            ->assertStatus(422)
+            ->assertJsonPath('status', 'error')
+            ->assertJsonPath('details.requiredDays', 2)
+            ->assertJsonPath('details.daysAttended', 1);
     }
 
     private function createCertificateRecipient(array $overrides = []): array

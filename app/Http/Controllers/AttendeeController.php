@@ -287,6 +287,30 @@ class AttendeeController extends Controller
 
         $checkinDate = now()->toDateString();
 
+        // Per-day attendance only counts while the event is running: reject scans
+        // after the event's last day so post-event scans can't inflate attendance.
+        // (Pre-start scans stay allowed for early registration desks; the
+        // certificate rule below only counts in-window days.)
+        $eventWindow = DB::table('events')->where('id', $attendee->event_id)->first(['starts_at', 'ends_at']);
+        if ($eventWindow && $eventWindow->ends_at) {
+            $eventEndDate = Carbon::parse($eventWindow->ends_at)->toDateString();
+            if ($checkinDate > $eventEndDate) {
+                DB::table('checkin_logs')->insert([
+                    'attendee_id' => $attendee->id,
+                    'event_id' => $attendee->event_id,
+                    'scanned_by_user_id' => $request->user()->id,
+                    'scan_result' => 'invalid',
+                    'scanned_at' => now(),
+                    'notes' => $this->checkinNote("event_ended: event ended on {$eventEndDate}", $source)
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This event has already ended',
+                    'details' => ['result' => 'event_ended', 'eventEndDate' => $eventEndDate]
+                ], 422);
+            }
+        }
+
         if (DB::table('attendee_daily_checkins')
             ->where('attendee_id', $attendee->id)
             ->where('event_id', $attendee->event_id)
