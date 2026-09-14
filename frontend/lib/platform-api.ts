@@ -49,13 +49,14 @@ function clearPublicGetCache(prefix?: string) {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData
   let response: Response
   try {
     response = await fetch(`${apiRequestBaseUrl()}${path}`, {
       ...init,
       credentials: "include",
       headers: ({
-        "Content-Type": "application/json",
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
         ...authHeaders(),
         ...(init?.headers || {}),
       } as unknown) as HeadersInit,
@@ -301,6 +302,11 @@ export const platformApi = {
   },
   uploadPlatformAsset: (data: { fileName: string; dataUrl: string }) =>
     request<any>("/api/platform/assets/upload", { method: "POST", body: JSON.stringify(data) }),
+  uploadPlatformAssetFile: (file: File) => {
+    const formData = new FormData()
+    formData.append("file", file)
+    return request<any>("/api/platform/assets/upload", { method: "POST", body: formData })
+  },
   listEvents: (params?: { status?: string; includeDeleted?: boolean; page?: 'upcoming' | 'previous'; sortMode?: string; limit?: number }) => {
     const searchParams = new URLSearchParams()
     if (params?.status) searchParams.set("status", params.status)

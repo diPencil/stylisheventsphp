@@ -464,16 +464,6 @@ class PlatformSettingsController extends Controller
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
-        $fileName = $request->input('fileName', 'asset');
-        $dataUrl = $request->input('dataUrl', '');
-
-        if (!preg_match('/^data:((?:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml))|(?:video\/(?:mp4|webm|ogg))|(?:application\/pdf));base64,([A-Za-z0-9+\/]+={0,2})$/', $dataUrl, $match)) {
-            return response()->json(['success' => false, 'message' => 'Only png, jpg, webp, gif, svg, mp4, webm, ogg, and pdf assets are allowed'], 400);
-        }
-
-        $mime = $match[1];
-        $base64 = $match[2];
-
         $extensionByMime = [
             'image/png' => 'png',
             'image/jpeg' => 'jpg',
@@ -487,14 +477,34 @@ class PlatformSettingsController extends Controller
             'application/pdf' => 'pdf',
         ];
 
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $fileName = $file->getClientOriginalName() ?: 'asset';
+            $mime = $file->getMimeType() ?: $file->getClientMimeType();
+            if (!isset($extensionByMime[$mime])) {
+                return response()->json(['success' => false, 'message' => 'Only png, jpg, webp, gif, svg, mp4, webm, ogg, and pdf assets are allowed'], 400);
+            }
+            $buffer = file_get_contents($file->getRealPath());
+        } else {
+            $fileName = $request->input('fileName', 'asset');
+            $dataUrl = $request->input('dataUrl', '');
+
+            if (!preg_match('/^data:((?:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml))|(?:video\/(?:mp4|webm|ogg))|(?:application\/pdf));base64,([A-Za-z0-9+\/]+={0,2})$/', $dataUrl, $match)) {
+                return response()->json(['success' => false, 'message' => 'Only png, jpg, webp, gif, svg, mp4, webm, ogg, and pdf assets are allowed'], 400);
+            }
+
+            $mime = $match[1];
+            $buffer = base64_decode($match[2]);
+        }
+
         $extension = $extensionByMime[$mime];
-        $buffer = base64_decode($base64);
 
         $isVideo = str_starts_with($mime, 'video/');
-        $maxSize = $isVideo ? 50 * 1024 * 1024 : 5 * 1024 * 1024;
+        $isPdf = $mime === 'application/pdf';
+        $maxSize = $isVideo ? 50 * 1024 * 1024 : ($isPdf ? 25 * 1024 * 1024 : 5 * 1024 * 1024);
 
         if (strlen($buffer) > $maxSize) {
-            $msg = $isVideo ? 'Video must be 50MB or smaller' : 'Image must be 5MB or smaller';
+            $msg = $isVideo ? 'Video must be 50MB or smaller' : ($isPdf ? 'PDF must be 25MB or smaller' : 'Image must be 5MB or smaller');
             return response()->json(['success' => false, 'message' => $msg], 413);
         }
 
